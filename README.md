@@ -15,7 +15,7 @@ Built as a **modular monolith** on ASP.NET Core (.NET 10) with strict module bou
 
 ## Stack
 
-- .NET 10 / ASP.NET Core Minimal APIs
+- .NET 10 / ASP.NET Core Web API (controllers, same conventions as the Trio ERP HRM API)
 - SQL Server 2022 (one schema per module) + EF Core 10
 - Redis (HybridCache L2, OTP, rate limiting)
 - Hangfire (background jobs, SQL Server storage)

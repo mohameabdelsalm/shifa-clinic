@@ -18,7 +18,7 @@ We need a relational database: the data is relational by nature (patient → app
 SQL Server-specific choices this forces:
 
 - **Double booking:** SQL Server has no exclusion constraints, so each appointment writes rows to `scheduling.appointment_slots` with primary key `(doctor_id, slot_start)`. The database rejects a second booking of the same slot.
-- **IDs:** EF Core's sequential GUID generator, because SQL Server compares GUID bytes in a different order than Guid v7 is sorted. Random `Guid.NewGuid()` keys fragment the clustered index.
+- **IDs:** `bigint` generated with EF Core HiLo sequences per schema (ADR 0006).
 - **Nullable unique columns** (`national_id`, `email`) use filtered unique indexes (`WHERE ... IS NOT NULL`).
 - **Optimistic concurrency** uses a `rowversion` column.
 - **Times** are `datetimeoffset` in UTC.
