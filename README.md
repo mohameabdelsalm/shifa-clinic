@@ -29,13 +29,34 @@ Prerequisites:
 - SQL Server running locally as the default instance (`.`) with Windows Authentication
 - Docker Desktop (for Redis, Seq, Mailpit, Azurite)
 
-> The solution and `docker-compose.yml` are added in the next steps. This section will be completed then.
+```bash
+dotnet build Shifa.slnx
+dotnet test --solution Shifa.slnx
+dotnet run --project src/Shifa.API      # http://localhost:5080
+```
+
+> `docker-compose.yml` is added in step 4.
+
+## Solution layout
+
+```
+src/
+├─ Shifa.API/                   host: Program.cs, Middleware, Extensions
+├─ Shifa.Core/                  shared: Response, BusinessException, PagedList, BaseModel, interfaces
+├─ Shifa.Infrastructure/        shared: caching, current user, outbox, jobs, files, email, SMS
+└─ Modules/
+   └─ Clinic/
+      ├─ Shifa.Clinic/          implementation (HRM folder conventions)
+      └─ Shifa.Clinic.Contracts/  events + IClinicApi: the only part other modules may use
+tests/
+└─ Shifa.ArchitectureTests/     fails the build when module boundaries are broken
+```
 
 ## Status
 
 | Step | Content | State |
 |---|---|---|
 | 1 | Repository, vision, ERD, ADRs, CLAUDE.md | ✅ Done |
-| 2 | Solution skeleton | ⏳ Next |
-| 3 | Building blocks | ⏳ |
+| 2 | Solution skeleton | ✅ Done |
+| 3 | Building blocks | ⏳ Next |
 | 4 | Local infrastructure + first migration | ⏳ |
