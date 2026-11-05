@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The only part of the Clinic module other modules may reference:
+       Events/ (integration events) and IClinicApi (queries). -->
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Shifa.Core\Shifa.Core.csproj" />
+  </ItemGroup>
+
+</Project>

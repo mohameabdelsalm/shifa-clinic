@@ -1,0 +1,15 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Shifa.API/Shifa.API.csproj" />
+    <Project Path="src/Shifa.Core/Shifa.Core.csproj" />
+    <Project Path="src/Shifa.Infrastructure/Shifa.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/" />
+  <Folder Name="/src/Modules/Clinic/">
+    <Project Path="src/Modules/Clinic/Shifa.Clinic.Contracts/Shifa.Clinic.Contracts.csproj" />
+    <Project Path="src/Modules/Clinic/Shifa.Clinic/Shifa.Clinic.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Shifa.ArchitectureTests/Shifa.ArchitectureTests.csproj" />
+  </Folder>
+</Solution>

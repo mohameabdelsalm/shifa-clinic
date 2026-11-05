@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Shared infrastructure used by all modules: Caching, CurrentUserManager,
+       Services (outbox, background jobs, files, email, SMS). -->
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Shifa.Core\Shifa.Core.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Clinic module: branches, specialties, services and prices, doctors, schedules and time off.
+       Folders follow the HRM conventions (ADR 0004). Only Shifa.API references this project. -->
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Shifa.Core\Shifa.Core.csproj" />
+    <ProjectReference Include="..\..\..\Shifa.Infrastructure\Shifa.Infrastructure.csproj" />
+    <ProjectReference Include="..\Shifa.Clinic.Contracts\Shifa.Clinic.Contracts.csproj" />
+  </ItemGroup>
+
+</Project>

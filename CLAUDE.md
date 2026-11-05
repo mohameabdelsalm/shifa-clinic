@@ -6,37 +6,63 @@ Background and decisions: `docs/vision.md`, `docs/erd.md`, `docs/adr/`. Read the
 ## Working with the developer
 
 - Explain in Arabic with English technical terms inline.
+- Keep the team's Trio ERP (HRM API) naming and folder conventions. Don't introduce new names for things that already have one there.
 - Work in small steps. After each step: `dotnet build`, `dotnet test`, commit, explain what changed and why, then wait for approval before the next step.
 
-## Architecture rules (never break these)
+## Solution layout
+
+```
+src/
+├─ Shifa.API/              Program.cs, Middleware/, Extensions/       (host, no business code)
+├─ Shifa.Core/             Common/ (Response, BusinessException, ...), Pagination/, Entities/ (BaseModel), Interfaces/, Extensions/, Resources/
+├─ Shifa.Infrastructure/   Caching/, Common/CurrentUserManager/, Services/ (outbox, jobs, files, email, SMS)
+└─ Modules/<Module>/
+   ├─ Shifa.<Module>/            implementation
+   └─ Shifa.<Module>.Contracts/  Events/, I<Module>Api.cs
+tests/
+└─ Shifa.ArchitectureTests/
+```
+
+## Architecture rules (never break these — ADR 0001)
 
 - Modules: Identity, Clinic, Patients, Scheduling, Clinical, Billing, Notifications.
-- Each module is two projects: `Shifa.<Module>` (implementation) and `Shifa.<Module>.Contracts` (public integration events and `I<Module>Api` interfaces).
-- Everything inside a module is `internal`. Only Contracts types are `public`.
-- A module references other modules' **Contracts only**, never their implementation projects.
+- Project references allowed:
+  - `Shifa.Core` → nothing in Shifa.
+  - `Shifa.Infrastructure` → `Shifa.Core`.
+  - `Shifa.<Module>.Contracts` → `Shifa.Core` only.
+  - `Shifa.<Module>` → `Shifa.Core`, `Shifa.Infrastructure`, its own Contracts, other modules' **Contracts**. Never another module's implementation.
+  - Only `Shifa.API` (and test projects) reference module implementation projects.
 - Each module has its own `DbContext`, its own SQL Server schema (lowercase module name) and its own migrations.
 - No foreign keys or joins across schemas. Store the other module's ID only.
-- Cross-module calls: synchronous through `I<Module>Api` (queries only); asynchronous through integration events written to the module's outbox in the same transaction (ADR 0005).
+- Cross-module calls: synchronous through `I<Module>Api` (queries only); asynchronous through integration events written to the module's outbox in the same `SaveChangesAsync` (ADR 0005).
 - `Shifa.ArchitectureTests` enforces these rules. Never weaken or delete a test to make the build pass; fix the code.
 
-## Inside a module (ADR 0004)
+## Inside a module (ADR 0004 — HRM conventions)
 
-- Folders: `Domain/`, `Features/<FeatureName>/`, `Infrastructure/`, `<Module>Module.cs`.
-- A feature folder holds its Endpoint, Command or Query, Handler and Validator.
-- Business rules live in Domain aggregates, which return `Result`. Not in handlers or endpoints.
-- Commands: load aggregate → call domain method → `SaveChangesAsync` on the module `DbContext`.
-- Queries: project directly to DTOs with `AsNoTracking`; never load aggregates.
-- No MediatR, no AutoMapper, no generic repository. Manual mapping.
+- Folders: `Controllers/`, `Entities/`, `Enums/`, `DTO/`, `Models/`, `Interfaces/`, `Repositories/`, `Validators/`, `Profiles/`, `Configurations/`, `Data/`, `Migrations/`, `Resources/`, plus `<Module>Module.cs`.
+- Names: input `Add<Name>Model` / `Update<Name>Model` / `Search<Name>sModel`; output `<Name>Dto` / `Search<Name>sDto`; `I<Name>Repo` / `<Name>Repo`; `<Name>Controller`; `<Name>Configuration`; `<Name>Profile`; `Add<Name>Validator`.
+- Flow: `Controller → I<Name>Repo → <Name>Repo → Response`. Controllers stay thin.
+- Business rules for state changes are methods on the entity (e.g. `appointment.CheckIn(...)`); the repo loads, calls the entity, saves.
+- Mapping: manual extension methods in `Profiles/` (`ToDto()`). No AutoMapper, no MediatR, no generic repository.
+- Split a repo by area when it passes ~400 lines.
+- `Add<Module>Module()` registers the module's repos, `DbContext`, validators and controllers (`AddApplicationPart`). `Program.cs` only calls these.
+
+## Responses and errors
+
+- Every endpoint returns `Shifa.Core.Common.Response` (same shape as HRM: `Message`, `Status`, `Data`, `IsSuccess`). The HTTP status code equals `Response.Status`.
+- Messages come from localized resources (ar, en), never hard-coded strings.
+- Business errors: `throw new BusinessException(message, status)`. `GlobalExceptionHandler` (first middleware in the pipeline) converts it to a `Response`.
+- Unexpected exceptions: 500 with a generic localized message; details go to the logs only.
 
 ## Conventions
 
 - .NET 10, nullable enabled, warnings as errors. Package versions only in `Directory.Packages.props`; check a package's license before adding it.
-- Minimal APIs under `/api/v1`. Errors: `Result`/`Error` internally, ProblemDetails (RFC 9457) over HTTP with correct status codes. No "always 200" response wrapper.
+- Routes: `api/<resource>` like HRM (e.g. `api/doctors`).
 - Validation with FluentValidation.
-- Keys: `Guid` generated by EF Core's sequential GUID generator. Never `Guid.NewGuid()` for keys, and not Guid v7 (wrong ordering in SQL Server).
+- IDs: `long`, generated by EF Core HiLo on a sequence in the module schema (ADR 0006). Outbox/inbox message IDs are `Guid`. Because IDs are guessable, every endpoint returning patient data checks access.
 - Time: inject `TimeProvider`; never `DateTime.Now`/`UtcNow`. Store UTC in `datetimeoffset`. A branch stores its own time zone.
-- Optimistic concurrency with `rowversion` on aggregates edited concurrently (appointments, invoices).
-- Audit columns (`created_at/by`, `updated_at/by`) and soft delete (`is_deleted`) are set by EF interceptors, not by hand.
+- Optimistic concurrency with `rowversion` on entities edited concurrently (appointments, invoices).
+- Audit columns (`BaseModel`) and soft delete are set by EF interceptors, not by hand.
 - Double booking is prevented by `scheduling.appointment_slots` (PK `doctor_id, slot_start`), not only by code checks.
 - Never log medical data, diagnoses or national IDs. Log entity IDs only.
 - Secrets never go in committed files. Local Windows-auth connection strings are fine in `appsettings.Development.json`; anything with a password goes in `user-secrets`.
