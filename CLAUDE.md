@@ -1,82 +1,86 @@
-# Shifa — Clinic Management Backend
+# Shifa — Multi-tenant Clinic Management SaaS
 
-Modular monolith (ASP.NET Core, .NET 10) for a multi-branch outpatient clinic group, designed so modules can be extracted into microservices later.
-Background and decisions: `docs/vision.md`, `docs/erd.md`, `docs/adr/`. Read the relevant ADR before changing anything it covers.
+Multi-tenant modular monolith (ASP.NET Core .NET 10, SQL Server, EF Core 10).
+
+## Start of every session
+
+1. Read `project/progress.md` (current phase, what's done, next tasks).
+2. Read only the docs relevant to the task: `docs/architecture/*.md`, `docs/decisions/ADR-*.md`, `project/assumptions.md`.
+3. Don't re-read the whole repository; search for what you need.
 
 ## Working with the developer
 
-- Explain in Arabic with English technical terms inline.
-- Keep the team's Trio ERP (HRM API) naming and folder conventions. Don't introduce new names for things that already have one there.
-- Work in small steps. After each step: `dotnet build`, `dotnet test`, commit, explain what changed and why, then wait for approval before the next step.
+- Explain in Arabic with English technical terms inline: business problem first, then the design, then the code flow.
+- Keep the Trio ERP HRM naming and folder conventions (ADR-004). Don't introduce new names for things HRM already names.
+- At the start of each phase, give the execution header (phase, model alias, effort, reason, complexity). The developer switches models from the app's model picker.
+- Phase done = build green, tests green, docs + `project/progress.md` updated, merged to `develop`.
 
 ## Solution layout
 
 ```
 src/
-├─ Shifa.API/              Program.cs, Middleware/, Extensions/       (host, no business code)
-├─ Shifa.Core/             Common/ (Response, BusinessException, ...), Pagination/, Entities/ (BaseModel), Interfaces/, Extensions/, Resources/
-├─ Shifa.Infrastructure/   Caching/, Common/CurrentUserManager/, Services/ (outbox, jobs, files, email, SMS)
+├─ Shifa.API/              Program.cs, Middleware/, Extensions/  (host only)
+├─ Shifa.Core/             Common/, Entities/ (BaseModel, TenantOwnedEntity), Enums/, Interfaces/, LanguageResource
+├─ Shifa.Infrastructure/   Common/ (CurrentUserManager, TenantManager, Validation), Data/, Caching/, Services/
 └─ Modules/<Module>/
-   ├─ Shifa.<Module>/            implementation
-   └─ Shifa.<Module>.Contracts/  Events/, I<Module>Api.cs
+   ├─ Shifa.<Module>/            implementation (HRM folders)
+   └─ Shifa.<Module>.Contracts/  I<Module>Api, Events/
 tests/
-└─ Shifa.ArchitectureTests/
+├─ Shifa.ArchitectureTests/
+└─ Shifa.IntegrationTests/        real SQL Server (Shifa_Tests)
 ```
 
-## Architecture rules (never break these — ADR 0001)
+## Multi-tenancy rules (ADR-002, docs/architecture/tenancy-design.md) — security critical
 
-- Modules: Identity, Clinic, Patients, Scheduling, Clinical, Billing, Notifications.
-- Project references allowed:
-  - `Shifa.Core` → nothing in Shifa.
-  - `Shifa.Infrastructure` → `Shifa.Core`.
-  - `Shifa.<Module>.Contracts` → `Shifa.Core` only.
-  - `Shifa.<Module>` → `Shifa.Core`, `Shifa.Infrastructure`, its own Contracts, other modules' **Contracts**. Never another module's implementation.
-  - Only `Shifa.API` (and test projects) reference module implementation projects.
-- Each module has its own `DbContext`, its own SQL Server schema (lowercase module name) and its own migrations.
-- No foreign keys or joins across schemas. Store the other module's ID only.
-- Cross-module calls: synchronous through `I<Module>Api` (queries only); asynchronous through integration events written to the module's outbox in the same `SaveChangesAsync` (ADR 0005).
-- `Shifa.ArchitectureTests` enforces these rules. Never weaken or delete a test to make the build pass; fix the code.
+- Tenant ID comes only from the validated token via `ITenantContext`. Never accept `TenantId` from a request body, query string or header. Models (`Add<Name>Model` etc.) have no `TenantId`.
+- Tenant-owned entities inherit `TenantOwnedEntity`; global entities are `[PlatformOwned]`. Every entity is one or the other.
+- FKs between tenant-owned entities are composite `(TenantId, XId)` using `HasPrincipalKey(p => new { p.TenantId, p.Id })`.
+- Business-unique values are unique per tenant: index `(TenantId, Code)`.
+- Never use `IgnoreQueryFilters` except in platform repos, with the filter name and an audit record.
+- Background jobs and event consumers receive `TenantId` explicitly and set the context before touching data.
+- Cache keys start with `t:{tenantId}:`; file paths start with `tenants/{tenantId}/`.
+- Every read by ID also checks branch scope and, for patient data, patient access. Out-of-scope → 404.
 
-## Inside a module (ADR 0004 — HRM conventions)
+## Architecture rules (ADR-001, docs/architecture/module-boundaries.md)
 
-- Folders: `Controllers/`, `Entities/`, `Enums/`, `DTO/`, `Models/`, `Interfaces/`, `Repositories/`, `Validators/`, `Profiles/`, `Configurations/`, `Data/`, `Migrations/`, `Resources/`, plus `<Module>Module.cs`.
-- Names: input `Add<Name>Model` / `Update<Name>Model` / `Search<Name>sModel`; output `<Name>Dto` / `Search<Name>sDto`; `I<Name>Repo` / `<Name>Repo`; `<Name>Controller`; `<Name>Configuration`; `<Name>Profile`; `Add<Name>Validator`.
+- `Shifa.Core` → nothing. `Shifa.Infrastructure` → Core. `Shifa.<Module>.Contracts` → Core only.
+- `Shifa.<Module>` → Core, Infrastructure, own Contracts, other modules' Contracts. Never another module's implementation.
+- Only `Shifa.API` and tests reference module implementations.
+- One `DbContext` (inherits `ModuleDbContext`), schema and migrations per module. No FKs or joins across schemas.
+- Cross-module: `I<Module>Api` for queries; integration events through the outbox for side effects (ADR-005).
+- `Shifa.ArchitectureTests` enforces this. Never weaken or delete a test; fix the code.
+
+## Inside a module (ADR-004)
+
+- Folders: `Controllers/`, `Entities/`, `Enums/`, `DTO/`, `Models/`, `Interfaces/`, `Repositories/`, `Validators/`, `Profiles/`, `Configurations/`, `Data/`, `Migrations/`, `Resources/`, `<Module>Module.cs`.
+- Names: `Add<Name>Model`, `Update<Name>Model`, `Search<Name>sModel` (input); `<Name>Dto`, `Search<Name>sDto` (output); `I<Name>Repo`/`<Name>Repo`; `<Name>Controller`; `<Name>Configuration`; `<Name>Profile`; `Add<Name>Validator`; enums `<Name>Enum`.
 - Flow: `Controller → I<Name>Repo → <Name>Repo → Response`. Controllers stay thin.
-- Business rules for state changes are methods on the entity (e.g. `appointment.CheckIn(...)`); the repo loads, calls the entity, saves.
-- Mapping: manual extension methods in `Profiles/` (`ToDto()`). No AutoMapper, no MediatR, no generic repository.
-- Split a repo by area when it passes ~400 lines.
-- `Add<Module>Module()` registers the module's repos, `DbContext`, validators and controllers (`AddApplicationPart`). `Program.cs` only calls these.
+- Repo reads: `AsNoTracking` projections to DTOs. Repo writes: load entity → call entity method (rules live on entities) → `SaveChangesAsync`.
+- Manual mapping in `Profiles/`. No AutoMapper, MediatR or generic repository. Split repos over ~400 lines.
 
-## Responses and errors
+## Responses, errors, validation
 
-- Every endpoint returns `Shifa.Core.Common.Response` (same shape as HRM: `Message`, `Status`, `Data`, `IsSuccess`). The HTTP status code equals `Response.Status`.
-- Messages come from localized resources (ar, en), never hard-coded strings.
-- Business errors: `throw new BusinessException(message, status)`. `GlobalExceptionHandler` (first middleware in the pipeline) converts it to a `Response`.
-- Unexpected exceptions: 500 with a generic localized message; details go to the logs only.
+- Every endpoint returns `Shifa.Core.Common.Response` (HRM shape). HTTP status = `Response.Status`.
+- Messages come from `LanguageResource` (en, ar) or module resources — never hard-coded.
+- Business errors: `throw new BusinessException(message, status)`. Unexpected errors: 500 with a generic message; details in logs only.
+- FluentValidation validators run automatically for action arguments; the first error is returned as a 400 `Response`.
 
 ## Conventions
 
-- .NET 10, nullable enabled, warnings as errors. Package versions only in `Directory.Packages.props`; check a package's license before adding it.
-- Routes: `api/<resource>` like HRM (e.g. `api/doctors`).
-- Validation with FluentValidation.
-- IDs: `long`, generated by EF Core HiLo on a sequence in the module schema (ADR 0006). Outbox/inbox message IDs are `Guid`. Because IDs are guessable, every endpoint returning patient data checks access.
-- Time: inject `TimeProvider`; never `DateTime.Now`/`UtcNow`. Store UTC in `datetimeoffset`. A branch stores its own time zone.
-- Optimistic concurrency with `rowversion` on entities edited concurrently (appointments, invoices).
-- Audit columns (`BaseModel`) and soft delete are set by EF interceptors, not by hand.
-- Double booking is prevented by `scheduling.appointment_slots` (PK `doctor_id, slot_start`), not only by code checks.
-- Never log medical data, diagnoses or national IDs. Log entity IDs only.
-- Secrets never go in committed files. Local Windows-auth connection strings are fine in `appsettings.Development.json`; anything with a password goes in `user-secrets`.
+- Package versions only in `Directory.Packages.props`; check licenses before adding packages.
+- Routes `api/<resource>`; platform endpoints `api/platform/<resource>`.
+- IDs `long` via HiLo (ADR-003). Money `decimal(18,2)`. Time: inject `TimeProvider`; store UTC `datetimeoffset`.
+- `rowversion` on concurrently edited entities. Soft delete via `IsDeleted`; medical and financial records are never hard-deleted.
+- Use `CancellationToken` on I/O. Async EF calls.
+- Never log medical data, national IDs, passwords, OTPs or tokens.
+- No destructive database operations (drop/recreate) without explicit approval. Migrations are applied explicitly, never at app startup.
 
-## Local environment (ADR 0003)
+## Local environment (ADR-006)
 
-- SQL Server: local default instance, Windows auth:
-  `Server=.;Database=Shifa;Trusted_Connection=True;TrustServerCertificate=True`
-- Integration tests use database `Shifa_Tests` on the same instance, reset with Respawn.
-- `docker compose up -d` starts Redis, Seq (`localhost:5341`), Mailpit (`localhost:8025`) and Azurite.
-- SMS, email and file storage are behind interfaces with local fakes.
-- No CI yet: run `dotnet build` and `dotnet test` before every commit.
+- SQL Server `.` (Windows auth): `Server=.;Database=Shifa;Trusted_Connection=True;TrustServerCertificate=True`. Tests: `Shifa_Tests`.
+- `docker compose up -d`: Redis, Seq (`localhost:5341`), Mailpit (`localhost:8025`), Azurite.
+- `dotnet build Shifa.slnx` and `dotnet test --solution Shifa.slnx` before every commit.
 
 ## Git
 
-- `main` = releases, `develop` = integration, `feature/<name>` branched from `develop`.
-- Small commits in Conventional Commits style: `feat:`, `fix:`, `docs:`, `test:`, `refactor:`, `chore:`.
+- `main` = releases, `develop` = integration, `feature/<name>` from `develop`. Conventional Commits.

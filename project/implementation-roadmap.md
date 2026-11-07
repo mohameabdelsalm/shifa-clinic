@@ -1,0 +1,27 @@
+# Implementation roadmap
+
+Each phase ends with: build green, relevant tests green, docs updated, `project/progress.md` updated, merged to `develop`. Model guidance uses Claude Code aliases.
+
+| Phase | Scope | Model / effort | Exit criteria |
+|---|---|---|---|
+| 0 | Architecture finalization: ADRs, architecture docs, revised ERD, assumptions | opus / high | Docs in `docs/` and `project/` |
+| 1 | Foundation: solution, DI, configuration, Serilog, exception handling, validation, Swagger, health checks, module registration, tenant context, data-layer isolation, architecture tests, initial migrations | sonnet / medium | Builds; architecture + SQL Server isolation tests pass |
+| 2 | Identity, Tenancy, Platform Admin: users, memberships, JWT + refresh, roles/permissions, branch scope, tenants, plans, subscriptions, entitlements, membership validation in tenant resolution | sonnet / medium → **opus / high review** | Cross-tenant read/update/delete tests fail closed |
+| 3 | Clinic setup: branches, doctors, specialties, services, branch prices, doctor branches, schedules, time off | sonnet / medium | Branch scope + isolation tests |
+| 4 | Patients: registration, identifiers, guardians, account access, consent, search | sonnet / medium | Patient access tests |
+| 5 | Scheduling: availability, slot reservation, booking, cancel, reschedule, check-in, queue, no-show, idempotency | **opus / high design** → sonnet / medium → **opus / high review** | Concurrent booking test against SQL Server proves no overlap; idempotency tests |
+| 6 | Clinical / EMR: visits, notes, vitals, diagnoses, prescriptions, allergies, conditions, attachments, addendums | sonnet / medium → **opus / high review** | Immutability + access audit tests |
+| 7 | Billing: invoices, items, payments, partial payments, refunds, credit notes, cashier shifts | **opus / high design** → sonnet / medium | Duplicate payment and totals consistency tests |
+| 8 | Outbox, dispatcher, inbox, Hangfire jobs, notification templates, delivery attempts, reminders | sonnet / medium | Duplicate event + worker failure tests |
+| 9 | Reporting: daily branch stats, appointments, revenue vs collections, doctor stats | sonnet / medium; haiku / low for docs | Report scope tests |
+| 10 | Production readiness: OpenTelemetry, security review, performance, index review, backup/restore, deployment, configuration | sonnet / medium → **opus / high final review** | Critical tests and operational checks pass |
+
+## Phase 1 detail
+
+1. Shared building blocks with HRM names: `Response`, `BusinessException`, `BaseModel`, `StatusEnum`, `LanguageResource` (en, ar), `ICurrentUser`.
+2. Tenancy foundation: `ITenantContext` (scoped, set once), `TenantOwnedEntity`, `[PlatformOwned]`, `TenantResolutionHandler` (claim → context).
+3. Data foundation: `ModuleDbContext` (schema, HiLo, `Tenant` and `SoftDelete` named filters, `(TenantId, Id)` keys, decimal precision), `AuditTenantInterceptor`.
+4. API: Serilog, localization, `GlobalExceptionHandler`, model-state and FluentValidation responses in HRM `Response` shape, Swagger (Development), health checks `/health/live` and `/health/ready`.
+5. Modules: Tenancy (`Tenant`) and Clinic (`Branch`) with initial migrations, proving platform-owned and tenant-owned entities.
+6. Tests: architecture (references, ownership, composite FKs), integration on SQL Server (isolation, stamping, guards, HiLo, soft delete, health).
+7. `docker-compose.yml` for Redis, Seq, Mailpit, Azurite.
