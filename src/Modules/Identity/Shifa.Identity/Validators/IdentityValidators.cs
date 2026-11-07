@@ -33,6 +33,25 @@ public class LoginModelValidator : AbstractValidator<LoginModel>
     }
 }
 
+public class RequestOtpModelValidator : AbstractValidator<RequestOtpModel>
+{
+    public RequestOtpModelValidator(IStringLocalizer<LanguageResource> l)
+    {
+        RuleFor(x => x.TenantSlug).NotEmpty().MaximumLength(100).WithMessage(_ => l["Required"]);
+        RuleFor(x => x.PhoneNumber).Must(p => PhoneNumbers.Normalize(p) is not null).WithMessage(_ => l["InvalidPhone"]);
+    }
+}
+
+public class VerifyOtpModelValidator : AbstractValidator<VerifyOtpModel>
+{
+    public VerifyOtpModelValidator(IStringLocalizer<LanguageResource> l)
+    {
+        RuleFor(x => x.TenantSlug).NotEmpty().MaximumLength(100).WithMessage(_ => l["Required"]);
+        RuleFor(x => x.PhoneNumber).Must(p => PhoneNumbers.Normalize(p) is not null).WithMessage(_ => l["InvalidPhone"]);
+        RuleFor(x => x.Code).NotEmpty().Length(6).Matches("^[0-9]{6}$").WithMessage(_ => l["InvalidOtp"]);
+    }
+}
+
 public class RefreshTokenModelValidator : AbstractValidator<RefreshTokenModel>
 {
     public RefreshTokenModelValidator(IStringLocalizer<LanguageResource> l)

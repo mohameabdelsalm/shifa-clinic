@@ -10,12 +10,13 @@ _Last updated: 2026-11-07_
 | 1 — Solution foundation | ✅ Done |
 | 2 — Identity, Tenancy, Platform Admin | ✅ Done, security-reviewed (opus / high) and fixed |
 | 3 — Clinic setup | ✅ Done |
-| 4 — Patients | ⏳ Next |
-| 5–10 | Not started (see `implementation-roadmap.md`) |
+| 4 — Patients | ✅ Done |
+| 5 — Scheduling | ⏳ Next (opus / high design first) |
+| 6–10 | Not started (see `implementation-roadmap.md`) |
 
 ## Current phase
 
-**Phase 4 — Patients** (registration, MRN, identifiers, guardians, account access, consent, search, patient OTP login). Model: sonnet / medium.
+**Phase 5 — Scheduling & Booking** (availability, slot reservation, booking, cancel, reschedule, check-in, queue, no-show, idempotency). Model: **opus / high** for the concurrency design, then sonnet / medium, then opus / high review.
 
 ## Phase 2 security review (2026-11-07, opus / high)
 
@@ -48,6 +49,13 @@ Accepted risks (documented, not fixed now):
 
 See git history. Highlights: ADR-001..007, architecture docs, `ModuleDbContext` (schema, HiLo, `Tenant`/`SoftDelete` filters, `(TenantId, Id)` keys), `AuditTenantInterceptor`, `GlobalExceptionHandler`, validation filter, health checks, Serilog, Tenancy + Clinic initial migrations.
 
+## Done in Phase 4
+
+- **Patients module:** `Patient` (running number + `MRN-000123` per tenant, retry on a number collision), `PatientIdentifier` (national ID / passport, unique per tenant and type), `PatientGuardian`, `PatientAccountAccess` (phone-number links), `PatientConsent` (grant once, revoke, history kept); `api/patients` (search by name/MRN/phone/exact identifier, view (audited), add, update, guardians, consents, portal-access links).
+- **Rules:** under-18 needs a guardian and keeps at least one; duplicate identifiers refused; phone numbers normalized (`PhoneNumbers`, Egypt default); future birth dates refused.
+- **Portal:** `api/portal/auth/otp/request|verify` (same answer for unknown numbers/clinics, SMS only to linked numbers, 3 per 10 min, 5-minute single-use code, 5 tries, HMAC-hashed), portal token (tenant + verified phone, no membership), refresh for portal sessions, `api/portal/patients` (only linked patients, separate DTO). Portal tokens are rejected by every staff endpoint (default + fallback policy), and staff tokens by `[PortalUser]`.
+- **Shared:** `ISmsSender` + in-memory fake (`GET /dev/sms` in Development), `IAccessContext.IsPortalUser/PortalPhoneNumber`, `IIdentityApi.IsActiveUserAsync`, `IPatientsApi`.
+
 ## Done in Phase 3
 
 - **Clinic module:** `Specialty`, `Doctor`, `DoctorSpecialty`, `DoctorBranch`, `DoctorSchedule`, `DoctorTimeOff`, `Service`, `ServicePrice` (all with composite tenant FKs); `api/branches`, `api/specialties`, `api/doctors` (search/view/add/update/status, `PUT schedule`, `POST|DELETE time-off`), `api/services` (CRUD, `PUT price`).
@@ -71,11 +79,12 @@ See git history. Highlights: ADR-001..007, architecture docs, `ModuleDbContext` 
 |---|---|---|
 | Tenancy | `InitialCreate`, `AddPlansAndSubscriptions`, `FilterTenantSlugIndex` | `Shifa` (dev), `Shifa_Tests` |
 | Clinic | `InitialCreate`, `AddClinicSetup` (9 composite tenant FKs) | `Shifa` (dev), `Shifa_Tests` |
-| Identity | `InitialCreate` (users, memberships with composite tenant FKs, roles, permissions, tokens, audit) | `Shifa` (dev), `Shifa_Tests` |
+| Identity | `InitialCreate`, `AddOtpAndPortalTokens` (OtpChallenges, RefreshTokens.IsPortal) | `Shifa` (dev), `Shifa_Tests` |
+| Patients | `InitialCreate` (5 tables, 4 composite tenant FKs) | `Shifa` (dev), `Shifa_Tests` |
 
 ## Tests
 
-`dotnet test --solution Shifa.slnx` → **72 passed, 0 failed** (2026-11-07). Phase 3 mutation check: with `HasAllBranches` forced to true, the two branch-scope tests fail. Mutation check: with the `Tenant` query filter replaced by `true`, 8 isolation tests fail (then restored).
+`dotnet test --solution Shifa.slnx` → **90 passed, 0 failed** (2026-11-07). Phase 4 mutation checks: with portal tokens allowed on staff endpoints, or any OTP accepted, the portal tests fail. Phase 3 mutation check: with `HasAllBranches` forced to true, the two branch-scope tests fail. Mutation check: with the `Tenant` query filter replaced by `true`, 8 isolation tests fail (then restored).
 
 - Architecture (12) and Phase 1 integration (17), unchanged.
 - API integration (27), all through HTTP against SQL Server:
@@ -85,15 +94,16 @@ See git history. Highlights: ADR-001..007, architecture docs, `ModuleDbContext` 
 
 ## Known gaps / notes
 
-- Patient OTP login, password reset/change, subscription-expiry enforcement (assumption A6), JWT key rotation and Platform Admin usage monitoring are deferred (ADR-007).
+- Password reset/change, subscription-expiry enforcement (assumption A6), JWT key rotation and Platform Admin usage monitoring are deferred (ADR-007).
 - No branch endpoints yet, so branch-scope assignment is only tested for rejection of unknown ids; positive branch-scope tests come with Phase 3.
 - `AuditService` saves through the request's `IdentityDbContext`; an audit failure after a business change surfaces as an error to the caller (change already committed).
 - EF tools 10.0.7 older than runtime 10.0.14 (warning): `dotnet tool update -g dotnet-ef`.
 - OpenTelemetry deferred to Phase 10. Docker not needed yet.
 
-## Next tasks (Phase 4)
+## Next tasks (Phase 5)
 
-1. Patients module: `Patient` (MRN per tenant), `PatientIdentifier`, `PatientGuardian`, `PatientAccountAccess`, `PatientConsent`; registration and search with branch-aware permissions.
-2. Patient portal login by phone OTP (`OtpChallenge`, rate limited, hashed codes) and a user → patient-profile access check (a guardian reaches their children).
-3. `IPatientsApi` for Scheduling; allergies and conditions stay in Clinical (Phase 6).
-4. Legal items L1/L2 (consent wording, guardians of minors) need review before go-live; default text is a placeholder.
+1. **Design first (opus / high):** `Appointment`, `AppointmentSlot` (PK `TenantId, DoctorId, SlotStart`), `AppointmentStatusHistory`, `IdempotencyRecord`; how slots are computed from `DoctorSchedule` + `DoctorTimeOff` + existing bookings in the branch time zone; service duration rounded up to whole slots; reserve all slots in one transaction.
+2. Availability query (cacheable read, never the booking authority), booking with `Idempotency-Key`, cancel (3 h rule), reschedule, check-in + queue number, no-show.
+3. Use `IPatientsApi.GetPortalPatientsAsync` (portal booking only for `CanBook` links) and `IClinicApi` (service duration, price, schedule); add the missing `IClinicApi` methods.
+4. Concurrency tests against SQL Server: two requests for the same slot (one wins), overlapping multi-slot services, retries with the same idempotency key.
+5. Decide the staff-listing branch scope (see Known gaps) and the rule that a branch-limited member only books/sees appointments of their branches.

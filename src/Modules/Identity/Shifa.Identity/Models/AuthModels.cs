@@ -13,6 +13,20 @@ public class LoginModel
     public string? TenantSlug { get; set; }
 }
 
+public class RequestOtpModel
+{
+    /// <summary>The clinic (organization short name) the patient wants to sign in to.</summary>
+    public string TenantSlug { get; set; } = "";
+    public string PhoneNumber { get; set; } = "";
+}
+
+public class VerifyOtpModel
+{
+    public string TenantSlug { get; set; } = "";
+    public string PhoneNumber { get; set; } = "";
+    public string Code { get; set; } = "";
+}
+
 public class RefreshTokenModel
 {
     public string RefreshToken { get; set; } = "";

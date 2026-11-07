@@ -11,13 +11,22 @@ namespace Shifa.Identity.Services;
 
 public interface ITokenService
 {
-    (string Token, DateTimeOffset ExpiresAt) CreateAccessToken(long userId, string userName, long? tenantId, long? membershipId, bool isPlatformAdmin);
+    /// <summary>
+    /// A signed access token. Staff: tenant + membership. Platform Admin: the platform flag only.
+    /// Portal (patient/guardian): tenant + verified phone number, no membership.
+    /// </summary>
+    (string Token, DateTimeOffset ExpiresAt) CreateAccessToken(long userId, string userName, long? tenantId, long? membershipId,
+        bool isPlatformAdmin, string? portalPhoneNumber = null);
 
     /// <summary>A random refresh token for the client and its SHA-256 hash for the database.</summary>
     (string Raw, string Hash) CreateRefreshToken();
 
     string HashRefreshToken(string raw);
     DateTimeOffset RefreshTokenExpiry();
+
+    /// <summary>A short numeric code and its keyed hash (HMAC-SHA256 with the signing key, bound to tenant and phone).</summary>
+    string CreateOtpCode();
+    string HashOtp(long tenantId, string phoneNumber, string code);
 }
 
 public sealed class TokenService : ITokenService
@@ -34,7 +43,7 @@ public sealed class TokenService : ITokenService
     }
 
     public (string Token, DateTimeOffset ExpiresAt) CreateAccessToken(
-        long userId, string userName, long? tenantId, long? membershipId, bool isPlatformAdmin)
+        long userId, string userName, long? tenantId, long? membershipId, bool isPlatformAdmin, string? portalPhoneNumber = null)
     {
         var now = _time.GetUtcNow();
         var expires = now.AddMinutes(_settings.AccessTokenMinutes);
@@ -50,6 +59,11 @@ public sealed class TokenService : ITokenService
             claims.Add(new Claim(ShifaClaimTypes.MembershipId, membershipId.Value.ToString()));
         if (isPlatformAdmin)
             claims.Add(new Claim(ShifaClaimTypes.PlatformAdmin, "true"));
+        if (portalPhoneNumber is not null)
+        {
+            claims.Add(new Claim(ShifaClaimTypes.PatientPortal, "true"));
+            claims.Add(new Claim(ShifaClaimTypes.PhoneNumber, portalPhoneNumber));
+        }
 
         var descriptor = new SecurityTokenDescriptor
         {
@@ -76,4 +90,9 @@ public sealed class TokenService : ITokenService
         Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(raw)));
 
     public DateTimeOffset RefreshTokenExpiry() => _time.GetUtcNow().AddDays(_settings.RefreshTokenDays);
+
+    public string CreateOtpCode() => RandomNumberGenerator.GetInt32(0, 1_000_000).ToString("D6");
+
+    public string HashOtp(long tenantId, string phoneNumber, string code) =>
+        Convert.ToHexString(HMACSHA256.HashData(_keys.Key.Key, Encoding.UTF8.GetBytes($"otp|{tenantId}|{phoneNumber}|{code}")));
 }

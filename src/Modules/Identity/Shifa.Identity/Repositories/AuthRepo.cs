@@ -14,6 +14,7 @@ using Shifa.Identity.Enums;
 using Shifa.Identity.Interfaces;
 using Shifa.Identity.Models;
 using Shifa.Identity.Services;
+using Shifa.Patients.Contracts;
 using Shifa.Tenancy.Contracts;
 
 namespace Shifa.Identity.Repositories;
@@ -37,11 +38,13 @@ public class AuthRepo : IAuthRepo
     private readonly ICurrentUser _currentUser;
     private readonly IStringLocalizer<LanguageResource> _localizer;
     private readonly TimeProvider _time;
+    private readonly ISmsSender _sms;
 
     public AuthRepo(IdentityDbContext context, IPasswordHasher<User> hasher, ITokenService tokens, ITenancyApi tenancy,
         ITenantScopeFactory scopes, IAuditService audit, ICurrentUser currentUser,
-        IStringLocalizer<LanguageResource> localizer, TimeProvider time)
+        IStringLocalizer<LanguageResource> localizer, TimeProvider time, ISmsSender sms)
     {
+        _sms = sms;
         _context = context;
         _hasher = hasher;
         _tokens = tokens;
@@ -58,8 +61,11 @@ public class AuthRepo : IAuthRepo
         var now = _time.GetUtcNow();
         var identifier = model.Identifier.Trim();
         var email = identifier.ToLowerInvariant();
+        var phone = PhoneNumbers.Normalize(identifier);
 
-        var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == email || u.PhoneNumber == identifier, cancellationToken);
+        var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == email || (phone != null && u.PhoneNumber == phone), cancellationToken);
+
+        // Phone-only (portal) accounts have no usable password: they sign in with an OTP only.
 
         if (user is null)
         {
@@ -117,7 +123,14 @@ public class AuthRepo : IAuthRepo
         if (user is null || user.Status != StatusEnum.Active || user.IsLockedOut(now))
             throw InvalidToken();
 
-        if (token.TenantId is null)
+        if (token.IsPortal)
+        {
+            // A portal session needs an active clinic and a phone-verified user; it has no membership.
+            var portalTenant = token.TenantId is null ? null : await _tenancy.GetTenantAsync(token.TenantId.Value, cancellationToken);
+            if (portalTenant is not { IsActive: true } || user.PhoneNumber is null)
+                throw InvalidToken();
+        }
+        else if (token.TenantId is null)
         {
             if (!user.IsPlatformAdmin)
                 throw InvalidToken();
@@ -148,7 +161,7 @@ public class AuthRepo : IAuthRepo
         }
 
         token.RevokedAt = now;
-        var dto = CreateTokens(user, token.TenantId, token.MembershipId, token.FamilyId, out var replacement);
+        var dto = CreateTokens(user, token.TenantId, token.MembershipId, token.FamilyId, out var replacement, token.IsPortal);
         token.ReplacedById = replacement.Id;
         await _context.SaveChangesAsync(cancellationToken);
 
@@ -202,10 +215,107 @@ public class AuthRepo : IAuthRepo
         return membershipId is null ? throw fail() : (tenant.Id, membershipId);
     }
 
-    private TokenDto CreateTokens(User user, long? tenantId, long? membershipId, Guid? familyId, out RefreshToken refreshToken)
+    /// <summary>
+    /// Patient portal sign-in, step 1. The answer is always the same "if registered, a code was sent", so the endpoint
+    /// can't be used to find out which phone numbers a clinic knows. A code is only sent (and an SMS only paid for)
+    /// when the number is linked to a patient of that clinic, and at most 3 times per 10 minutes.
+    /// </summary>
+    public async Task<Response> RequestPortalOtp(RequestOtpModel model, CancellationToken cancellationToken)
     {
-        var isPlatformAdmin = tenantId is null && user.IsPlatformAdmin;
-        var (accessToken, expiresAt) = _tokens.CreateAccessToken(user.Id, user.FullName, tenantId, membershipId, isPlatformAdmin);
+        var generic = new Response(_localizer["OtpRequested"].Value, HttpStatusCode.OK);
+        var phone = PhoneNumbers.Normalize(model.PhoneNumber)!;
+        var now = _time.GetUtcNow();
+
+        var tenant = await _tenancy.GetTenantBySlugAsync(model.TenantSlug.Trim().ToLowerInvariant(), cancellationToken);
+        if (tenant is null || !tenant.IsActive)
+            return generic;
+
+        var known = await _scopes.RunAsync(tenant.Id, sp => sp.GetRequiredService<IPatientsApi>().HasPortalAccessAsync(phone, cancellationToken));
+        if (!known)
+            return generic;
+
+        var since = now.AddMinutes(-10);
+        var recent = await _context.OtpChallenges.CountAsync(
+            c => c.TenantId == tenant.Id && c.PhoneNumber == phone && c.CreationDate > since, cancellationToken);
+        if (recent >= 3)
+            return generic;
+
+        var code = _tokens.CreateOtpCode();
+        _context.OtpChallenges.Add(new OtpChallenge
+        {
+            TenantId = tenant.Id,
+            PhoneNumber = phone,
+            CodeHash = _tokens.HashOtp(tenant.Id, phone, code),
+            ExpiresAt = now + OtpChallenge.Lifetime,
+        });
+        await _context.SaveChangesAsync(cancellationToken);
+
+        await _sms.SendAsync(phone, string.Format(_localizer["OtpMessage"].Value, code), cancellationToken);
+        await _audit.LogAsync("Portal.OtpRequested", targetTenantId: tenant.Id, cancellationToken: cancellationToken);
+        return generic;
+    }
+
+    /// <summary>
+    /// Patient portal sign-in, step 2. Wrong code, expired code, unknown clinic or unknown number all give the same 401.
+    /// A code works once and after 5 wrong tries it is dead. A successful sign-in creates (or reuses) a phone-only user:
+    /// the portal token carries the verified phone number, and the patients it may open come from the clinic's access links.
+    /// </summary>
+    public async Task<Response> VerifyPortalOtp(VerifyOtpModel model, CancellationToken cancellationToken)
+    {
+        var now = _time.GetUtcNow();
+        var phone = PhoneNumbers.Normalize(model.PhoneNumber)!;
+
+        var tenant = await _tenancy.GetTenantBySlugAsync(model.TenantSlug.Trim().ToLowerInvariant(), cancellationToken);
+        if (tenant is null || !tenant.IsActive)
+            throw InvalidOtp();
+
+        var challenge = await _context.OtpChallenges
+            .Where(c => c.TenantId == tenant.Id && c.PhoneNumber == phone && c.ConsumedAt == null && c.ExpiresAt > now && c.Attempts < OtpChallenge.MaxAttempts)
+            .OrderByDescending(c => c.CreationDate)
+            .FirstOrDefaultAsync(cancellationToken) ?? throw InvalidOtp();
+
+        challenge.Attempts++;
+        var expected = _tokens.HashOtp(tenant.Id, phone, model.Code);
+        if (!System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(
+                System.Text.Encoding.ASCII.GetBytes(expected), System.Text.Encoding.ASCII.GetBytes(challenge.CodeHash)))
+        {
+            await _context.SaveChangesAsync(cancellationToken);
+            await _audit.LogAsync("Portal.OtpFailed", targetTenantId: tenant.Id, cancellationToken: cancellationToken);
+            throw InvalidOtp();
+        }
+
+        // Claim the code atomically: of two concurrent verifications only one can use it.
+        challenge.ConsumedAt = now;
+        var claimed = await _context.OtpChallenges
+            .Where(c => c.Id == challenge.Id && c.ConsumedAt == null)
+            .ExecuteUpdateAsync(s => s.SetProperty(c => c.ConsumedAt, now), cancellationToken);
+        if (claimed == 0)
+            throw InvalidOtp();
+
+        var user = await _context.Users.FirstOrDefaultAsync(u => u.PhoneNumber == phone, cancellationToken);
+        if (user is null)
+        {
+            user = new User { FullName = phone, PhoneNumber = phone };
+            user.PasswordHash = _hasher.HashPassword(user, Convert.ToBase64String(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32)));
+            _context.Users.Add(user);
+        }
+        else if (user.Status != StatusEnum.Active)
+        {
+            throw InvalidOtp();
+        }
+
+        var dto = CreateTokens(user, tenant.Id, membershipId: null, familyId: null, out _, isPortal: true);
+        await _context.SaveChangesAsync(cancellationToken);
+
+        await _audit.LogAsync("Portal.LoginSucceeded", "User", user.Id, targetTenantId: tenant.Id, userId: user.Id, cancellationToken: cancellationToken);
+        return Ok(dto);
+    }
+
+    private TokenDto CreateTokens(User user, long? tenantId, long? membershipId, Guid? familyId, out RefreshToken refreshToken, bool isPortal = false)
+    {
+        var isPlatformAdmin = !isPortal && tenantId is null && user.IsPlatformAdmin;
+        var (accessToken, expiresAt) = _tokens.CreateAccessToken(
+            user.Id, user.FullName, tenantId, membershipId, isPlatformAdmin, isPortal ? user.PhoneNumber : null);
         var (raw, hash) = _tokens.CreateRefreshToken();
 
         refreshToken = new RefreshToken
@@ -213,6 +323,7 @@ public class AuthRepo : IAuthRepo
             UserId = user.Id,
             TenantId = tenantId,
             MembershipId = membershipId,
+            IsPortal = isPortal,
             FamilyId = familyId ?? Guid.NewGuid(),
             TokenHash = hash,
             ExpiresAt = _tokens.RefreshTokenExpiry(),
@@ -242,4 +353,6 @@ public class AuthRepo : IAuthRepo
     private BusinessException InvalidCredentials() => new(_localizer["InvalidCredentials"].Value, HttpStatusCode.Unauthorized);
 
     private BusinessException InvalidToken() => new(_localizer["InvalidToken"].Value, HttpStatusCode.Unauthorized);
+
+    private BusinessException InvalidOtp() => new(_localizer["InvalidOtp"].Value, HttpStatusCode.Unauthorized);
 }

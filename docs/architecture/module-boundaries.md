@@ -7,7 +7,7 @@
 | Identity | `identity` | Users, Memberships, MembershipBranches, Roles, RolePermissions, RefreshTokens, OtpChallenges | `IIdentityApi` (user/membership lookups), `UserRegistered` |
 | Tenancy | `tenancy` | Tenants, Plans, PlanEntitlements, TenantSubscriptions, SubscriptionPayments | `ITenancyApi` (tenant status, entitlement checks), `TenantOnboarded`, `TenantSuspended` |
 | Clinic | `clinic` | Branches, Specialties, Doctors, DoctorSpecialties, DoctorBranches, DoctorSchedules, DoctorTimeOffs, Services, ServicePrices | `IClinicApi` (schedules, service duration and price, counts for limits) |
-| Patients | `patients` | Patients, PatientIdentifiers, PatientGuardians, PatientAccountAccess, PatientConsents | `IPatientsApi` (access checks, summaries) |
+| Patients | `patients` | Patients, PatientIdentifiers, PatientGuardians, PatientAccountAccesses (phone links), PatientConsents | `IPatientsApi` (exists, portal access by phone) |
 | Scheduling | `scheduling` | Appointments, AppointmentSlots, AppointmentStatusHistory, IdempotencyRecords | `AppointmentBooked`, `AppointmentCancelled`, `PatientCheckedIn`, `AppointmentNoShow` |
 | Clinical | `clinical` | Visits, ClinicalNotes, VitalSigns, Diagnoses, Prescriptions, PrescriptionItems, PatientAllergies, PatientConditions, VisitAttachments, ClinicalAddendums | `VisitCompleted` |
 | Billing | `billing` | Invoices, InvoiceItems, Payments, Refunds, CreditNotes, CashierShifts | `InvoiceIssued`, `PaymentRecorded` |
@@ -43,11 +43,12 @@ flowchart TD
   Reporting --> BC
   Identity --> TC
   Identity --> CC
+  Identity --> PC
   Clinic --> TC
   Tenancy --> IC
 ```
 
-`Tenancy → Identity.Contracts` exists because onboarding provisions the tenant's default roles and first admin (`IIdentityApi.ProvisionTenantAsync`); `Identity → Tenancy.Contracts` exists for tenant status and plan limits. Both are Contracts-only, so there is no project cycle. `Identity → Clinic.Contracts` validates branch ids stored on memberships.
+`Tenancy → Identity.Contracts` exists because onboarding provisions the tenant's default roles and first admin (`IIdentityApi.ProvisionTenantAsync`); `Identity → Tenancy.Contracts` exists for tenant status and plan limits. Both are Contracts-only, so there is no project cycle. `Identity → Clinic.Contracts` validates branch ids stored on memberships. `Identity → Patients.Contracts` lets the patient-portal OTP flow check, inside the clinic's scope, that a phone number is linked to a patient before an SMS is sent.
 
 Arrows are allowed references to **Contracts** only. Reverse arrows are not allowed; if a module needs to react to a downstream change, it subscribes to an event.
 

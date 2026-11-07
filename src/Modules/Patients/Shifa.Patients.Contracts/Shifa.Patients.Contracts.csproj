@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The only part of the Patients module other modules may reference: IPatientsApi and Events/. -->
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Shifa.Core\Shifa.Core.csproj" />
+  </ItemGroup>
+
+</Project>

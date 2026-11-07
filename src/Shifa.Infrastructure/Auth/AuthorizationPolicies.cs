@@ -14,7 +14,16 @@ public sealed class PlatformAdminRequirement : IAuthorizationRequirement
 {
 }
 
-/// <summary>Builds the "Permission:X" and "PlatformAdmin" policies on demand (same idea as the Trio Auth API).</summary>
+public sealed class PortalUserRequirement : IAuthorizationRequirement
+{
+}
+
+/// <summary>Used by the default and fallback policies: any signed-in caller except a patient portal user.</summary>
+public sealed class NotPortalUserRequirement : IAuthorizationRequirement
+{
+}
+
+/// <summary>Builds the "Permission:X", "PlatformAdmin" and "PortalUser" policies on demand (same idea as the Trio Auth API).</summary>
 public sealed class PermissionPolicyProvider : DefaultAuthorizationPolicyProvider
 {
     public PermissionPolicyProvider(IOptions<AuthorizationOptions> options) : base(options)
@@ -31,6 +40,14 @@ public sealed class PermissionPolicyProvider : DefaultAuthorizationPolicyProvide
                 .Build();
         }
 
+        if (policyName == PortalUserAttribute.PolicyName)
+        {
+            return new AuthorizationPolicyBuilder()
+                .RequireAuthenticatedUser()
+                .AddRequirements(new PortalUserRequirement())
+                .Build();
+        }
+
         if (policyName.StartsWith(PermissionAttribute.PolicyPrefix, StringComparison.Ordinal))
         {
             return new AuthorizationPolicyBuilder()
@@ -44,11 +61,11 @@ public sealed class PermissionPolicyProvider : DefaultAuthorizationPolicyProvide
 }
 
 /// <summary>
-/// Decides from IAccessContext, which TenantResolutionHandler filled from a validated membership.
-/// A Platform Admin has no tenant permissions: platform and tenant authority never mix.
+/// Decides from IAccessContext, which TenantResolutionHandler filled from a validated token.
+/// Platform, staff and portal authority never mix: a Platform Admin has no tenant permissions,
+/// and a portal user has none either (only the portal endpoints).
 /// </summary>
-public sealed class AccessRequirementHandler :
-    IAuthorizationHandler
+public sealed class AccessRequirementHandler : IAuthorizationHandler
 {
     private readonly IAccessContext _access;
 
@@ -63,8 +80,10 @@ public sealed class AccessRequirementHandler :
         {
             var allowed = requirement switch
             {
-                PermissionRequirement p => !_access.IsPlatformAdmin && _access.HasPermission(p.Permission),
+                PermissionRequirement p => !_access.IsPlatformAdmin && !_access.IsPortalUser && _access.HasPermission(p.Permission),
                 PlatformAdminRequirement => _access.IsPlatformAdmin,
+                PortalUserRequirement => _access.IsPortalUser,
+                NotPortalUserRequirement => !_access.IsPortalUser,
                 _ => false,
             };
 

@@ -56,9 +56,15 @@ public static class AuthenticationExtensions
 
         services.AddAuthorization(options =>
         {
-            // Secure by default: an endpoint without [Permission], [PlatformAdmin] or [AllowAnonymous]
-            // still requires a signed-in user instead of being public by accident.
-            options.FallbackPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build();
+            // Secure by default: an endpoint without [Permission], [PlatformAdmin], [PortalUser] or [AllowAnonymous]
+            // (and a plain [Authorize]) requires a signed-in user who is not a patient portal user,
+            // so a portal token can never reach a staff endpoint by accident.
+            var staffOrPlatform = new AuthorizationPolicyBuilder()
+                .RequireAuthenticatedUser()
+                .AddRequirements(new NotPortalUserRequirement())
+                .Build();
+            options.DefaultPolicy = staffOrPlatform;
+            options.FallbackPolicy = staffOrPlatform;
         });
         services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
         services.AddScoped<IAuthorizationHandler, AccessRequirementHandler>();

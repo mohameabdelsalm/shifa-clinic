@@ -68,11 +68,12 @@ erDiagram
   }
   OtpChallenge {
     bigint Id PK "◆"
-    nvarchar PhoneNumber
-    nvarchar CodeHash
-    nvarchar Purpose
-    int Attempts
-    datetimeoffset ExpiresAt
+    bigint TenantId "the clinic the code is for"
+    nvarchar PhoneNumber "normalized"
+    nvarchar CodeHash "HMAC, never the code"
+    int Attempts "max 5"
+    datetimeoffset ExpiresAt "5 minutes"
+    datetimeoffset ConsumedAt
   }
 ```
 
@@ -209,6 +210,8 @@ erDiagram
 
 ## Patients (`patients`)
 
+Phase 4 decisions: a patient's national ID / passport live in `PatientIdentifier` (unique per tenant and type among live rows), not on `Patient`. `PatientAccountAccess` links a **phone number** (not a user id) to a patient: whoever proves the number with an OTP can act for the patient in the portal, so access can be prepared before the person ever signs in and no foreign key crosses into Identity. `RefreshToken.IsPortal` marks portal sessions.
+
 ```mermaid
 erDiagram
   Patient ||--o{ PatientIdentifier : has
@@ -217,7 +220,8 @@ erDiagram
   Patient ||--o{ PatientConsent : gives
   Patient {
     bigint TenantId
-    nvarchar Mrn "unique per tenant"
+    int Number "running number per tenant, unique"
+    nvarchar Mrn "MRN-000123, unique per tenant"
     nvarchar FullName
     date DateOfBirth
     nvarchar Gender
@@ -242,8 +246,8 @@ erDiagram
   PatientAccountAccess {
     bigint TenantId
     bigint PatientId FK
-    bigint UserId "→ identity.Users"
-    nvarchar Relationship "Self, Parent, Guardian"
+    nvarchar PhoneNumber "normalized; unique per tenant + patient"
+    nvarchar Relationship "Self, Parent, Guardian, Other"
     bit CanBook
   }
   PatientConsent {

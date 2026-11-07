@@ -32,10 +32,16 @@ public sealed class MembershipAccessCache
 
     public void SetPlatformAdmin(long userId, bool isAdmin) => _cache.Set(PlatformKey(userId), isAdmin, Ttl);
 
+    public bool? GetActiveUser(long userId) => _cache.TryGetValue(UserKey(userId), out bool value) ? value : null;
+
+    public void SetActiveUser(long userId, bool isActive) => _cache.Set(UserKey(userId), isActive, Ttl);
+
     public void InvalidateTenant(long tenantId) => _tenantVersions.AddOrUpdate(tenantId, 1, (_, v) => v + 1);
 
     private string MembershipKey(long tenantId, long membershipId) =>
         $"t:{tenantId}:v{_tenantVersions.GetValueOrDefault(tenantId)}:membership:{membershipId}";
 
     private static string PlatformKey(long userId) => $"platform:admin:{userId}";
+
+    private static string UserKey(long userId) => $"user:active:{userId}";
 }

@@ -3,7 +3,9 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.DependencyInjection;
 using Shifa.Identity.Services;
+using Shifa.Infrastructure.Services;
 
 namespace Shifa.IntegrationTests.Infrastructure;
 
@@ -76,6 +78,17 @@ internal sealed class ApiTestHost : IAsyncDisposable
     }
 
     public Task<string> PlatformTokenAsync() => TokenAsync(PlatformEmail, PlatformPassword);
+
+    /// <summary>The 6-digit code of the last SMS the fake sender "sent" to this phone number (null if none).</summary>
+    public string? LastOtp(string phoneNumber)
+    {
+        var message = Services.GetRequiredService<InMemorySmsOutbox>().LastTo(phoneNumber)?.Message;
+        var match = message is null ? null : System.Text.RegularExpressions.Regex.Match(message, @"\b\d{6}\b");
+        return match is { Success: true } ? match.Value : null;
+    }
+
+    public int SmsCount(string phoneNumber) =>
+        Services.GetRequiredService<InMemorySmsOutbox>().Messages.Count(m => m.PhoneNumber == phoneNumber);
 
     public async Task<long> CreatePlanAsync(string platformToken, string code, int? maxEmployees = null,
         int? maxBranches = null, int? maxDoctors = null)

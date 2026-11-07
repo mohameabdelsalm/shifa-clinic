@@ -9,6 +9,8 @@ public interface IAuthRepo
     Task<Response> Refresh(RefreshTokenModel model, CancellationToken cancellationToken);
     Task<Response> SwitchTenant(SwitchTenantModel model, CancellationToken cancellationToken);
     Task<Response> Logout(RefreshTokenModel model, CancellationToken cancellationToken);
+    Task<Response> RequestPortalOtp(RequestOtpModel model, CancellationToken cancellationToken);
+    Task<Response> VerifyPortalOtp(VerifyOtpModel model, CancellationToken cancellationToken);
 }
 
 public interface IRoleRepo

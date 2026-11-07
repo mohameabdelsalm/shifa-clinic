@@ -27,6 +27,7 @@
     <ProjectReference Include="..\..\src\Shifa.Infrastructure\Shifa.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Modules\Tenancy\Shifa.Tenancy\Shifa.Tenancy.csproj" />
     <ProjectReference Include="..\..\src\Modules\Identity\Shifa.Identity\Shifa.Identity.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Patients\Shifa.Patients\Shifa.Patients.csproj" />
     <ProjectReference Include="..\..\src\Modules\Clinic\Shifa.Clinic\Shifa.Clinic.csproj" />
   </ItemGroup>
 

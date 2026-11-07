@@ -85,9 +85,17 @@ tests/
 - Never log medical data, national IDs, passwords, OTPs or tokens.
 - No destructive database operations (drop/recreate) without explicit approval. Migrations are applied explicitly, never at app startup.
 
+## Patient portal rules (ADR-007)
+
+- Portal endpoints (`api/portal/...`) use `[PortalUser]`; the phone number comes from `IAccessContext.PortalPhoneNumber` (the token), never from the request.
+- Anything a portal user can reach must be filtered by `PatientAccountAccess` for that phone; another clinic's or unlinked patient is 404.
+- Portal DTOs are separate from staff DTOs and never carry identifiers, national IDs or internal counters.
+- OTP-style endpoints never reveal whether a phone number or clinic exists (same answer, same 401), and are rate limited. Never log codes or phone numbers.
+
 ## Local environment (ADR-006)
 
 - SQL Server `.` (Windows auth): `Server=.;Database=Shifa;Trusted_Connection=True;TrustServerCertificate=True`. Tests: `Shifa_Tests`.
+- `GET /dev/sms` (Development only) shows the SMS the fake sender "sent", e.g. patient OTP codes.
 - `docker compose up -d`: Redis, Seq (`localhost:5341`), Mailpit (`localhost:8025`), Azurite.
 - `dotnet build Shifa.slnx` and `dotnet test --solution Shifa.slnx` before every commit.
 
