@@ -25,8 +25,18 @@ public sealed class LocalFileStorage : IFileStorage
     {
         var fullPath = FullPath(path);
         Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
-        await using var file = new FileStream(fullPath, FileMode.CreateNew, FileAccess.Write, FileShare.None, BufferSize, useAsync: true);
-        await content.CopyToAsync(file, cancellationToken);
+        try
+        {
+            await using var file = new FileStream(fullPath, FileMode.CreateNew, FileAccess.Write, FileShare.None, BufferSize, useAsync: true);
+            await content.CopyToAsync(file, cancellationToken);
+        }
+        catch
+        {
+            // Never leave a half-written file behind (cancelled upload, full disk).
+            if (File.Exists(fullPath))
+                File.Delete(fullPath);
+            throw;
+        }
     }
 
     public Task<Stream> OpenReadAsync(string path, CancellationToken cancellationToken = default)

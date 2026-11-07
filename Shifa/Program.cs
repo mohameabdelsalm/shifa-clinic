@@ -78,6 +78,7 @@ builder.Services.AddScoped<IPortalAppointmentRepo, PortalAppointmentRepo>();
 builder.Services.AddScoped<ISchedulingApi, SchedulingApi>();
 
 // Clinical
+builder.Services.AddScoped<IClinicalApi, ClinicalApi>();
 builder.Services.AddScoped<IVisitRepo, VisitRepo>();
 builder.Services.AddScoped<IPatientClinicalRepo, PatientClinicalRepo>();
 builder.Services.AddScoped<IPortalPrescriptionRepo, PortalPrescriptionRepo>();

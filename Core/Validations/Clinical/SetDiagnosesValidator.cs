@@ -9,8 +9,12 @@ public class SetDiagnosesValidator : AbstractValidator<SetDiagnosesModel>
     public SetDiagnosesValidator(IStringLocalizer<LanguageResource> l)
     {
         RuleFor(x => x.VisitId).GreaterThan(0).WithMessage(_ => l["Required"]);
-        RuleFor(x => x.Items).Must(items => items.Count <= 20).WithMessage(_ => l["InvalidInput"]);
-        RuleFor(x => x.Items).Must(items => items.Count(i => i.IsPrimary) <= 1).WithMessage(_ => l["OnePrimaryDiagnosis"]);
+        RuleFor(x => x.Items).Must(items => items.Count <= 20 && items.All(i => i is not null)).WithMessage(_ => l["InvalidInput"]);
+        RuleFor(x => x.Items).Must(items => items.Count(i => i?.IsPrimary == true) <= 1).WithMessage(_ => l["OnePrimaryDiagnosis"]);
+        RuleFor(x => x.Items)
+            .Must(items => items.Where(i => i?.Icd10Code is not null).Select(i => ClinicalRules.NormalizeIcd10(i.Icd10Code)).Distinct().Count()
+                           == items.Count(i => i?.Icd10Code is not null))
+            .WithMessage(_ => l["InvalidInput"]);
         RuleForEach(x => x.Items).ChildRules(item =>
         {
             item.RuleFor(i => i.Icd10Code).Must(ClinicalRules.IsValidIcd10).WithMessage(_ => l["InvalidIcd10"]);

@@ -22,15 +22,17 @@ public class PortalPrescriptionRepo : IPortalPrescriptionRepo
     private readonly IMapper _mapper;
     private readonly IPatientsApi _patients;
     private readonly IAccessContext _access;
+    private readonly IAuditService _audit;
     private readonly IStringLocalizer<LanguageResource> _localizer;
 
     public PortalPrescriptionRepo(ClinicalDbContext context, IMapper mapper, IPatientsApi patients, IAccessContext access,
-        IStringLocalizer<LanguageResource> localizer)
+        IAuditService audit, IStringLocalizer<LanguageResource> localizer)
     {
         _context = context;
         _mapper = mapper;
         _patients = patients;
         _access = access;
+        _audit = audit;
         _localizer = localizer;
     }
 
@@ -59,6 +61,10 @@ public class PortalPrescriptionRepo : IPortalPrescriptionRepo
             dto.Items = _mapper.Map<List<PrescriptionItemDto>>(items.Where(i => i.PrescriptionId == r.Prescription.Id));
             return dto;
         }).ToList();
+
+        // Clinical content was read: one audit row per patient whose prescriptions were returned (ids only, no phone).
+        foreach (var patientId in result.Select(r => r.PatientId).Distinct())
+            await _audit.LogAsync("Clinical.PortalPrescriptionsViewed", "Patient", patientId, cancellationToken: CancellationToken.None);
 
         return new Response(_localizer["Retrieved"].Value, HttpStatusCode.OK, data: result);
     }

@@ -106,4 +106,5 @@
   <data name="InvalidIcd10" xml:space="preserve"><value>Enter a valid ICD-10 code (e.g. J06.9).</value></data>
   <data name="OnePrimaryDiagnosis" xml:space="preserve"><value>Only one diagnosis can be primary.</value></data>
   <data name="VitalsRequired" xml:space="preserve"><value>Enter at least one measurement, within normal human ranges.</value></data>
+  <data name="DoctorHasOpenVisits" xml:space="preserve"><value>This doctor has visits that are still open. Complete them first.</value></data>
 </root>

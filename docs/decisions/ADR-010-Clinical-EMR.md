@@ -36,3 +36,4 @@ Immutability is enforced in the entity (`Visit.EnsureOpen`) and checked again in
 - Opening and completing a visit touch two schemas without one transaction. The order (Scheduling first on open; Clinical first on complete) plus idempotent retries keeps them consistent; Phase 8's outbox can replace the direct calls later.
 - Existing tenants' Doctor and Nurse roles don't get `Clinical.Vitals` automatically (default roles apply to new tenants); an admin adds it.
 - A doctor record without a linked account can be booked but can't open visits.
+- A doctor's account link and active status can't change while the doctor has open visits (review C2/C4), so visits can't be handed to someone else or orphaned.

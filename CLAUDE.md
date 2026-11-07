@@ -92,7 +92,8 @@ One class per file. Namespaces follow folders without a `Shifa.` prefix: `Core.E
 
 - Only the appointment's doctor (the `Doctor` linked to the signed-in membership via `Doctor.MembershipId`) opens, writes and completes a visit; vital signs may be recorded by any `Clinical.Vitals` holder in the visit's branch.
 - A completed visit never changes. Corrections are `ClinicalAddendum` rows. Every content write also updates the visit row (`SaveVisitChangeAsync`) so a write racing "complete" fails on the rowversion.
-- Visit data follows branch scope (outside = 404). Allergies and conditions are tenant-wide for `Clinical.Read`. Every read of clinical content writes an audit row.
+- Visit data follows branch scope (outside = 404). Allergies and conditions are tenant-wide for `Clinical.Read`. Every read of clinical content (staff and portal) writes an audit row, with `CancellationToken.None` so a disconnect can't drop it.
+- A doctor's account link and active status can't change while the doctor has open visits (`IClinicalApi.HasOpenVisitsAsync`).
 - Files go through `IFileStorage` with server-built paths `tenants/{tenantId}/...`; check type, size and file signature.
 
 ## Patient portal rules (ADR-007)

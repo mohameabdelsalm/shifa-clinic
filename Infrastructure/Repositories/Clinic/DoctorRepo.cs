@@ -7,6 +7,7 @@ using Core.DTO.Tenancy;
 using Core.Entities.Clinic;
 using Core.Enums.Common;
 using Core.Interfaces.Clinic;
+using Core.Interfaces.Clinical;
 using Core.Interfaces.Common;
 using Core.Interfaces.Identity;
 using Core.Interfaces.Tenancy;
@@ -36,12 +37,14 @@ public class DoctorRepo : IDoctorRepo
     private readonly IAccessContext _access;
     private readonly ITenancyApi _tenancy;
     private readonly IIdentityApi _identity;
+    private readonly IClinicalApi _clinical;
     private readonly IAuditService _audit;
     private readonly IStringLocalizer<LanguageResource> _localizer;
 
     public DoctorRepo(ClinicDbContext context, IMapper mapper, ITenantContext tenantContext, IAccessContext access, ITenancyApi tenancy,
-        IIdentityApi identity, IAuditService audit, IStringLocalizer<LanguageResource> localizer)
+        IIdentityApi identity, IClinicalApi clinical, IAuditService audit, IStringLocalizer<LanguageResource> localizer)
     {
+        _clinical = clinical;
         _context = context;
         _mapper = mapper;
         _tenantContext = tenantContext;
@@ -150,6 +153,10 @@ public class DoctorRepo : IDoctorRepo
     {
         var doctor = await Visible(_context.Doctors).FirstOrDefaultAsync(d => d.Id == id, cancellationToken) ?? throw NotFound();
         await EnsureOnlyInScopeAsync(doctor.Id, cancellationToken);
+
+        // An inactive doctor can't write visits, so open visits would stay open for ever (ADR-010).
+        if (status != StatusEnum.Active && doctor.Status == StatusEnum.Active)
+            await EnsureNoOpenVisitsAsync(doctor.Id, cancellationToken);
 
         doctor.Status = status;
         await _context.SaveChangesAsync(cancellationToken);
@@ -317,6 +324,10 @@ public class DoctorRepo : IDoctorRepo
                 throw new BusinessException(_localizer["DoctorAccountInUse"].Value, HttpStatusCode.BadRequest);
         }
 
+        // Changing the account while visits are open would hand those visits to another person (or orphan them).
+        if (doctor.MembershipId != model.MembershipId && doctor.MembershipId is not null)
+            await EnsureNoOpenVisitsAsync(doctor.Id, cancellationToken);
+
         doctor.MembershipId = model.MembershipId;
         try
         {
@@ -331,6 +342,12 @@ public class DoctorRepo : IDoctorRepo
         await _audit.LogAsync("Doctors.AccountLinked", "Doctor", doctor.Id, detail: model.MembershipId?.ToString() ?? "unlinked",
             cancellationToken: cancellationToken);
         return new Response(_localizer["Updated"].Value, HttpStatusCode.OK);
+    }
+
+    private async Task EnsureNoOpenVisitsAsync(long doctorId, CancellationToken cancellationToken)
+    {
+        if (await _clinical.HasOpenVisitsAsync(doctorId, cancellationToken))
+            throw new BusinessException(_localizer["DoctorHasOpenVisits"].Value, HttpStatusCode.BadRequest);
     }
 
     private BusinessException NotFound() => new(_localizer["DoctorNotFound"].Value, HttpStatusCode.NotFound);

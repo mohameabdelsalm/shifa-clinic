@@ -10,7 +10,7 @@ public class SetPrescriptionValidator : AbstractValidator<SetPrescriptionModel>
     {
         RuleFor(x => x.VisitId).GreaterThan(0).WithMessage(_ => l["Required"]);
         RuleFor(x => x.Notes).MaximumLength(1000).WithMessage(_ => l["InvalidInput"]);
-        RuleFor(x => x.Items).Must(items => items.Count <= 30).WithMessage(_ => l["InvalidInput"]);
+        RuleFor(x => x.Items).Must(items => items.Count <= 30 && items.All(i => i is not null)).WithMessage(_ => l["InvalidInput"]);
         RuleForEach(x => x.Items).ChildRules(item =>
         {
             item.RuleFor(i => i.DrugName).NotEmpty().MaximumLength(200).WithMessage(_ => l["Required"]);
