@@ -39,3 +39,15 @@ Safe defaults used until the product owner or a legal/business reviewer decides 
 | T1 | Expected scale for v1: tens of tenants, each up to ~500 visits/day; single SQL Server database is sufficient |
 | T2 | Docker Desktop is available locally for Redis, Seq, Mailpit, Azurite (not required for build and tests in Phase 1) |
 | T3 | Integration tests use the local SQL Server instance (`Shifa_Tests`); Testcontainers when CI exists |
+
+## Added in Phase 4
+
+| # | Assumption | Default | Owner to confirm |
+|---|---|---|---|
+| A14 | Phone numbers without a country code | A single leading 0 means a local number of the default country, Egypt (+20); numbers are stored as `+` and 8–15 digits | Product |
+| A15 | Patient portal access | Created by clinic staff (a phone number linked to each patient); patients can't self-register yet. A phone number is linked per clinic | Product |
+| A16 | Under-18 patients | At least one guardian is required at registration and the last guardian can't be removed; age is computed from the UTC date | Product / Legal |
+| A17 | MRN format | `MRN-000123`, a running number per tenant, never reused | Product |
+| A18 | Duplicate patients | Detected by identical national ID or passport (same type) within a tenant; no fuzzy name matching yet | Product |
+
+Legal items L1 and L2 (consent wording, guardians of minors) now matter: the system records *that* a consent was given and when, but the text shown to the patient and who may consent for a minor still need legal review.

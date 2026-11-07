@@ -7,6 +7,7 @@
     <ProjectReference Include="..\Shifa.Infrastructure\Shifa.Infrastructure.csproj" />
     <ProjectReference Include="..\Modules\Tenancy\Shifa.Tenancy\Shifa.Tenancy.csproj" />
     <ProjectReference Include="..\Modules\Identity\Shifa.Identity\Shifa.Identity.csproj" />
+    <ProjectReference Include="..\Modules\Patients\Shifa.Patients\Shifa.Patients.csproj" />
     <ProjectReference Include="..\Modules\Clinic\Shifa.Clinic\Shifa.Clinic.csproj" />
   </ItemGroup>
 

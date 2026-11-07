@@ -4,6 +4,7 @@ using Shifa.Core.Interfaces.Common;
 using Shifa.Infrastructure.Common.CurrentUserManager;
 using Shifa.Infrastructure.Common.TenantManager;
 using Shifa.Infrastructure.Data.Interceptors;
+using Shifa.Infrastructure.Services;
 
 namespace Shifa.Infrastructure;
 
@@ -21,6 +22,10 @@ public static class InfrastructureModule
         services.AddScoped<IAccessContext, AccessContext>();
         services.AddSingleton<ITenantScopeFactory, TenantScopeFactory>();
         services.AddScoped<AuditTenantInterceptor>();
+
+        // Local fake (ADR-006); a real provider replaces ISmsSender in production.
+        services.AddSingleton<InMemorySmsOutbox>();
+        services.TryAddSingleton<ISmsSender, FakeSmsSender>();
 
         return services;
     }

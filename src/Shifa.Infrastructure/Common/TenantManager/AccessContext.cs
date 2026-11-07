@@ -11,6 +11,8 @@ public sealed class AccessContext : IAccessContext
     private HashSet<string> _permissions = [];
 
     public bool IsPlatformAdmin { get; private set; }
+    public bool IsPortalUser { get; private set; }
+    public string? PortalPhoneNumber { get; private set; }
     public long? MembershipId { get; private set; }
 
     public bool HasPermission(string permission) => _permissions.Contains(permission);
@@ -25,6 +27,13 @@ public sealed class AccessContext : IAccessContext
     {
         EnsureNotSet();
         IsPlatformAdmin = true;
+    }
+
+    public void SetPortalUser(string phoneNumber)
+    {
+        EnsureNotSet();
+        IsPortalUser = true;
+        PortalPhoneNumber = phoneNumber;
     }
 
     public void SetMembership(long membershipId, bool allBranches, IEnumerable<long> branchIds, IEnumerable<string> permissions)

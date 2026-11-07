@@ -68,5 +68,16 @@
   <data name="DuplicateName" xml:space="preserve"><value>This name or code is already used.</value></data>
   <data name="BranchLimitReached" xml:space="preserve"><value>The branch limit of your plan has been reached.</value></data>
   <data name="DoctorLimitReached" xml:space="preserve"><value>The doctor limit of your plan has been reached.</value></data>
+  <data name="InvalidPhone" xml:space="preserve"><value>The phone number is not valid.</value></data>
+  <data name="InvalidOtp" xml:space="preserve"><value>The code is not valid or has expired.</value></data>
+  <data name="OtpMessage" xml:space="preserve"><value>Your Shifa verification code is {0}. It expires in 5 minutes. Don't share it with anyone.</value></data>
+  <data name="OtpRequested" xml:space="preserve"><value>If this number is registered with the clinic, a verification code has been sent.</value></data>
+  <data name="PatientNotFound" xml:space="preserve"><value>The patient was not found.</value></data>
+  <data name="PatientAlreadyExists" xml:space="preserve"><value>A patient with this identifier already exists.</value></data>
+  <data name="GuardianRequiredForMinor" xml:space="preserve"><value>A patient under 18 needs at least one guardian.</value></data>
+  <data name="InvalidDateOfBirth" xml:space="preserve"><value>The date of birth is not valid.</value></data>
+  <data name="ConsentNotFound" xml:space="preserve"><value>The consent was not found.</value></data>
+  <data name="GuardianNotFound" xml:space="preserve"><value>The guardian was not found.</value></data>
+  <data name="PortalAccessNotFound" xml:space="preserve"><value>The portal access was not found.</value></data>
   <data name="TooManyRequests" xml:space="preserve"><value>Too many requests. Please try again later.</value></data>
 </root>

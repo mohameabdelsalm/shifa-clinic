@@ -63,6 +63,17 @@ public sealed class IdentityApi : IIdentityApi
         return access;
     }
 
+    public async Task<bool> IsActiveUserAsync(long userId, CancellationToken cancellationToken = default)
+    {
+        var cached = _cache.GetActiveUser(userId);
+        if (cached is not null)
+            return cached.Value;
+
+        var isActive = await _context.Users.AnyAsync(u => u.Id == userId && u.Status == StatusEnum.Active, cancellationToken);
+        _cache.SetActiveUser(userId, isActive);
+        return isActive;
+    }
+
     public async Task<bool> IsActivePlatformAdminAsync(long userId, CancellationToken cancellationToken = default)
     {
         var cached = _cache.GetPlatformAdmin(userId);

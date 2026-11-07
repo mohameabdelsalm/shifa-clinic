@@ -13,6 +13,7 @@
     <ProjectReference Include="..\Shifa.Identity.Contracts\Shifa.Identity.Contracts.csproj" />
     <ProjectReference Include="..\..\Tenancy\Shifa.Tenancy.Contracts\Shifa.Tenancy.Contracts.csproj" />
     <ProjectReference Include="..\..\Clinic\Shifa.Clinic.Contracts\Shifa.Clinic.Contracts.csproj" />
+    <ProjectReference Include="..\..\Patients\Shifa.Patients.Contracts\Shifa.Patients.Contracts.csproj" />
   </ItemGroup>
 
 </Project>

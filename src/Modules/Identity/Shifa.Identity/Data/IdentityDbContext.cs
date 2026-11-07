@@ -24,4 +24,5 @@ public class IdentityDbContext : ModuleDbContext
     public DbSet<MembershipBranch> MembershipBranches => Set<MembershipBranch>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+    public DbSet<OtpChallenge> OtpChallenges => Set<OtpChallenge>();
 }

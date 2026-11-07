@@ -54,6 +54,23 @@ public sealed class TenantResolutionHandler
                     isAuthorized = true;
                 }
             }
+            else if (context.User.HasClaim(ShifaClaimTypes.PatientPortal, "true"))
+            {
+                // Patient portal: an active clinic, an active user, a verified phone number; never a membership.
+                var tenantId = ReadId(context.User, ShifaClaimTypes.TenantId);
+                var phone = PhoneNumbers.Normalize(context.User.FindFirstValue(ShifaClaimTypes.PhoneNumber));
+
+                if (tenantId is not null && phone is not null && !context.User.HasClaim(c => c.Type == ShifaClaimTypes.MembershipId))
+                {
+                    var tenant = await tenancy.GetTenantAsync(tenantId.Value, cancellationToken);
+                    if (tenant is { IsActive: true } && await identity.IsActiveUserAsync(userId.Value, cancellationToken))
+                    {
+                        tenantContext.SetTenant(tenantId.Value);
+                        accessContext.SetPortalUser(phone);
+                        isAuthorized = true;
+                    }
+                }
+            }
             else
             {
                 var tenantId = ReadId(context.User, ShifaClaimTypes.TenantId);

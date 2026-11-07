@@ -68,5 +68,16 @@
   <data name="DuplicateName" xml:space="preserve"><value>الاسم أو الكود مستخدم بالفعل.</value></data>
   <data name="BranchLimitReached" xml:space="preserve"><value>تم الوصول للحد الأقصى للفروع في باقتك.</value></data>
   <data name="DoctorLimitReached" xml:space="preserve"><value>تم الوصول للحد الأقصى للدكاترة في باقتك.</value></data>
+  <data name="InvalidPhone" xml:space="preserve"><value>رقم الهاتف غير صحيح.</value></data>
+  <data name="InvalidOtp" xml:space="preserve"><value>الكود غير صحيح أو منتهي.</value></data>
+  <data name="OtpMessage" xml:space="preserve"><value>كود التحقق الخاص بك في شفا هو {0}. صالح لمدة 5 دقائق. لا تشاركه مع أحد.</value></data>
+  <data name="OtpRequested" xml:space="preserve"><value>لو كان الرقم مسجلًا لدى العيادة، تم إرسال كود التحقق.</value></data>
+  <data name="PatientNotFound" xml:space="preserve"><value>المريض غير موجود.</value></data>
+  <data name="PatientAlreadyExists" xml:space="preserve"><value>يوجد مريض بنفس رقم الهوية.</value></data>
+  <data name="GuardianRequiredForMinor" xml:space="preserve"><value>المريض أقل من 18 سنة ويحتاج ولي أمر واحد على الأقل.</value></data>
+  <data name="InvalidDateOfBirth" xml:space="preserve"><value>تاريخ الميلاد غير صحيح.</value></data>
+  <data name="ConsentNotFound" xml:space="preserve"><value>الموافقة غير موجودة.</value></data>
+  <data name="GuardianNotFound" xml:space="preserve"><value>ولي الأمر غير موجود.</value></data>
+  <data name="PortalAccessNotFound" xml:space="preserve"><value>صلاحية البوابة غير موجودة.</value></data>
   <data name="TooManyRequests" xml:space="preserve"><value>طلبات كثيرة. من فضلك حاول لاحقًا.</value></data>
 </root>

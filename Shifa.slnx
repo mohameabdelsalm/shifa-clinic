@@ -13,6 +13,10 @@
     <Project Path="src/Modules/Identity/Shifa.Identity.Contracts/Shifa.Identity.Contracts.csproj" />
     <Project Path="src/Modules/Identity/Shifa.Identity/Shifa.Identity.csproj" />
   </Folder>
+  <Folder Name="/src/Modules/Patients/">
+    <Project Path="src/Modules/Patients/Shifa.Patients.Contracts/Shifa.Patients.Contracts.csproj" />
+    <Project Path="src/Modules/Patients/Shifa.Patients/Shifa.Patients.csproj" />
+  </Folder>
   <Folder Name="/src/Modules/Tenancy/">
     <Project Path="src/Modules/Tenancy/Shifa.Tenancy.Contracts/Shifa.Tenancy.Contracts.csproj" />
     <Project Path="src/Modules/Tenancy/Shifa.Tenancy/Shifa.Tenancy.csproj" />

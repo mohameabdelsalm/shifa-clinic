@@ -5,6 +5,8 @@ using Shifa.Clinic;
 using Shifa.Identity;
 using Shifa.Identity.Services;
 using Shifa.Infrastructure;
+using Shifa.Infrastructure.Services;
+using Shifa.Patients;
 using Shifa.Tenancy;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -17,6 +19,7 @@ builder.Services.AddShifaInfrastructure();
 builder.Services.AddTenancyModule();
 builder.Services.AddIdentityModule();
 builder.Services.AddClinicModule();
+builder.Services.AddPatientsModule();
 
 var app = builder.Build();
 
@@ -55,6 +58,12 @@ app.UseRateLimiter();
 app.UseAuthentication();
 app.UseMiddleware<TenantResolutionHandler>();
 app.UseAuthorization();
+
+if (app.Environment.IsDevelopment())
+{
+    // Development only: read the SMS messages the fake sender "sent" (OTP codes), since nothing real is sent locally.
+    app.MapGet("/dev/sms", (InMemorySmsOutbox outbox) => outbox.Messages).AllowAnonymous();
+}
 
 app.MapControllers();
 app.MapShifaHealthChecks();
