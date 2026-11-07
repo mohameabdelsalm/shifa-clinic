@@ -23,13 +23,15 @@ public class PatientRepo : IPatientRepo
     private const int MaxNumberAttempts = 5;
 
     private readonly PatientsDbContext _context;
+    private readonly ITenantContext _tenant;
     private readonly IAuditService _audit;
     private readonly TimeProvider _time;
     private readonly IStringLocalizer<LanguageResource> _localizer;
 
-    public PatientRepo(PatientsDbContext context, IAuditService audit, TimeProvider time, IStringLocalizer<LanguageResource> localizer)
+    public PatientRepo(PatientsDbContext context, ITenantContext tenant, IAuditService audit, TimeProvider time, IStringLocalizer<LanguageResource> localizer)
     {
         _context = context;
+        _tenant = tenant;
         _audit = audit;
         _time = time;
         _localizer = localizer;
@@ -103,6 +105,11 @@ public class PatientRepo : IPatientRepo
         var identifiers = NormalizeIdentifiers(model.Identifiers);
         await EnsureIdentifiersFreeAsync(identifiers, ignorePatientId: null, cancellationToken);
 
+        // Registrations of one tenant take their number one at a time; without the lock a burst of concurrent
+        // registrations could use up the retries below and fail.
+        await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
+        await _context.Database.AcquireAsync($"patients:number:{_tenant.TenantId}", cancellationToken);
+
         long patientId = 0;
         for (var attempt = 1; ; attempt++)
         {
@@ -157,6 +164,7 @@ public class PatientRepo : IPatientRepo
             }
         }
 
+        await transaction.CommitAsync(cancellationToken);
         await _audit.LogAsync("Patients.Created", "Patient", patientId, cancellationToken: cancellationToken);
         return new Response(_localizer["Created"].Value, HttpStatusCode.OK, data: patientId);
     }

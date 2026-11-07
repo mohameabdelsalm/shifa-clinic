@@ -79,5 +79,18 @@
   <data name="ConsentNotFound" xml:space="preserve"><value>The consent was not found.</value></data>
   <data name="GuardianNotFound" xml:space="preserve"><value>The guardian was not found.</value></data>
   <data name="PortalAccessNotFound" xml:space="preserve"><value>The portal access was not found.</value></data>
+  <data name="SlotNotAvailable" xml:space="preserve"><value>This time is not available. Please choose another time.</value></data>
+  <data name="SlotTaken" xml:space="preserve"><value>This time was just booked by someone else. Please choose another time.</value></data>
+  <data name="IdempotencyKeyRequired" xml:space="preserve"><value>An Idempotency-Key header (up to 100 characters) is required.</value></data>
+  <data name="IdempotencyKeyReused" xml:space="preserve"><value>This Idempotency-Key was already used for a different request.</value></data>
+  <data name="AppointmentNotFound" xml:space="preserve"><value>The appointment was not found.</value></data>
+  <data name="InvalidTransition" xml:space="preserve"><value>This action isn't possible in the appointment's current state.</value></data>
+  <data name="BookingTargetInvalid" xml:space="preserve"><value>This doctor can't be booked for this service at this branch.</value></data>
+  <data name="PatientAlreadyBookedThatDay" xml:space="preserve"><value>The patient already has an appointment with this doctor on that day.</value></data>
+  <data name="CheckInNotAllowedNow" xml:space="preserve"><value>Check-in opens 2 hours before the appointment and closes at the end of that day.</value></data>
+  <data name="CancelWindowPassed" xml:space="preserve"><value>Online cancellation closes 3 hours before the appointment. Please call the clinic.</value></data>
+  <data name="NoShowTooEarly" xml:space="preserve"><value>An appointment can be marked as no-show 30 minutes after its start.</value></data>
+  <data name="ConcurrentChange" xml:space="preserve"><value>Someone else changed this record at the same time. Please reload and try again.</value></data>
+  <data name="InvalidDateRange" xml:space="preserve"><value>The date range is not valid (at most 62 days).</value></data>
   <data name="TooManyRequests" xml:space="preserve"><value>Too many requests. Please try again later.</value></data>
 </root>

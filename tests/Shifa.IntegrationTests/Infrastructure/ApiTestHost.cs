@@ -3,7 +3,9 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Shifa.Identity.Services;
 using Shifa.Infrastructure.Services;
 
@@ -31,7 +33,8 @@ internal sealed class ApiTestHost : IAsyncDisposable
 
     public IServiceProvider Services => _factory.Services;
 
-    public static async Task<ApiTestHost> StartAsync(SqlServerFixture db)
+    /// <param name="clock">Replaces the app's TimeProvider (tokens, booking rules, audit stamps all follow it).</param>
+    public static async Task<ApiTestHost> StartAsync(SqlServerFixture db, TimeProvider? clock = null)
     {
         await db.ResetAsync();
 
@@ -40,6 +43,14 @@ internal sealed class ApiTestHost : IAsyncDisposable
             builder.UseSetting("ConnectionStrings:Shifa", db.ConnectionString);
             builder.UseSetting("Jwt:SigningKey", "integration-tests-signing-key-0123456789-abcdef");
             builder.UseSetting("RateLimiting:AuthPermitLimit", "100000");
+            if (clock is not null)
+            {
+                builder.ConfigureTestServices(services =>
+                {
+                    services.RemoveAll<TimeProvider>();
+                    services.AddSingleton(clock);
+                });
+            }
         });
 
         var host = new ApiTestHost(factory);
@@ -47,11 +58,14 @@ internal sealed class ApiTestHost : IAsyncDisposable
         return host;
     }
 
-    public async Task<ApiResult> CallAsync(HttpMethod method, string url, string? token = null, object? body = null)
+    public async Task<ApiResult> CallAsync(HttpMethod method, string url, string? token = null, object? body = null,
+        IReadOnlyDictionary<string, string>? headers = null)
     {
         using var request = new HttpRequestMessage(method, url);
         if (token is not null)
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        foreach (var (name, value) in headers ?? new Dictionary<string, string>())
+            request.Headers.Add(name, value);
         if (body is not null)
             request.Content = JsonContent.Create(body);
 

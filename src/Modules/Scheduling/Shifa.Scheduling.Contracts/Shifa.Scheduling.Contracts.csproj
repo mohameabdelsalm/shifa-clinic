@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The only part of the Scheduling module other modules may reference: Events/ (published via the outbox in Phase 8). -->
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Shifa.Core\Shifa.Core.csproj" />
+  </ItemGroup>
+
+</Project>

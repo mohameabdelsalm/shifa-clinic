@@ -79,5 +79,18 @@
   <data name="ConsentNotFound" xml:space="preserve"><value>الموافقة غير موجودة.</value></data>
   <data name="GuardianNotFound" xml:space="preserve"><value>ولي الأمر غير موجود.</value></data>
   <data name="PortalAccessNotFound" xml:space="preserve"><value>صلاحية البوابة غير موجودة.</value></data>
+  <data name="SlotNotAvailable" xml:space="preserve"><value>هذا الموعد غير متاح. من فضلك اختر وقتًا آخر.</value></data>
+  <data name="SlotTaken" xml:space="preserve"><value>تم حجز هذا الموعد للتو. من فضلك اختر وقتًا آخر.</value></data>
+  <data name="IdempotencyKeyRequired" xml:space="preserve"><value>مطلوب إرسال Idempotency-Key (حتى 100 حرف).</value></data>
+  <data name="IdempotencyKeyReused" xml:space="preserve"><value>تم استخدام هذا الـ Idempotency-Key لطلب مختلف.</value></data>
+  <data name="AppointmentNotFound" xml:space="preserve"><value>الموعد غير موجود.</value></data>
+  <data name="InvalidTransition" xml:space="preserve"><value>لا يمكن تنفيذ هذا الإجراء في حالة الموعد الحالية.</value></data>
+  <data name="BookingTargetInvalid" xml:space="preserve"><value>لا يمكن حجز هذا الدكتور لهذه الخدمة في هذا الفرع.</value></data>
+  <data name="PatientAlreadyBookedThatDay" xml:space="preserve"><value>للمريض موعد بالفعل مع هذا الدكتور في نفس اليوم.</value></data>
+  <data name="CheckInNotAllowedNow" xml:space="preserve"><value>تسجيل الحضور متاح قبل الموعد بساعتين وحتى نهاية نفس اليوم.</value></data>
+  <data name="CancelWindowPassed" xml:space="preserve"><value>الإلغاء أونلاين متاح حتى 3 ساعات قبل الموعد. من فضلك اتصل بالعيادة.</value></data>
+  <data name="NoShowTooEarly" xml:space="preserve"><value>يمكن تسجيل الغياب بعد 30 دقيقة من بداية الموعد.</value></data>
+  <data name="ConcurrentChange" xml:space="preserve"><value>قام شخص آخر بتعديل نفس البيانات في نفس الوقت. من فضلك أعد التحميل وحاول مرة أخرى.</value></data>
+  <data name="InvalidDateRange" xml:space="preserve"><value>فترة التاريخ غير صحيحة (بحد أقصى 62 يومًا).</value></data>
   <data name="TooManyRequests" xml:space="preserve"><value>طلبات كثيرة. من فضلك حاول لاحقًا.</value></data>
 </root>
