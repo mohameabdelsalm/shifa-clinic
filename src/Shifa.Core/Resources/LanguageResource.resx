@@ -58,5 +58,15 @@
   <data name="PlanNotFound" xml:space="preserve"><value>The plan was not found.</value></data>
   <data name="PlanCodeDuplicated" xml:space="preserve"><value>A plan with this code already exists.</value></data>
   <data name="LastTenantAdmin" xml:space="preserve"><value>The organization must keep at least one active administrator.</value></data>
+  <data name="InvalidSchedule" xml:space="preserve"><value>The schedule is not valid: end time must be after start time and the window must fit a whole number of slots.</value></data>
+  <data name="ScheduleOverlap" xml:space="preserve"><value>The doctor already has working hours that overlap with this schedule.</value></data>
+  <data name="DoctorNotFound" xml:space="preserve"><value>The doctor was not found.</value></data>
+  <data name="DoctorNotAtBranch" xml:space="preserve"><value>The doctor doesn't work at this branch.</value></data>
+  <data name="SpecialtyNotFound" xml:space="preserve"><value>One or more specialties were not found.</value></data>
+  <data name="ServiceNotFound" xml:space="preserve"><value>The service was not found.</value></data>
+  <data name="TimeOffNotFound" xml:space="preserve"><value>The time off was not found.</value></data>
+  <data name="DuplicateName" xml:space="preserve"><value>This name or code is already used.</value></data>
+  <data name="BranchLimitReached" xml:space="preserve"><value>The branch limit of your plan has been reached.</value></data>
+  <data name="DoctorLimitReached" xml:space="preserve"><value>The doctor limit of your plan has been reached.</value></data>
   <data name="TooManyRequests" xml:space="preserve"><value>Too many requests. Please try again later.</value></data>
 </root>

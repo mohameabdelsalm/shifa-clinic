@@ -13,6 +13,9 @@ public interface IAccessContext
     /// <summary>True when the membership covers every branch of the tenant.</summary>
     bool HasAllBranches { get; }
 
+    /// <summary>The branches the membership is limited to (empty when <see cref="HasAllBranches"/>).</summary>
+    IReadOnlyCollection<long> BranchIds { get; }
+
     /// <summary>True when the membership covers all branches or lists this branch.</summary>
     bool CanAccessBranch(long branchId);
 

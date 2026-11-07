@@ -17,4 +17,12 @@ public class ClinicDbContext : ModuleDbContext
     public override string Schema => SchemaName;
 
     public DbSet<Branch> Branches => Set<Branch>();
+    public DbSet<Specialty> Specialties => Set<Specialty>();
+    public DbSet<Doctor> Doctors => Set<Doctor>();
+    public DbSet<DoctorSpecialty> DoctorSpecialties => Set<DoctorSpecialty>();
+    public DbSet<DoctorBranch> DoctorBranches => Set<DoctorBranch>();
+    public DbSet<DoctorSchedule> DoctorSchedules => Set<DoctorSchedule>();
+    public DbSet<DoctorTimeOff> DoctorTimeOffs => Set<DoctorTimeOff>();
+    public DbSet<Service> Services => Set<Service>();
+    public DbSet<ServicePrice> ServicePrices => Set<ServicePrice>();
 }

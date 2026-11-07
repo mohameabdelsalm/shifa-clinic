@@ -2,6 +2,8 @@ using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
 using Shifa.Clinic.Contracts;
 using Shifa.Clinic.Data;
+using Shifa.Clinic.Interfaces;
+using Shifa.Clinic.Repositories;
 using Shifa.Clinic.Services;
 using Shifa.Infrastructure.Data;
 
@@ -21,8 +23,11 @@ public static class ClinicModule
         services.AddValidatorsFromAssembly(typeof(ClinicModule).Assembly, includeInternalTypes: true);
 
         services.AddScoped<IClinicApi, ClinicApi>();
+        services.AddScoped<IBranchRepo, BranchRepo>();
+        services.AddScoped<ISpecialtyRepo, SpecialtyRepo>();
+        services.AddScoped<IDoctorRepo, DoctorRepo>();
+        services.AddScoped<IServiceRepo, ServiceRepo>();
 
-        // Repos are registered here as the module grows.
         return services;
     }
 }

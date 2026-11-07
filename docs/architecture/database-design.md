@@ -129,6 +129,8 @@ Usage (branches, doctors, employees) is counted on demand through `IClinicApi` /
 
 ## Clinic setup (`clinic`)
 
+Phase 3 decisions: `DoctorTimeOff` applies to the doctor at **all** branches (no branch column); `Doctor` has no `UserId` yet (linking a doctor to a login comes with the doctor portal); `Service.SpecialtyId` is required; only one open (`EffectiveTo IS NULL`) `ServicePrice` per service and branch (filtered unique index) and old rows are kept as price history. `DoctorSchedule` times are local to the branch's time zone; a doctor's windows never overlap across branches (checked on save).
+
 ```mermaid
 erDiagram
   Branch ||--o{ DoctorBranch : hosts
@@ -151,7 +153,6 @@ erDiagram
   }
   Doctor {
     bigint TenantId
-    bigint UserId "→ identity.Users, nullable"
     nvarchar FullNameEn
     nvarchar FullNameAr
     nvarchar Title
@@ -184,7 +185,6 @@ erDiagram
   DoctorTimeOff {
     bigint TenantId
     bigint DoctorId FK
-    bigint BranchId "null = all branches"
     datetimeoffset FromAt
     datetimeoffset ToAt
     nvarchar Reason

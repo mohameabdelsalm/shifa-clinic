@@ -11,6 +11,7 @@
     <ProjectReference Include="..\..\..\Shifa.Core\Shifa.Core.csproj" />
     <ProjectReference Include="..\..\..\Shifa.Infrastructure\Shifa.Infrastructure.csproj" />
     <ProjectReference Include="..\Shifa.Clinic.Contracts\Shifa.Clinic.Contracts.csproj" />
+    <ProjectReference Include="..\..\Tenancy\Shifa.Tenancy.Contracts\Shifa.Tenancy.Contracts.csproj" />
   </ItemGroup>
 
 </Project>
