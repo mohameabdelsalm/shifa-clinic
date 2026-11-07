@@ -231,7 +231,8 @@ namespace Shifa.Tenancy.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("Slug")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("[IsDeleted] = 0");
 
                     b.ToTable("Tenants", "tenancy");
                 });

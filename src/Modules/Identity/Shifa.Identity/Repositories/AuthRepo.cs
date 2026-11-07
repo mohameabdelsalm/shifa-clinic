@@ -135,6 +135,18 @@ public class AuthRepo : IAuthRepo
                 throw InvalidToken();
         }
 
+        // Claim the token atomically in the database: of two concurrent refreshes with the same token,
+        // only one updates the row; the other is treated as reuse.
+        var claimed = await _context.RefreshTokens
+            .Where(t => t.Id == token.Id && t.RevokedAt == null)
+            .ExecuteUpdateAsync(s => s.SetProperty(t => t.RevokedAt, now), cancellationToken);
+        if (claimed == 0)
+        {
+            await RevokeFamilyAsync(token.FamilyId, now, cancellationToken);
+            await _audit.LogAsync("Auth.RefreshReuseDetected", "RefreshToken", token.Id, userId: token.UserId, cancellationToken: cancellationToken);
+            throw InvalidToken();
+        }
+
         token.RevokedAt = now;
         var dto = CreateTokens(user, token.TenantId, token.MembershipId, token.FamilyId, out var replacement);
         token.ReplacedById = replacement.Id;

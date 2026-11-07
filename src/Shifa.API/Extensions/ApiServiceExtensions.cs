@@ -118,8 +118,9 @@ public static class ApiServiceExtensions
     /// </summary>
     public static WebApplication MapShifaHealthChecks(this WebApplication app)
     {
-        app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => false });
-        app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = check => check.Tags.Contains("ready") });
+        // Public on purpose (load balancers and orchestrators call them); they return no data.
+        app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => false }).AllowAnonymous();
+        app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = check => check.Tags.Contains("ready") }).AllowAnonymous();
         return app;
     }
 }
