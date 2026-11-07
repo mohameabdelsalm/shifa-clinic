@@ -8,6 +8,7 @@ using Core.Entities.Clinic;
 using Core.Enums.Common;
 using Core.Interfaces.Clinic;
 using Core.Interfaces.Common;
+using Core.Interfaces.Identity;
 using Core.Interfaces.Tenancy;
 using Core.Models.Clinic;
 using Core.Pagination;
@@ -34,17 +35,19 @@ public class DoctorRepo : IDoctorRepo
     private readonly ITenantContext _tenantContext;
     private readonly IAccessContext _access;
     private readonly ITenancyApi _tenancy;
+    private readonly IIdentityApi _identity;
     private readonly IAuditService _audit;
     private readonly IStringLocalizer<LanguageResource> _localizer;
 
     public DoctorRepo(ClinicDbContext context, IMapper mapper, ITenantContext tenantContext, IAccessContext access, ITenancyApi tenancy,
-        IAuditService audit, IStringLocalizer<LanguageResource> localizer)
+        IIdentityApi identity, IAuditService audit, IStringLocalizer<LanguageResource> localizer)
     {
         _context = context;
         _mapper = mapper;
         _tenantContext = tenantContext;
         _access = access;
         _tenancy = tenancy;
+        _identity = identity;
         _audit = audit;
         _localizer = localizer;
     }
@@ -299,6 +302,35 @@ public class DoctorRepo : IDoctorRepo
             dto.TimeOffs = _mapper.Map<List<DoctorTimeOffDto>>(timeOffs.Where(t => t.DoctorId == d.Id));
             return dto;
         }).ToList();
+    }
+
+    public async Task<Response> LinkAccount(LinkDoctorAccountModel model, CancellationToken cancellationToken)
+    {
+        var doctor = await Visible(_context.Doctors).FirstOrDefaultAsync(d => d.Id == model.DoctorId, cancellationToken) ?? throw NotFound();
+        await EnsureOnlyInScopeAsync(doctor.Id, cancellationToken);
+
+        if (model.MembershipId is long membershipId)
+        {
+            if (!await _identity.IsActiveMembershipAsync(membershipId, cancellationToken))
+                throw new BusinessException(_localizer["StaffNotFound"].Value, HttpStatusCode.BadRequest);
+            if (await _context.Doctors.AnyAsync(d => d.Id != doctor.Id && d.MembershipId == membershipId, cancellationToken))
+                throw new BusinessException(_localizer["DoctorAccountInUse"].Value, HttpStatusCode.BadRequest);
+        }
+
+        doctor.MembershipId = model.MembershipId;
+        try
+        {
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException ex) when (ex is not DbUpdateConcurrencyException
+                                           && ex.InnerException?.Message.Contains("IX_Doctors_TenantId_MembershipId", StringComparison.Ordinal) == true)
+        {
+            throw new BusinessException(_localizer["DoctorAccountInUse"].Value, HttpStatusCode.BadRequest);
+        }
+
+        await _audit.LogAsync("Doctors.AccountLinked", "Doctor", doctor.Id, detail: model.MembershipId?.ToString() ?? "unlinked",
+            cancellationToken: cancellationToken);
+        return new Response(_localizer["Updated"].Value, HttpStatusCode.OK);
     }
 
     private BusinessException NotFound() => new(_localizer["DoctorNotFound"].Value, HttpStatusCode.NotFound);

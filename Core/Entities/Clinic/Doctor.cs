@@ -9,4 +9,7 @@ public class Doctor : TenantOwnedEntity
     public string FullNameAr { get; set; } = "";
     public string? Title { get; set; }
     public StatusEnum Status { get; set; } = StatusEnum.Active;
+
+    /// <summary>The staff account (Identity membership) of this doctor; needed to open and write visits (ADR-010).</summary>
+    public long? MembershipId { get; set; }
 }

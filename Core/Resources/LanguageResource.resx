@@ -93,4 +93,17 @@
   <data name="ConcurrentChange" xml:space="preserve"><value>Someone else changed this record at the same time. Please reload and try again.</value></data>
   <data name="InvalidDateRange" xml:space="preserve"><value>The date range is not valid (at most 62 days).</value></data>
   <data name="TooManyRequests" xml:space="preserve"><value>Too many requests. Please try again later.</value></data>
+  <data name="VisitNotFound" xml:space="preserve"><value>The visit was not found.</value></data>
+  <data name="VisitCompleted" xml:space="preserve"><value>This visit is completed and can't be changed. Add an addendum instead.</value></data>
+  <data name="VisitStillOpen" xml:space="preserve"><value>The visit is still open; change it directly instead of adding an addendum.</value></data>
+  <data name="NotTheVisitDoctor" xml:space="preserve"><value>Only the appointment's doctor can open or change this visit.</value></data>
+  <data name="AppointmentNotReadyForVisit" xml:space="preserve"><value>A visit can be opened only after the patient has checked in.</value></data>
+  <data name="AttachmentNotFound" xml:space="preserve"><value>The attachment was not found.</value></data>
+  <data name="InvalidFile" xml:space="preserve"><value>Only PDF, JPEG or PNG files up to 10 MB are allowed.</value></data>
+  <data name="AllergyNotFound" xml:space="preserve"><value>The allergy was not found.</value></data>
+  <data name="ConditionNotFound" xml:space="preserve"><value>The condition was not found.</value></data>
+  <data name="DoctorAccountInUse" xml:space="preserve"><value>This staff account is already linked to another doctor.</value></data>
+  <data name="InvalidIcd10" xml:space="preserve"><value>Enter a valid ICD-10 code (e.g. J06.9).</value></data>
+  <data name="OnePrimaryDiagnosis" xml:space="preserve"><value>Only one diagnosis can be primary.</value></data>
+  <data name="VitalsRequired" xml:space="preserve"><value>Enter at least one measurement, within normal human ranges.</value></data>
 </root>

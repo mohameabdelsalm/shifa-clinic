@@ -20,6 +20,9 @@ public interface IClinicApi
     /// <summary>The IANA time zone of an existing branch (active or not), or null.</summary>
     Task<string?> GetBranchTimeZoneAsync(long branchId, CancellationToken cancellationToken = default);
 
+    /// <summary>The doctor linked to this staff membership (null when the member isn't a doctor).</summary>
+    Task<long?> GetDoctorIdForMembershipAsync(long membershipId, CancellationToken cancellationToken = default);
+
     /// <summary>The doctor's time off overlapping [fromUtc, toUtc).</summary>
     Task<IReadOnlyList<TimeRange>> GetDoctorTimeOffAsync(long doctorId, DateTimeOffset fromUtc, DateTimeOffset toUtc, CancellationToken cancellationToken = default);
 }

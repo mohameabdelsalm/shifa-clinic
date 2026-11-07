@@ -38,6 +38,11 @@ public class DoctorController : ControllerBase
     [Permission(Permissions.DoctorsManage)]
     public async Task<Response> ChangeStatus(long id, StatusEnum status, CancellationToken ct) => await _repo.ChangeStatus(id, status, ct);
 
+    /// <summary>Links the doctor to a staff account (or removes the link), so that account can open and write visits.</summary>
+    [HttpPut("account")]
+    [Permission(Permissions.DoctorsManage)]
+    public async Task<Response> LinkAccount(LinkDoctorAccountModel model, CancellationToken ct) => await _repo.LinkAccount(model, ct);
+
     [HttpPut("schedule")]
     [Permission(Permissions.DoctorsManage)]
     public async Task<Response> SetSchedule(SetDoctorScheduleModel model, CancellationToken ct) => await _repo.SetSchedule(model, ct);

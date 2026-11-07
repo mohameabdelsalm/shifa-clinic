@@ -88,6 +88,13 @@ One class per file. Namespaces follow folders without a `Shifa.` prefix: `Core.E
 - Status changes go through `Appointment.MoveTo` and write an `AppointmentStatusHistory` row and an audit entry. Cancel and no-show release the ticks in the same save. Any change that must not race (reschedule) must UPDATE the appointment row so its `rowversion` is checked. Staff appointment endpoints follow branch scope (outside it = 404).
 - The portal gets `PortalAppointmentDto`, never the staff `AppointmentDto`.
 
+## Clinical rules (ADR-010)
+
+- Only the appointment's doctor (the `Doctor` linked to the signed-in membership via `Doctor.MembershipId`) opens, writes and completes a visit; vital signs may be recorded by any `Clinical.Vitals` holder in the visit's branch.
+- A completed visit never changes. Corrections are `ClinicalAddendum` rows. Every content write also updates the visit row (`SaveVisitChangeAsync`) so a write racing "complete" fails on the rowversion.
+- Visit data follows branch scope (outside = 404). Allergies and conditions are tenant-wide for `Clinical.Read`. Every read of clinical content writes an audit row.
+- Files go through `IFileStorage` with server-built paths `tenants/{tenantId}/...`; check type, size and file signature.
+
 ## Patient portal rules (ADR-007)
 
 - Portal endpoints (`api/portal/...`) use `[PortalUser]`; the phone number comes from `IAccessContext.PortalPhoneNumber` (the token), never from the request.

@@ -484,3 +484,6 @@ $RECYCLE.BIN/
 # Local environment
 .env
 *.local.json
+
+# Local file storage (attachments) in development
+App_Data/

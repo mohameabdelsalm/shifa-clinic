@@ -1,5 +1,6 @@
 using Core;
 using Core.Interfaces.Clinic;
+using Core.Interfaces.Clinical;
 using Core.Interfaces.Identity;
 using Core.Interfaces.Patients;
 using Core.Interfaces.Scheduling;
@@ -10,6 +11,7 @@ using FluentValidation;
 using Infrastructure;
 using Infrastructure.Data;
 using Infrastructure.Repositories.Clinic;
+using Infrastructure.Repositories.Clinical;
 using Infrastructure.Repositories.Identity;
 using Infrastructure.Repositories.Patients;
 using Infrastructure.Repositories.Scheduling;
@@ -35,6 +37,7 @@ builder.Services.AddModuleDbContext<IdentityDbContext>(IdentityDbContext.SchemaN
 builder.Services.AddModuleDbContext<ClinicDbContext>(ClinicDbContext.SchemaName);
 builder.Services.AddModuleDbContext<PatientsDbContext>(PatientsDbContext.SchemaName);
 builder.Services.AddModuleDbContext<SchedulingDbContext>(SchedulingDbContext.SchemaName);
+builder.Services.AddModuleDbContext<ClinicalDbContext>(ClinicalDbContext.SchemaName);
 
 // AutoMapper profiles and FluentValidation validators live in Core.
 builder.Services.AddAutoMapper(typeof(LanguageResource).Assembly);
@@ -72,6 +75,12 @@ builder.Services.AddScoped<BookingService>();
 builder.Services.AddScoped<AppointmentRepo>();
 builder.Services.AddScoped<IAppointmentRepo>(sp => sp.GetRequiredService<AppointmentRepo>());
 builder.Services.AddScoped<IPortalAppointmentRepo, PortalAppointmentRepo>();
+builder.Services.AddScoped<ISchedulingApi, SchedulingApi>();
+
+// Clinical
+builder.Services.AddScoped<IVisitRepo, VisitRepo>();
+builder.Services.AddScoped<IPatientClinicalRepo, PatientClinicalRepo>();
+builder.Services.AddScoped<IPortalPrescriptionRepo, PortalPrescriptionRepo>();
 
 var app = builder.Build();
 

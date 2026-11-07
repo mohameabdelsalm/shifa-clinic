@@ -13,11 +13,42 @@ _Last updated: 2026-11-07_
 | 4 — Patients | ✅ Done |
 | 5 — Scheduling | ✅ Done, reviewed (opus / high) and fixed |
 | HRM layout | ✅ Restructured like Trio HRM (ADR-009) |
-| 6–10 | Not started (see `implementation-roadmap.md`) |
+| 6 — Clinical / EMR | ✅ Implemented (ADR-010); review (opus / high) pending |
+| 7–10 | Not started (see `implementation-roadmap.md`) |
 
 ## Current phase
 
-**Phase 5 review done.** The solution has HRM's shape (ADR-009). Next: Phase 6 per `implementation-roadmap.md`.
+**Phase 6 implemented.** Next: the Phase 6 review on **opus / high** (immutability, access rules, audit, attachments), then Phase 7 (Billing, opus / high design first).
+
+## Done in Phase 6 (2026-11-07)
+
+Decisions by the product owner: clinical history follows branch scope (allergies/conditions tenant-wide); doctors **and nurses** record vitals (new permission `Clinical.Vitals`); attachments now, on local disk. Details in ADR-010.
+
+- **Clinic:** `Doctor.MembershipId` links a doctor to a staff account (`PUT api/doctors/account`, unique per tenant). `IClinicApi.GetDoctorIdForMembershipAsync`, `IIdentityApi.IsActiveMembershipAsync`.
+- **Scheduling:** `ISchedulingApi` (`GetAppointmentForVisitAsync`, `StartVisitAsync` CheckedIn → InProgress, `CompleteVisitAsync` InProgress → Completed).
+- **Clinical module** (`clinical` schema, 10 tables): `Visit` (rowversion, one per appointment), `ClinicalNote`, `VitalSign`, `Diagnosis` (ICD-10 format, one primary), `Prescription` + `PrescriptionItem`, `VisitAttachment`, `ClinicalAddendum`, `PatientAllergy`, `PatientCondition`.
+- **`api/visits`:** open, search, view (audited), note, vitals, diagnoses, prescription, attachments (upload PDF/JPEG/PNG ≤ 10 MB with signature check; download audited), complete, addenda.
+- **`api/patient-clinical`:** clinical summary (audited), allergies and conditions add/remove. **`api/portal/prescriptions`:** completed visits' prescriptions for linked patients.
+- **Infrastructure:** `IFileStorage` + `LocalFileStorage` (`FileStorage:RootPath`, default `App_Data/files`, ignored by git).
+- Migrations `Clinic/AddDoctorMembership` and `Clinical/InitialCreate`, applied to `Shifa`.
+
+Verification (no automated tests, ADR-009): build clean; `has-pending-model-changes` = none. **End-to-end smoke run over HTTP, 46/46 checks passed**, against a separate database `Shifa_Smoke` (created for this; the dev database was not touched by the run). The run covered:
+- linking the doctor to a staff account; booking and check-in;
+- refusing a visit before check-in, and refusing an unlinked doctor (403);
+- opening a visit, and that opening again returns the same visit; appointment InProgress → Completed;
+- a nurse-role user recording vitals while another doctor can't write the note;
+- refusing implausible vitals, an invalid ICD-10 code and two primary diagnoses;
+- a PDF upload, and refusing a renamed binary; downloading the file;
+- after completion, note, vitals and attachments refused, and an addendum accepted;
+- allergies, conditions and the patient summary;
+- portal prescriptions, and the portal refused on staff visit endpoints;
+- an audit row for every clinical read and write.
+The script is in the session scratchpad, not the repo.
+
+Left open:
+- Existing tenants' Doctor/Nurse roles don't get `Clinical.Vitals` automatically.
+- No size quota per tenant for attachments.
+- The `Shifa_Smoke` database can be dropped any time; ask before doing it.
 
 ## Phase 5 review (2026-11-07, opus / high)
 

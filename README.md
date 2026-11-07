@@ -13,7 +13,7 @@ Built as a **multi-tenant monolith** on ASP.NET Core .NET 10 and SQL Server, org
 | [project/assumptions.md](project/assumptions.md) | Business defaults and items needing legal review |
 | [docs/vision.md](docs/vision.md) | Product, users, scope, business rules |
 | [docs/architecture/](docs/architecture/) | System, module boundaries, tenancy, database (ERD), security |
-| [docs/decisions/](docs/decisions/) | ADR-001..009 |
+| [docs/decisions/](docs/decisions/) | ADR-001..010 |
 | [CLAUDE.md](CLAUDE.md) | Rules and conventions for developers and Claude Code |
 
 ## Running locally
@@ -35,6 +35,7 @@ dotnet ef database update -p Infrastructure -s Shifa -c IdentityDbContext
 dotnet ef database update -p Infrastructure -s Shifa -c ClinicDbContext
 dotnet ef database update -p Infrastructure -s Shifa -c PatientsDbContext
 dotnet ef database update -p Infrastructure -s Shifa -c SchedulingDbContext
+dotnet ef database update -p Infrastructure -s Shifa -c ClinicalDbContext
 ```
 
 Create the first Platform Admin (an explicit command; the password comes from user-secrets, never from a file in the repo):
@@ -58,4 +59,4 @@ Infrastructure/   Data (DbContexts), Configurations, Migrations, Repositories, S
 Shifa/            the API: Program.cs, Controllers, Middleware, Extensions
 ```
 
-Modules: Tenancy, Identity, Clinic, Patients, Scheduling. Tests are paused for now (see `project/progress.md`).
+Modules: Tenancy, Identity, Clinic, Patients, Scheduling, Clinical. Tests are paused for now (see `project/progress.md`).
