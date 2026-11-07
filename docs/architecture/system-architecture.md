@@ -1,5 +1,7 @@
 # System architecture
 
+> **Layout update (ADR-009):** projects are now `Core/`, `Infrastructure/` and `Shifa/` at the repository root, like Trio HRM. Module rules below still apply, but are checked in review instead of by separate projects.
+
 Shifa is a multi-tenant clinic management SaaS: one platform, many customer organizations (tenants), each with its own branches, staff, patients and records. Business context: [../vision.md](../vision.md). Decisions: [../decisions/](../decisions/).
 
 ## Context

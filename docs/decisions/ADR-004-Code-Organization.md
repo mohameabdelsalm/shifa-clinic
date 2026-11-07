@@ -1,6 +1,6 @@
 # ADR-004 — Layered modules with the Trio HRM conventions
 
-- **Status:** Accepted
+- **Status:** Accepted — project layout superseded by ADR-009 (HRM layout)
 - **Date:** 2026-11-07
 - **Decided by:** product owner, 2026-11-07
 

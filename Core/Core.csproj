@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Same role as Core in Trio HRM: Entities, DTO, Models, Enums, Interfaces, Profiles (AutoMapper),
+       Validations, Common, Pagination and Resources, each split by module (Clinic, Identity, Patients, Scheduling, Tenancy). -->
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="AutoMapper" />
+    <PackageReference Include="FluentValidation" />
+  </ItemGroup>
+
+</Project>

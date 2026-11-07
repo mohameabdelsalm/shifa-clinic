@@ -1,0 +1,215 @@
+using System.Net;
+using AutoMapper;
+using AutoMapper.QueryableExtensions;
+using Core;
+using Core.Common;
+using Core.DTO.Scheduling;
+using Core.Entities.Scheduling;
+using Core.Enums.Scheduling;
+using Core.Interfaces.Common;
+using Core.Interfaces.Patients;
+using Core.Interfaces.Scheduling;
+using Core.Models.Scheduling;
+using Infrastructure.Data;
+using Infrastructure.Services.Scheduling;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
+
+namespace Infrastructure.Repositories.Scheduling;
+
+/// <summary>
+/// Appointments for staff. Every appointment belongs to a branch, so branch scope applies to every read and change;
+/// an appointment outside the caller's branches is "not found". Booking and rescheduling go through <see cref="BookingService"/>.
+/// </summary>
+public class AppointmentRepo : IAppointmentRepo
+{
+    private readonly SchedulingDbContext _context;
+    private readonly IMapper _mapper;
+    private readonly BookingService _booking;
+    private readonly IPatientsApi _patients;
+    private readonly IAccessContext _access;
+    private readonly IAuditService _audit;
+    private readonly TimeProvider _time;
+    private readonly IStringLocalizer<LanguageResource> _localizer;
+
+    public AppointmentRepo(SchedulingDbContext context, IMapper mapper, BookingService booking, IPatientsApi patients, IAccessContext access,
+        IAuditService audit, TimeProvider time, IStringLocalizer<LanguageResource> localizer)
+    {
+        _context = context;
+        _mapper = mapper;
+        _booking = booking;
+        _patients = patients;
+        _access = access;
+        _audit = audit;
+        _time = time;
+        _localizer = localizer;
+    }
+
+    public async Task<Response> GetAvailability(AvailabilityModel model, CancellationToken cancellationToken)
+    {
+        EnsureBranchInScope(model.BranchId);
+        var slots = await _booking.GetAvailabilityAsync(model.BranchId, model.DoctorId, model.ServiceId, model.Date, cancellationToken);
+        return new Response(_localizer["Retrieved"].Value, HttpStatusCode.OK, data: _mapper.Map<List<AvailableSlotDto>>(slots));
+    }
+
+    public async Task<Response> Book(BookAppointmentModel model, string? idempotencyKey, CancellationToken cancellationToken)
+    {
+        EnsureBranchInScope(model.BranchId);
+        if (!await _patients.PatientExistsAsync(model.PatientId, cancellationToken))
+            throw new BusinessException(_localizer["PatientNotFound"].Value, HttpStatusCode.BadRequest);
+
+        var id = await _booking.BookAsync(
+            new BookingRequest(model.PatientId, model.BranchId, model.DoctorId, model.ServiceId, model.StartAt, model.Source),
+            idempotencyKey, cancellationToken);
+
+        await _audit.LogAsync("Appointments.Booked", "Appointment", id, cancellationToken: cancellationToken);
+        return new Response(_localizer["Created"].Value, HttpStatusCode.OK, data: id);
+    }
+
+    public async Task<Response> Search(SearchAppointmentsModel model, CancellationToken cancellationToken)
+    {
+        var query = InScope(_context.Appointments.AsNoTracking())
+            .Where(a => a.LocalDate >= model.FromDate && a.LocalDate <= model.ToDate);
+        if (model.BranchId is not null)
+            query = query.Where(a => a.BranchId == model.BranchId);
+        if (model.DoctorId is not null)
+            query = query.Where(a => a.DoctorId == model.DoctorId);
+        if (model.PatientId is not null)
+            query = query.Where(a => a.PatientId == model.PatientId);
+        if (model.Status is not null)
+            query = query.Where(a => a.Status == model.Status);
+
+        var paged = await query.OrderBy(a => a.StartAt).ThenBy(a => a.Id).ProjectTo<AppointmentDto>(_mapper.ConfigurationProvider).ToPagedListAsync(model, cancellationToken);
+        return new Response(_localizer["Retrieved"].Value, HttpStatusCode.OK, data: paged);
+    }
+
+    public async Task<Response> View(long id, CancellationToken cancellationToken)
+    {
+        var appointment = await InScope(_context.Appointments.AsNoTracking()).Where(a => a.Id == id).ProjectTo<AppointmentDto>(_mapper.ConfigurationProvider).FirstOrDefaultAsync(cancellationToken)
+            ?? throw NotFound();
+        return new Response(_localizer["Retrieved"].Value, HttpStatusCode.OK, data: appointment);
+    }
+
+    public async Task<Response> Confirm(long id, CancellationToken cancellationToken)
+    {
+        var appointment = await LoadAsync(id, cancellationToken);
+        return await TransitionAsync(appointment, AppointmentStatusEnum.Confirmed, reason: null, cancellationToken);
+    }
+
+    public async Task<Response> CheckIn(long id, CancellationToken cancellationToken)
+    {
+        var appointment = await LoadAsync(id, cancellationToken);
+        if (appointment.Status == AppointmentStatusEnum.CheckedIn)
+            return Ok();
+
+        var now = _time.GetUtcNow();
+        var timeZone = await _booking.GetBranchTimeZoneAsync(appointment.BranchId, cancellationToken);
+        if (now < appointment.StartAt - SchedulingRules.CheckInOpensBefore || AvailabilityCalculator.LocalDateOf(now, timeZone) != appointment.LocalDate)
+            throw new BusinessException(_localizer["CheckInNotAllowedNow"].Value, HttpStatusCode.BadRequest);
+
+        var from = appointment.Status;
+        if (appointment.MoveTo(AppointmentStatusEnum.CheckedIn) == TransitionResult.NotAllowed)
+            throw InvalidTransition();
+
+        appointment.CheckedInAt = now;
+        _context.AppointmentStatusHistory.Add(new AppointmentStatusHistory { AppointmentId = appointment.Id, FromStatus = from, ToStatus = appointment.Status });
+
+        // Queue number per branch, doctor and local day: max + 1. Check-ins of the same queue take their number one at a
+        // time (ids are unique across tenants, so the lock name needs no tenant); the unique index is the final guard.
+        await using (var transaction = await _context.Database.BeginTransactionAsync(cancellationToken))
+        {
+            await _context.Database.AcquireAsync(
+                $"scheduling:queue:{appointment.BranchId}:{appointment.DoctorId}:{appointment.LocalDate:yyyyMMdd}", cancellationToken);
+            appointment.QueueNumber = (await _context.Appointments
+                .Where(a => a.BranchId == appointment.BranchId && a.DoctorId == appointment.DoctorId && a.LocalDate == appointment.LocalDate)
+                .MaxAsync(a => a.QueueNumber, cancellationToken) ?? 0) + 1;
+            await _context.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
+
+        await _audit.LogAsync("Appointments.CheckedIn", "Appointment", appointment.Id, cancellationToken: cancellationToken);
+        return new Response(_localizer["Updated"].Value, HttpStatusCode.OK, data: appointment.QueueNumber);
+    }
+
+    public async Task<Response> Cancel(long id, CancelAppointmentModel model, CancellationToken cancellationToken)
+    {
+        var appointment = await LoadAsync(id, cancellationToken);
+        return await CancelAsync(appointment, model.Reason, cancellationToken);
+    }
+
+    public async Task<Response> MarkNoShow(long id, CancellationToken cancellationToken)
+    {
+        var appointment = await LoadAsync(id, cancellationToken);
+        if (appointment.Status != AppointmentStatusEnum.NoShow && _time.GetUtcNow() < appointment.StartAt + SchedulingRules.NoShowAfter)
+            throw new BusinessException(_localizer["NoShowTooEarly"].Value, HttpStatusCode.BadRequest);
+
+        return await TransitionAsync(appointment, AppointmentStatusEnum.NoShow, reason: null, cancellationToken);
+    }
+
+    public async Task<Response> Reschedule(RescheduleAppointmentModel model, CancellationToken cancellationToken)
+    {
+        var appointment = await LoadAsync(model.Id, cancellationToken);
+        await _booking.RescheduleAsync(appointment, model.StartAt, cancellationToken);
+        await _audit.LogAsync("Appointments.Rescheduled", "Appointment", appointment.Id, cancellationToken: cancellationToken);
+        return Ok();
+    }
+
+    /// <summary>Shared with the portal: cancelling releases the appointment's ticks in the same save.</summary>
+    internal async Task<Response> CancelAsync(Appointment appointment, string? reason, CancellationToken cancellationToken)
+    {
+        var from = appointment.Status;
+        var result = appointment.MoveTo(AppointmentStatusEnum.Cancelled);
+        if (result == TransitionResult.NotAllowed)
+            throw InvalidTransition();
+        if (result == TransitionResult.Unchanged)
+            return Ok();
+
+        appointment.CancelledAt = _time.GetUtcNow();
+        appointment.CancelReason = reason?.Trim();
+        _context.AppointmentSlots.RemoveRange(await _context.AppointmentSlots.Where(s => s.AppointmentId == appointment.Id).ToListAsync(cancellationToken));
+        _context.AppointmentStatusHistory.Add(new AppointmentStatusHistory { AppointmentId = appointment.Id, FromStatus = from, ToStatus = appointment.Status, Reason = reason });
+
+        await _context.SaveChangesAsync(cancellationToken);
+        await _audit.LogAsync("Appointments.Cancelled", "Appointment", appointment.Id, cancellationToken: cancellationToken);
+        return Ok();
+    }
+
+    private async Task<Response> TransitionAsync(Appointment appointment, AppointmentStatusEnum target, string? reason, CancellationToken cancellationToken)
+    {
+        var from = appointment.Status;
+        var result = appointment.MoveTo(target);
+        if (result == TransitionResult.NotAllowed)
+            throw InvalidTransition();
+        if (result == TransitionResult.Unchanged)
+            return Ok();
+
+        _context.AppointmentStatusHistory.Add(new AppointmentStatusHistory { AppointmentId = appointment.Id, FromStatus = from, ToStatus = target, Reason = reason });
+        await _context.SaveChangesAsync(cancellationToken);
+        await _audit.LogAsync($"Appointments.{target}", "Appointment", appointment.Id, cancellationToken: cancellationToken);
+        return Ok();
+    }
+
+    private async Task<Appointment> LoadAsync(long id, CancellationToken cancellationToken) =>
+        await InScope(_context.Appointments).FirstOrDefaultAsync(a => a.Id == id, cancellationToken) ?? throw NotFound();
+
+    private IQueryable<Appointment> InScope(IQueryable<Appointment> appointments)
+    {
+        if (_access.HasAllBranches)
+            return appointments;
+
+        var scope = _access.BranchIds.ToList();
+        return appointments.Where(a => scope.Contains(a.BranchId));
+    }
+
+    private void EnsureBranchInScope(long branchId)
+    {
+        if (!_access.CanAccessBranch(branchId))
+            throw new BusinessException(_localizer["BranchNotFound"].Value, HttpStatusCode.NotFound);
+    }
+
+    private Response Ok() => new(_localizer["Updated"].Value, HttpStatusCode.OK);
+
+    private BusinessException InvalidTransition() => new(_localizer["InvalidTransition"].Value, HttpStatusCode.BadRequest);
+
+    private BusinessException NotFound() => new(_localizer["AppointmentNotFound"].Value, HttpStatusCode.NotFound);
+}

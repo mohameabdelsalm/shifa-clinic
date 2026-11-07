@@ -12,11 +12,22 @@ _Last updated: 2026-11-07_
 | 3 — Clinic setup | ✅ Done |
 | 4 — Patients | ✅ Done |
 | 5 — Scheduling | ✅ Implemented (ADR-008); review (step 8, opus / high) pending |
+| HRM layout | ✅ Restructured like Trio HRM (ADR-009) |
 | 6–10 | Not started (see `implementation-roadmap.md`) |
 
 ## Current phase
 
-**Phase 5 — Scheduling & Booking**: implementation done and tested; next is the step 8 review on **opus / high** (concurrency, idempotency, branch scope, portal rules), then Phase 6.
+**Restructure done (ADR-009):** the solution now has HRM's shape — `Core/`, `Infrastructure/`, `Shifa/` (API) at the repository root, one class per file, AutoMapper profiles in `Core/Profiles/<Module>`. Next: the Phase 5 step 8 review on **opus / high**, then Phase 6.
+
+## HRM layout restructure (2026-11-07)
+
+- 16 projects → 3 (`Core`, `Infrastructure`, `Shifa`); 323 types moved to one file each by a Roslyn script; namespaces follow folders without a `Shifa.` prefix.
+- All DI registrations in `Shifa/Program.cs` (like HRM); the per-module `XxxModule.cs` files are gone.
+- AutoMapper 14.0.0 (MIT) with profiles per feature (Branch, Specialty, Doctor, Service, Patient, Appointment, Plan, Tenant). Repos use `_mapper.Map<Entity>(model)`, `_mapper.Map(model, entity)` and `ProjectTo<Dto>`. DTOs built from several tables (Role, Staff, Plan, Tenant lists, portal patients) stay as LINQ projections, because the entities have no navigation properties.
+- Bug avoided: with all DbContexts in one assembly, `ApplyConfigurationsFromAssembly` loaded every module's entities into every context. Each context now applies only `Infrastructure.Configurations.<Module>`. Then `has-pending-model-changes` = no changes for all 5 contexts (database untouched).
+- Verification before removing tests: build clean, all 93 integration tests passed on the new layout (twice, before and after removing unused usings).
+- Tests removed at the developer's request (to be added back after the project is finished). The full suite is in git at commit `db02aa4` (`tests/`).
+- `AvailableSlot` moved to `Core/DTO/Scheduling` (needed by the AutoMapper profile). Scheduling `Events` records removed (unused until the outbox).
 
 ## Phase 2 security review (2026-11-07, opus / high)
 

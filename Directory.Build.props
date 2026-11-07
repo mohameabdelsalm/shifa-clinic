@@ -7,4 +7,10 @@
     <LangVersion>latest</LangVersion>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
+  <ItemGroup>
+    <!-- AutoMapper <= 14 (MIT): stack overflow when mapping deeply nested self-referencing objects.
+         Shifa maps flat models/DTOs only (no self-referencing graphs), so the risk doesn't apply.
+         Review again before mapping any recursive type, or move to a patched version. -->
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-rvv3-g6hj-g44x" />
+  </ItemGroup>
 </Project>

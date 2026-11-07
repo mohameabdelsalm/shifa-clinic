@@ -1,6 +1,6 @@
 # ADR-001 — Multi-tenant modular monolith
 
-- **Status:** Accepted (supersedes the single-tenant plan of 2026-11-05)
+- **Status:** Accepted — project layout superseded by ADR-009 (HRM layout) (supersedes the single-tenant plan of 2026-11-05)
 - **Date:** 2026-11-07
 
 ## Context
