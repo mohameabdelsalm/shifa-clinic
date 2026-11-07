@@ -158,6 +158,7 @@ erDiagram
     nvarchar FullNameAr
     nvarchar Title
     nvarchar Status
+    bigint MembershipId "staff account, unique per tenant (ADR-010)"
   }
   Specialty {
     bigint TenantId
@@ -344,6 +345,9 @@ erDiagram
     int HeartRate
     decimal TemperatureC
     decimal WeightKg
+    decimal HeightCm
+    int OxygenSaturation
+    bigint RecordedByUserId
   }
   Diagnosis {
     bigint TenantId

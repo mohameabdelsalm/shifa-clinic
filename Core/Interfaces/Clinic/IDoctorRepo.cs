@@ -14,4 +14,5 @@ public interface IDoctorRepo
     Task<Response> SetSchedule(SetDoctorScheduleModel model, CancellationToken cancellationToken);
     Task<Response> AddTimeOff(AddTimeOffModel model, CancellationToken cancellationToken);
     Task<Response> DeleteTimeOff(long id, CancellationToken cancellationToken);
+    Task<Response> LinkAccount(LinkDoctorAccountModel model, CancellationToken cancellationToken);
 }

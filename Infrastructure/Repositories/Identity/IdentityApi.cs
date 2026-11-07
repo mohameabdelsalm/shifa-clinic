@@ -75,6 +75,9 @@ public sealed class IdentityApi : IIdentityApi
         return isActive;
     }
 
+    public Task<bool> IsActiveMembershipAsync(long membershipId, CancellationToken cancellationToken = default) =>
+        _context.Memberships.AnyAsync(m => m.Id == membershipId && m.Status == MembershipStatusEnum.Active, cancellationToken);
+
     public async Task<bool> IsActivePlatformAdminAsync(long userId, CancellationToken cancellationToken = default)
     {
         var cached = _cache.GetPlatformAdmin(userId);

@@ -10,6 +10,9 @@ public interface IIdentityApi
     /// <summary>True when the user exists and is active (portal sessions have no membership to check); cached briefly.</summary>
     Task<bool> IsActiveUserAsync(long userId, CancellationToken cancellationToken = default);
 
+    /// <summary>True when the membership exists in the current tenant and is active.</summary>
+    Task<bool> IsActiveMembershipAsync(long membershipId, CancellationToken cancellationToken = default);
+
     /// <summary>True when the user exists, is active and is a Platform Admin; cached briefly.</summary>
     Task<bool> IsActivePlatformAdminAsync(long userId, CancellationToken cancellationToken = default);
 

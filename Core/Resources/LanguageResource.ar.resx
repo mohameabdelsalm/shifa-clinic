@@ -93,4 +93,17 @@
   <data name="ConcurrentChange" xml:space="preserve"><value>قام شخص آخر بتعديل نفس البيانات في نفس الوقت. من فضلك أعد التحميل وحاول مرة أخرى.</value></data>
   <data name="InvalidDateRange" xml:space="preserve"><value>فترة التاريخ غير صحيحة (بحد أقصى 62 يومًا).</value></data>
   <data name="TooManyRequests" xml:space="preserve"><value>طلبات كثيرة. من فضلك حاول لاحقًا.</value></data>
+  <data name="VisitNotFound" xml:space="preserve"><value>الزيارة غير موجودة.</value></data>
+  <data name="VisitCompleted" xml:space="preserve"><value>هذه الزيارة مكتملة ولا يمكن تعديلها. أضف ملحقًا بدلًا من ذلك.</value></data>
+  <data name="VisitStillOpen" xml:space="preserve"><value>الزيارة ما زالت مفتوحة؛ عدّلها مباشرة بدلًا من إضافة ملحق.</value></data>
+  <data name="NotTheVisitDoctor" xml:space="preserve"><value>طبيب الموعد فقط يمكنه فتح هذه الزيارة أو تعديلها.</value></data>
+  <data name="AppointmentNotReadyForVisit" xml:space="preserve"><value>لا يمكن فتح الزيارة إلا بعد تسجيل حضور المريض.</value></data>
+  <data name="AttachmentNotFound" xml:space="preserve"><value>المرفق غير موجود.</value></data>
+  <data name="InvalidFile" xml:space="preserve"><value>مسموح فقط بملفات PDF أو JPEG أو PNG حتى 10 ميجابايت.</value></data>
+  <data name="AllergyNotFound" xml:space="preserve"><value>الحساسية غير موجودة.</value></data>
+  <data name="ConditionNotFound" xml:space="preserve"><value>المرض غير موجود.</value></data>
+  <data name="DoctorAccountInUse" xml:space="preserve"><value>حساب الموظف هذا مرتبط بطبيب آخر بالفعل.</value></data>
+  <data name="InvalidIcd10" xml:space="preserve"><value>أدخل كود ICD-10 صحيحًا (مثل J06.9).</value></data>
+  <data name="OnePrimaryDiagnosis" xml:space="preserve"><value>يمكن أن يكون تشخيص واحد فقط أساسيًا.</value></data>
+  <data name="VitalsRequired" xml:space="preserve"><value>أدخل قياسًا واحدًا على الأقل، في حدود القيم الطبيعية للإنسان.</value></data>
 </root>

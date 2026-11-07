@@ -27,6 +27,9 @@ public static class Permissions
     public const string AppointmentsCheckIn = "Appointments.CheckIn";
     public const string ClinicalRead = "Clinical.Read";
     public const string ClinicalWrite = "Clinical.Write";
+
+    /// <summary>Record vital signs on an open visit in one's branches (doctors and nurses, ADR-010).</summary>
+    public const string ClinicalVitals = "Clinical.Vitals";
     public const string BillingRead = "Billing.Read";
     public const string BillingCollect = "Billing.Collect";
     public const string BillingRefund = "Billing.Refund";
@@ -46,10 +49,10 @@ public static class Permissions
         [TenantAdminRole] = All,
         ["BranchManager"] = [StaffRead, BranchesRead, DoctorsRead, ServicesRead, PatientsRead, PatientsCreate, PatientsUpdate,
             AppointmentsRead, AppointmentsCreate, AppointmentsCancel, AppointmentsCheckIn, BillingRead, ReportsRead],
-        ["Doctor"] = [PatientsRead, AppointmentsRead, ClinicalRead, ClinicalWrite],
+        ["Doctor"] = [PatientsRead, AppointmentsRead, ClinicalRead, ClinicalWrite, ClinicalVitals],
         ["Receptionist"] = [PatientsRead, PatientsCreate, PatientsUpdate, AppointmentsRead, AppointmentsCreate,
             AppointmentsCancel, AppointmentsCheckIn, DoctorsRead, ServicesRead],
         ["Cashier"] = [PatientsRead, AppointmentsRead, BillingRead, BillingCollect],
-        ["Nurse"] = [PatientsRead, AppointmentsRead, ClinicalRead],
+        ["Nurse"] = [PatientsRead, AppointmentsRead, ClinicalRead, ClinicalVitals],
     };
 }

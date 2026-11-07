@@ -22,6 +22,7 @@ public static class InfrastructureModule
         services.AddScoped<IAccessContext, AccessContext>();
         services.AddSingleton<ITenantScopeFactory, TenantScopeFactory>();
         services.AddScoped<AuditTenantInterceptor>();
+        services.AddSingleton<IFileStorage, LocalFileStorage>();
 
         // Local fake (ADR-006); a real provider replaces ISmsSender in production.
         services.AddSingleton<InMemorySmsOutbox>();

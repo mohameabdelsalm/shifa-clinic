@@ -7,6 +7,9 @@ public class DoctorDto
     public string FullNameAr { get; set; } = "";
     public string? Title { get; set; }
     public string Status { get; set; } = "";
+
+    /// <summary>The linked staff account, if any.</summary>
+    public long? MembershipId { get; set; }
     public List<long> SpecialtyIds { get; set; } = [];
 
     /// <summary>Only the branches the caller may see.</summary>
