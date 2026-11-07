@@ -11,7 +11,7 @@ _Last updated: 2026-11-07_
 | 2 — Identity, Tenancy, Platform Admin | ✅ Done, security-reviewed (opus / high) and fixed |
 | 3 — Clinic setup | ✅ Done |
 | 4 — Patients | ✅ Done |
-| 5 — Scheduling | ⏳ Next (opus / high design first) |
+| 5 — Scheduling | 🟡 Design done (ADR-008); implementation next |
 | 6–10 | Not started (see `implementation-roadmap.md`) |
 
 ## Current phase
@@ -102,8 +102,6 @@ See git history. Highlights: ADR-001..007, architecture docs, `ModuleDbContext` 
 
 ## Next tasks (Phase 5)
 
-1. **Design first (opus / high):** `Appointment`, `AppointmentSlot` (PK `TenantId, DoctorId, SlotStart`), `AppointmentStatusHistory`, `IdempotencyRecord`; how slots are computed from `DoctorSchedule` + `DoctorTimeOff` + existing bookings in the branch time zone; service duration rounded up to whole slots; reserve all slots in one transaction.
-2. Availability query (cacheable read, never the booking authority), booking with `Idempotency-Key`, cancel (3 h rule), reschedule, check-in + queue number, no-show.
-3. Use `IPatientsApi.GetPortalPatientsAsync` (portal booking only for `CanBook` links) and `IClinicApi` (service duration, price, schedule); add the missing `IClinicApi` methods.
-4. Concurrency tests against SQL Server: two requests for the same slot (one wins), overlapping multi-slot services, retries with the same idempotency key.
-5. Decide the staff-listing branch scope (see Known gaps) and the rule that a branch-limited member only books/sees appointments of their branches.
+Design is fixed in `docs/decisions/ADR-008-Booking-Concurrency.md`; the ordered task list is "Phase 5 detail" in `project/implementation-roadmap.md` (steps 1–8). Implement on **sonnet / medium**; run step 8 (review) on **opus / high**.
+
+Open item to decide during Phase 5: the staff-listing branch scope (see Known gaps), together with "a branch-limited member only books and sees appointments of their branches".
