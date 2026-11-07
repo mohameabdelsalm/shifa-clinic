@@ -1,6 +1,6 @@
 # Shifa — Multi-tenant Clinic Management SaaS
 
-Multi-tenant modular monolith (ASP.NET Core .NET 10, SQL Server, EF Core 10).
+Multi-tenant monolith (ASP.NET Core .NET 10, SQL Server, EF Core 10), laid out exactly like Trio ERP HRM/Auth (ADR-009).
 
 ## Start of every session
 
@@ -11,24 +11,22 @@ Multi-tenant modular monolith (ASP.NET Core .NET 10, SQL Server, EF Core 10).
 ## Working with the developer
 
 - Explain in Arabic with English technical terms inline: business problem first, then the design, then the code flow.
-- Keep the Trio ERP HRM naming and folder conventions (ADR-004). Don't introduce new names for things HRM already names.
+- Copy the Trio ERP HRM/Auth layout and naming exactly (`D:\trio\New folder\Trio-ERP-HRM-API`). Before adding a folder, project or layer HRM doesn't have, propose it to the developer first.
 - At the start of each phase, give the execution header (phase, model alias, effort, reason, complexity). The developer switches models from the app's model picker.
-- Phase done = build green, tests green, docs + `project/progress.md` updated, merged to `develop`.
+- Phase done = build green, docs + `project/progress.md` updated, merged to `develop`. Tests are paused for now (the developer will add them back after the project is finished; the last suite is in git history before ADR-009).
 
-## Solution layout
+## Solution layout (ADR-009, same as HRM)
 
 ```
-src/
-├─ Shifa.API/              Program.cs, Middleware/, Extensions/  (host only)
-├─ Shifa.Core/             Common/, Entities/ (BaseModel, TenantOwnedEntity), Enums/, Interfaces/, LanguageResource
-├─ Shifa.Infrastructure/   Common/ (CurrentUserManager, TenantManager, Validation), Data/, Caching/, Services/
-└─ Modules/<Module>/
-   ├─ Shifa.<Module>/            implementation (HRM folders)
-   └─ Shifa.<Module>.Contracts/  I<Module>Api, Events/
-tests/
-├─ Shifa.ArchitectureTests/
-└─ Shifa.IntegrationTests/        real SQL Server (Shifa_Tests)
+Shifa.slnx
+Core/              Core.csproj — Common, Pagination, Resources (LanguageResource), and per module (Clinic, Identity, Patients, Scheduling, Tenancy):
+                   Entities/<M>, Enums/<M>, DTO/<M>, Models/<M>, Interfaces/<M>, Profiles/<M> (AutoMapper), Validations/<M>
+Infrastructure/    Infrastructure.csproj — Data/ (ModuleDbContext + one DbContext per module), Configurations/<M>, Migrations/<M>,
+                   Repositories/<M>, Services/<M>, Auth/, Common/
+Shifa/             Shifa.csproj (the API, like HRM/) — Program.cs (all DI registrations), Controllers/<M>, Middleware/, Extensions/
 ```
+
+One class per file. Namespaces follow folders without a `Shifa.` prefix: `Core.Entities.Scheduling`, `Infrastructure.Repositories.Patients`, `Shifa.Controllers.Clinic`.
 
 ## Multi-tenancy rules (ADR-002, docs/architecture/tenancy-design.md) — security critical
 
@@ -44,33 +42,28 @@ tests/
 ## Authorization rules (ADR-007)
 
 - Endpoints require `[Permission(Permissions.X)]` (tenant data) or `[PlatformAdmin]` (`api/platform/...`). Anonymous endpoints say `[AllowAnonymous]` explicitly.
-- Permissions live in `Shifa.Core.Common.Permissions`. Adding a feature = add its codes there (and to the default roles).
+- Permissions live in `Core.Common.Permissions`. Adding a feature = add its codes there (and to the default roles).
 - Rate-limit new anonymous or SMS/OTP-sending endpoints with `[EnableRateLimiting("auth")]`.
 - A repo that hands out roles, permissions or branches must check the caller holds them (`IAccessContext`) — see `StaffRepo`/`RoleRepo`.
 - Write an audit row (`IAuditService`) for security-relevant changes and for every Platform Admin action.
 - Another tenant's id returns 404, never 403.
-- New tenant-owned endpoints get a cross-tenant test in `Shifa.IntegrationTests/Api` (read, update, delete by Tenant B must be 404).
+## Data and module rules (ADR-009)
 
-## Architecture rules (ADR-001, docs/architecture/module-boundaries.md)
+- `Core` → nothing of ours. `Infrastructure` → Core. `Shifa` → Infrastructure.
+- One `DbContext` per module in `Infrastructure/Data` (inherits `ModuleDbContext`), with its own schema and migrations (`Infrastructure/Migrations/<M>`). Each context applies only `Infrastructure.Configurations.<M>` (its `Module` property). No FKs or joins across schemas.
+- A repo uses only its own module's DbContext. To read another module's data, call its `I<Module>Api` (`Core/Interfaces/<M>`), e.g. Scheduling → `IClinicApi`. No compiler check enforces this any more, so review it.
+- New migration: `dotnet ef migrations add <Name> -p Infrastructure -s Shifa -c <M>DbContext -o Migrations/<M>`.
 
-- `Shifa.Core` → nothing. `Shifa.Infrastructure` → Core. `Shifa.<Module>.Contracts` → Core only.
-- `Shifa.<Module>` → Core, Infrastructure, own Contracts, other modules' Contracts. Never another module's implementation.
-- Only `Shifa.API` and tests reference module implementations.
-- One `DbContext` (inherits `ModuleDbContext`), schema and migrations per module. No FKs or joins across schemas.
-- Cross-module: `I<Module>Api` for queries; integration events through the outbox for side effects (ADR-005).
-- `Shifa.ArchitectureTests` enforces this. Never weaken or delete a test; fix the code.
+## Feature flow (HRM)
 
-## Inside a module (ADR-004)
-
-- Folders: `Controllers/`, `Entities/`, `Enums/`, `DTO/`, `Models/`, `Interfaces/`, `Repositories/`, `Validators/`, `Profiles/`, `Configurations/`, `Data/`, `Migrations/`, `Resources/`, `<Module>Module.cs`.
+- New feature = `Core/Entities/<M>/<Name>.cs`, `Core/Models/<M>/Add<Name>Model.cs` …, `Core/DTO/<M>/<Name>Dto.cs`, `Core/Interfaces/<M>/I<Name>Repo.cs`, `Core/Profiles/<M>/<Name>Profile.cs`, `Core/Validations/<M>/Add<Name>Validator.cs`, `Infrastructure/Configurations/<M>/<Name>Configuration.cs`, `Infrastructure/Repositories/<M>/<Name>Repo.cs`, `Shifa/Controllers/<M>/<Name>Controller.cs`, and its `AddScoped` line in `Program.cs`.
 - Names: `Add<Name>Model`, `Update<Name>Model`, `Search<Name>sModel` (input); `<Name>Dto`, `Search<Name>sDto` (output); `I<Name>Repo`/`<Name>Repo`; `<Name>Controller`; `<Name>Configuration`; `<Name>Profile`; `Add<Name>Validator`; enums `<Name>Enum`.
 - Flow: `Controller → I<Name>Repo → <Name>Repo → Response`. Controllers stay thin.
-- Repo reads: `AsNoTracking` projections to DTOs. Repo writes: load entity → call entity method (rules live on entities) → `SaveChangesAsync`.
-- Manual mapping in `Profiles/`. No AutoMapper, MediatR or generic repository. Split repos over ~400 lines.
+- Mapping with AutoMapper (14, MIT) like HRM: `_mapper.Map<Entity>(model)` for add, `_mapper.Map(model, entity)` for update (profiles ignore `Id` and trim/normalize input), `ProjectTo<Dto>(_mapper.ConfigurationProvider)` for reads. DTOs built from several tables (no navigation properties) map the entity part with the mapper and fill the rest in the repo. Never map `TenantId`. No MediatR or generic repository.
 
 ## Responses, errors, validation
 
-- Every endpoint returns `Shifa.Core.Common.Response` (HRM shape). HTTP status = `Response.Status`.
+- Every endpoint returns `Core.Common.Response` (HRM shape). HTTP status = `Response.Status`.
 - Messages come from `LanguageResource` (en, ar) or module resources — never hard-coded.
 - Business errors: `throw new BusinessException(message, status)`. Unexpected errors: 500 with a generic message; details in logs only.
 - FluentValidation validators run automatically for action arguments; the first error is returned as a 400 `Response`.
@@ -93,7 +86,6 @@ tests/
 - Availability is computed by `AvailabilityCalculator` from schedules (branch-local, IANA time zone), time off and existing appointments; booking re-validates against it.
 - Booking endpoints require an `Idempotency-Key` header. Any "taken" outcome (slot, day, unique violation) first checks for a replay of the same key.
 - Status changes go through `Appointment.MoveTo` and write an `AppointmentStatusHistory` row and an audit entry. Staff appointment endpoints follow branch scope (outside it = 404).
-- Integration tests that depend on time pass a `FakeTimeProvider` to `ApiTestHost.StartAsync`; tokens follow the same clock, so sign in again after moving it more than 15 minutes.
 
 ## Patient portal rules (ADR-007)
 
@@ -104,10 +96,10 @@ tests/
 
 ## Local environment (ADR-006)
 
-- SQL Server `.` (Windows auth): `Server=.;Database=Shifa;Trusted_Connection=True;TrustServerCertificate=True`. Tests: `Shifa_Tests`.
+- SQL Server `.` (Windows auth): `Server=.;Database=Shifa;Trusted_Connection=True;TrustServerCertificate=True`.
 - `GET /dev/sms` (Development only) shows the SMS the fake sender "sent", e.g. patient OTP codes.
 - `docker compose up -d`: Redis, Seq (`localhost:5341`), Mailpit (`localhost:8025`), Azurite.
-- `dotnet build Shifa.slnx` and `dotnet test --solution Shifa.slnx` before every commit.
+- `dotnet build Shifa.slnx` before every commit; run the app (`dotnet run --project Shifa`) and try the changed endpoints in Swagger.
 
 ## Git
 

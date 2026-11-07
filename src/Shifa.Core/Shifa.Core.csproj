@@ -1,6 +1,0 @@
-<Project Sdk="Microsoft.NET.Sdk">
-
-  <!-- Shared building blocks with no dependencies on other Shifa projects:
-       Common (Response, BusinessException), Pagination, Entities (BaseModel), Interfaces, Extensions, Resources. -->
-
-</Project>

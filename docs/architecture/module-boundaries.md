@@ -1,5 +1,7 @@
 # Module boundaries
 
+> **Layout update (ADR-009):** projects are now `Core/`, `Infrastructure/` and `Shifa/` at the repository root, like Trio HRM. Module rules below still apply, but are checked in review instead of by separate projects.
+
 ## Modules
 
 | Module | Schema | Owns | Exposes (Contracts) |
