@@ -1,0 +1,100 @@
+using Shifa.Core.Entities.Common;
+using Shifa.Scheduling.Enums;
+
+namespace Shifa.Scheduling.Entities;
+
+/// <summary>
+/// A booked visit. Branch, doctor, service and patient are ids of other modules (no cross-schema keys).
+/// The appointment owns its <see cref="AppointmentSlot"/> ticks; they are what prevents double booking (ADR-008).
+/// </summary>
+public class Appointment : TenantOwnedEntity
+{
+    private static readonly Dictionary<AppointmentStatusEnum, AppointmentStatusEnum[]> AllowedTransitions = new()
+    {
+        [AppointmentStatusEnum.Pending] = [AppointmentStatusEnum.Confirmed, AppointmentStatusEnum.Cancelled],
+        [AppointmentStatusEnum.Confirmed] = [AppointmentStatusEnum.CheckedIn, AppointmentStatusEnum.Cancelled, AppointmentStatusEnum.NoShow],
+        [AppointmentStatusEnum.CheckedIn] = [AppointmentStatusEnum.InProgress],
+        [AppointmentStatusEnum.InProgress] = [AppointmentStatusEnum.Completed],
+        [AppointmentStatusEnum.Completed] = [],
+        [AppointmentStatusEnum.Cancelled] = [],
+        [AppointmentStatusEnum.NoShow] = [],
+    };
+
+    public long BranchId { get; set; }
+    public long DoctorId { get; set; }
+    public long ServiceId { get; set; }
+    public long PatientId { get; set; }
+
+    /// <summary>UTC.</summary>
+    public DateTimeOffset StartAt { get; set; }
+
+    /// <summary>UTC. StartAt + the service duration rounded up to whole schedule slots.</summary>
+    public DateTimeOffset EndAt { get; set; }
+
+    /// <summary>The day of the appointment in the branch's time zone (queue numbers and the one-per-day rule use it).</summary>
+    public DateOnly LocalDate { get; set; }
+
+    public AppointmentStatusEnum Status { get; private set; } = AppointmentStatusEnum.Confirmed;
+    public AppointmentSourceEnum Source { get; set; }
+    public int? QueueNumber { get; set; }
+    public DateTimeOffset? CheckedInAt { get; set; }
+    public DateTimeOffset? CancelledAt { get; set; }
+    public string? CancelReason { get; set; }
+
+    /// <summary>Optimistic concurrency: two changes to the same appointment can't both win.</summary>
+    public byte[] RowVersion { get; set; } = [];
+
+    /// <summary>Sets the status of a new appointment (Pending or Confirmed).</summary>
+    public void Book(AppointmentStatusEnum initialStatus)
+    {
+        if (initialStatus is not (AppointmentStatusEnum.Pending or AppointmentStatusEnum.Confirmed))
+            throw new ArgumentOutOfRangeException(nameof(initialStatus));
+        Status = initialStatus;
+    }
+
+    /// <summary>Moves to <paramref name="target"/> when the lifecycle allows it (docs/vision.md).</summary>
+    public TransitionResult MoveTo(AppointmentStatusEnum target)
+    {
+        if (Status == target)
+            return TransitionResult.Unchanged;
+        if (!AllowedTransitions[Status].Contains(target))
+            return TransitionResult.NotAllowed;
+
+        Status = target;
+        return TransitionResult.Changed;
+    }
+
+    public bool IsActive => Status is not (AppointmentStatusEnum.Cancelled or AppointmentStatusEnum.NoShow);
+}
+
+/// <summary>
+/// One 5-minute tick of a doctor's time claimed by an appointment. The unique key (TenantId, DoctorId, SlotStart)
+/// over live rows is the final guard against double booking, at any branch (ADR-008).
+/// </summary>
+public class AppointmentSlot : TenantOwnedEntity
+{
+    public long AppointmentId { get; set; }
+    public long DoctorId { get; set; }
+    public DateTimeOffset SlotStart { get; set; }
+}
+
+public class AppointmentStatusHistory : TenantOwnedEntity
+{
+    public long AppointmentId { get; set; }
+    public AppointmentStatusEnum? FromStatus { get; set; }
+    public AppointmentStatusEnum ToStatus { get; set; }
+    public string? Reason { get; set; }
+}
+
+/// <summary>
+/// Remembers the result of a request sent with an Idempotency-Key, so a retried request returns the first result
+/// instead of booking twice. Written in the same transaction as the booking.
+/// </summary>
+public class IdempotencyRecord : TenantOwnedEntity
+{
+    public string Operation { get; set; } = "";
+    public string Key { get; set; } = "";
+    public string RequestHash { get; set; } = "";
+    public long ResultId { get; set; }
+    public DateTimeOffset ExpiresAt { get; set; }
+}

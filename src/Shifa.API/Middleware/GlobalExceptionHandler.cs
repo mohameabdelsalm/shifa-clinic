@@ -1,5 +1,6 @@
 using System.Net;
 using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using Shifa.Core;
 using Shifa.Core.Common;
@@ -38,6 +39,12 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
                 businessException.ErrorMessage ?? _localizer["UnexpectedError"].Value,
                 businessException.Status,
                 isSuccess: false);
+        }
+        else if (exception is DbUpdateConcurrencyException)
+        {
+            // rowversion conflict: someone changed the same row between our read and our write.
+            _logger.LogInformation("Optimistic concurrency conflict");
+            response = new Response(_localizer["ConcurrentChange"].Value, HttpStatusCode.Conflict, isSuccess: false);
         }
         else
         {

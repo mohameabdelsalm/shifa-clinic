@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Scheduling module: availability, booking, lifecycle, queue (schema "scheduling"). Design: ADR-008.
+       Folders follow the HRM conventions (ADR-004). Only Shifa.API references this project. -->
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Shifa.UnitTests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Shifa.Core\Shifa.Core.csproj" />
+    <ProjectReference Include="..\..\..\Shifa.Infrastructure\Shifa.Infrastructure.csproj" />
+    <ProjectReference Include="..\Shifa.Scheduling.Contracts\Shifa.Scheduling.Contracts.csproj" />
+    <ProjectReference Include="..\..\Clinic\Shifa.Clinic.Contracts\Shifa.Clinic.Contracts.csproj" />
+    <ProjectReference Include="..\..\Patients\Shifa.Patients.Contracts\Shifa.Patients.Contracts.csproj" />
+  </ItemGroup>
+
+</Project>

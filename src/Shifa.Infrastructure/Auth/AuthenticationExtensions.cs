@@ -23,7 +23,7 @@ public static class AuthenticationExtensions
 
         // Configured through DI so the key provider can use the final configuration (also in tests).
         services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
-            .Configure<JwtKeyProvider, IOptions<JwtSettings>>((options, keys, settings) =>
+            .Configure<JwtKeyProvider, IOptions<JwtSettings>, TimeProvider>((options, keys, settings, time) =>
             {
                 options.MapInboundClaims = false;
                 options.TokenValidationParameters = new TokenValidationParameters
@@ -39,6 +39,13 @@ public static class AuthenticationExtensions
                     RequireSignedTokens = true,
                     ValidateLifetime = true,
                     ClockSkew = TimeSpan.Zero,
+
+                    // Checked against the same clock that issues the tokens (TokenService uses TimeProvider).
+                    LifetimeValidator = (notBefore, expires, _, _) =>
+                    {
+                        var now = time.GetUtcNow().UtcDateTime;
+                        return expires is not null && now < expires.Value && (notBefore is null || now >= notBefore.Value);
+                    },
                     NameClaimType = ShifaClaimTypes.UserName,
                 };
 

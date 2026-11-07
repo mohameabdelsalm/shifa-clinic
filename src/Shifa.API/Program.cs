@@ -7,6 +7,7 @@ using Shifa.Identity.Services;
 using Shifa.Infrastructure;
 using Shifa.Infrastructure.Services;
 using Shifa.Patients;
+using Shifa.Scheduling;
 using Shifa.Tenancy;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -20,6 +21,7 @@ builder.Services.AddTenancyModule();
 builder.Services.AddIdentityModule();
 builder.Services.AddClinicModule();
 builder.Services.AddPatientsModule();
+builder.Services.AddSchedulingModule();
 
 var app = builder.Build();
 

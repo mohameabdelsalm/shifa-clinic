@@ -81,6 +81,7 @@ tests/
 - Routes `api/<resource>`; platform endpoints `api/platform/<resource>`.
 - IDs `long` via HiLo (ADR-003). Money `decimal(18,2)`. Time: inject `TimeProvider`; store UTC `datetimeoffset`.
 - `rowversion` on concurrently edited entities. Soft delete via `IsDeleted`; medical and financial records are never hard-deleted.
+- Running numbers ("max + 1": MRN, queue number): take `Database.AcquireAsync(...)` (`sp_getapplock`) inside a transaction before reading the max; keep the unique index as the final guard. A retry loop alone fails under bursts.
 - Use `CancellationToken` on I/O. Async EF calls.
 - Never log medical data, national IDs, passwords, OTPs or tokens.
 - No destructive database operations (drop/recreate) without explicit approval. Migrations are applied explicitly, never at app startup.
@@ -90,7 +91,9 @@ tests/
 - The final guard against double booking is the unique key on `scheduling.AppointmentSlots` (5-minute ticks per doctor, any branch). Never replace it with code checks, locks or Redis; map its violation to 409.
 - Appointment + ticks + history + idempotency record are saved in one `SaveChanges`. Rescheduling: release old ticks, then claim new ones, in one explicit transaction.
 - Availability is computed by `AvailabilityCalculator` from schedules (branch-local, IANA time zone), time off and existing appointments; booking re-validates against it.
-- Booking endpoints require an `Idempotency-Key` header.
+- Booking endpoints require an `Idempotency-Key` header. Any "taken" outcome (slot, day, unique violation) first checks for a replay of the same key.
+- Status changes go through `Appointment.MoveTo` and write an `AppointmentStatusHistory` row and an audit entry. Staff appointment endpoints follow branch scope (outside it = 404).
+- Integration tests that depend on time pass a `FakeTimeProvider` to `ApiTestHost.StartAsync`; tokens follow the same clock, so sign in again after moving it more than 15 minutes.
 
 ## Patient portal rules (ADR-007)
 

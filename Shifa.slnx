@@ -17,6 +17,10 @@
     <Project Path="src/Modules/Patients/Shifa.Patients.Contracts/Shifa.Patients.Contracts.csproj" />
     <Project Path="src/Modules/Patients/Shifa.Patients/Shifa.Patients.csproj" />
   </Folder>
+  <Folder Name="/src/Modules/Scheduling/">
+    <Project Path="src/Modules/Scheduling/Shifa.Scheduling.Contracts/Shifa.Scheduling.Contracts.csproj" />
+    <Project Path="src/Modules/Scheduling/Shifa.Scheduling/Shifa.Scheduling.csproj" />
+  </Folder>
   <Folder Name="/src/Modules/Tenancy/">
     <Project Path="src/Modules/Tenancy/Shifa.Tenancy.Contracts/Shifa.Tenancy.Contracts.csproj" />
     <Project Path="src/Modules/Tenancy/Shifa.Tenancy/Shifa.Tenancy.csproj" />
@@ -24,5 +28,6 @@
   <Folder Name="/tests/">
     <Project Path="tests/Shifa.ArchitectureTests/Shifa.ArchitectureTests.csproj" />
     <Project Path="tests/Shifa.IntegrationTests/Shifa.IntegrationTests.csproj" />
+    <Project Path="tests/Shifa.UnitTests/Shifa.UnitTests.csproj" />
   </Folder>
 </Solution>

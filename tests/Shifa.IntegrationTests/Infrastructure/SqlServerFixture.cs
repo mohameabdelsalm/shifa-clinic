@@ -4,6 +4,7 @@ using Respawn;
 using Shifa.Clinic.Data;
 using Shifa.Identity.Data;
 using Shifa.Patients.Data;
+using Shifa.Scheduling.Data;
 using Shifa.Core.Interfaces.Common;
 using Shifa.Infrastructure.Common.TenantManager;
 using Shifa.Infrastructure.Data;
@@ -22,7 +23,7 @@ public sealed class SqlServerFixture : IAsyncLifetime
     public const string DefaultConnectionString =
         "Server=.;Database=Shifa_Tests;Trusted_Connection=True;TrustServerCertificate=True";
 
-    private static readonly string[] ModuleSchemas = [TenancyDbContext.SchemaName, ClinicDbContext.SchemaName, IdentityDbContext.SchemaName, PatientsDbContext.SchemaName];
+    private static readonly string[] ModuleSchemas = [TenancyDbContext.SchemaName, ClinicDbContext.SchemaName, IdentityDbContext.SchemaName, PatientsDbContext.SchemaName, SchedulingDbContext.SchemaName];
 
     private Respawner? _respawner;
 
@@ -43,6 +44,9 @@ public sealed class SqlServerFixture : IAsyncLifetime
         await using (var patients = CreatePatientsContext(tenantId: null))
             await patients.Database.MigrateAsync();
 
+        await using (var scheduling = CreateSchedulingContext(tenantId: null))
+            await scheduling.Database.MigrateAsync();
+
         await using var connection = new SqlConnection(ConnectionString);
         await connection.OpenAsync();
         _respawner = await Respawner.CreateAsync(connection, new RespawnerOptions
@@ -60,6 +64,9 @@ public sealed class SqlServerFixture : IAsyncLifetime
     }
 
     public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+
+    public SchedulingDbContext CreateSchedulingContext(long? tenantId) =>
+        new(BuildOptions<SchedulingDbContext>(SchedulingDbContext.SchemaName, CreateTenantContext(tenantId), out var tenantContext), tenantContext);
 
     public PatientsDbContext CreatePatientsContext(long? tenantId) =>
         new(BuildOptions<PatientsDbContext>(PatientsDbContext.SchemaName, CreateTenantContext(tenantId), out var tenantContext), tenantContext);

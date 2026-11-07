@@ -11,12 +11,12 @@ _Last updated: 2026-11-07_
 | 2 — Identity, Tenancy, Platform Admin | ✅ Done, security-reviewed (opus / high) and fixed |
 | 3 — Clinic setup | ✅ Done |
 | 4 — Patients | ✅ Done |
-| 5 — Scheduling | 🟡 Design done (ADR-008); implementation next |
+| 5 — Scheduling | ✅ Implemented (ADR-008); review (step 8, opus / high) pending |
 | 6–10 | Not started (see `implementation-roadmap.md`) |
 
 ## Current phase
 
-**Phase 5 — Scheduling & Booking** (availability, slot reservation, booking, cancel, reschedule, check-in, queue, no-show, idempotency). Model: **opus / high** for the concurrency design, then sonnet / medium, then opus / high review.
+**Phase 5 — Scheduling & Booking**: implementation done and tested; next is the step 8 review on **opus / high** (concurrency, idempotency, branch scope, portal rules), then Phase 6.
 
 ## Phase 2 security review (2026-11-07, opus / high)
 
@@ -48,6 +48,18 @@ Accepted risks (documented, not fixed now):
 ## Done in Phase 0–1
 
 See git history. Highlights: ADR-001..007, architecture docs, `ModuleDbContext` (schema, HiLo, `Tenant`/`SoftDelete` filters, `(TenantId, Id)` keys), `AuditTenantInterceptor`, `GlobalExceptionHandler`, validation filter, health checks, Serilog, Tenancy + Clinic initial migrations.
+
+## Done in Phase 5
+
+- **Scheduling module** (`scheduling` schema): `Appointment` (status machine, `rowversion`), `AppointmentSlot` (5-minute UTC ticks, unique `(TenantId, DoctorId, SlotStart)` over live rows = the double-booking guard at every branch), `AppointmentStatusHistory`, `IdempotencyRecord` (24 h).
+- **Availability:** pure `AvailabilityCalculator` (schedule windows in branch time, multi-slot services fit inside one window, DST gaps skipped, repeated hour = first occurrence, time off + the doctor's appointments at any branch are busy, 90-day horizon, nothing in the past).
+- **`api/appointments`:** availability, book (`Idempotency-Key` required: same body → same id, different body → 422, concurrent retries → same id), search (≤ 62 days), view, confirm, check-in (from 2 h before until the end of the local day, queue number per branch/doctor/day), cancel (frees the ticks), no-show (30 min after start), reschedule (can overlap its own old ticks, one transaction). Every change writes a history row and an audit entry. Branch-limited staff only see and change appointments of their branches (others are 404).
+- **`api/portal/appointments`:** availability, book (source Online, only linked patients with `CanBook`), list of linked patients' appointments, cancel (until 3 h before). Online bookings of a patient with 3+ no-shows start as Pending.
+- **Contracts:** `IClinicApi.GetBookingInputsAsync`, `GetBranchTimeZoneAsync`, `GetDoctorTimeOffAsync`; Scheduling events records (not published yet: no outbox before Phase 6/8). Schedule times must sit on the 5-minute grid.
+- **Shared fixes found while testing:**
+  - JWT lifetime is checked against the app's `TimeProvider` (the same clock that issues tokens).
+  - `DatabaseLocks.AcquireAsync` (`sp_getapplock`) serializes "max + 1" numbering. Used for queue numbers and **patient MRNs**: the Phase 4 test `Concurrent_registrations_all_succeed_with_distinct_MRNs` failed 6/6 when run alone (8 concurrent registrations used up the 5 retries → 500). It passed earlier only by timing.
+  - `DbUpdateConcurrencyException` → 409.
 
 ## Done in Phase 4
 
@@ -81,10 +93,16 @@ See git history. Highlights: ADR-001..007, architecture docs, `ModuleDbContext` 
 | Clinic | `InitialCreate`, `AddClinicSetup` (9 composite tenant FKs) | `Shifa` (dev), `Shifa_Tests` |
 | Identity | `InitialCreate`, `AddOtpAndPortalTokens` (OtpChallenges, RefreshTokens.IsPortal) | `Shifa` (dev), `Shifa_Tests` |
 | Patients | `InitialCreate` (5 tables, 4 composite tenant FKs) | `Shifa` (dev), `Shifa_Tests` |
+| Scheduling | `InitialCreate` (4 tables, 4 filtered unique indexes, 2 composite tenant FKs) | `Shifa` (dev), `Shifa_Tests` |
 
 ## Tests
 
-`dotnet test --solution Shifa.slnx` → **90 passed, 0 failed** (2026-11-07). Phase 4 mutation checks: with portal tokens allowed on staff endpoints, or any OTP accepted, the portal tests fail. Phase 3 mutation check: with `HasAllBranches` forced to true, the two branch-scope tests fail. Mutation check: with the `Tenant` query filter replaced by `true`, 8 isolation tests fail (then restored).
+`dotnet test --solution Shifa.slnx` → **135 passed, 0 failed** (2026-11-07): unit 30 (new project `Shifa.UnitTests`), architecture 12, integration 93.
+
+Phase 5 (15 integration tests on a fake clock + 30 unit tests): 10 parallel bookings of one slot → exactly one; overlapping multi-slot bookings in parallel → one; idempotency (missing key, replay, reuse 422, 5 parallel retries → one appointment, key expiry); cancel frees the slot; reschedule onto own ticks; one visit per patient/doctor/day; doctor busy across branches; check-in window, queue numbers, no-show timing; parallel check-ins get 1..5; check-in vs cancel race has one winner; branch scope; tenant isolation; portal `CanBook`, 3-hour cancel rule, Pending after 3 no-shows. Calculator: multi-slot, window fit, busy edges, range, DST spring/fall, 23/25-hour days.
+**Mutation check:** with `IX_AppointmentSlots_Tick` dropped from `Shifa_Tests`, both race tests failed (5–10 double bookings succeeded); index restored.
+
+Earlier: Phase 4 mutation checks: with portal tokens allowed on staff endpoints, or any OTP accepted, the portal tests fail. Phase 3 mutation check: with `HasAllBranches` forced to true, the two branch-scope tests fail. Mutation check: with the `Tenant` query filter replaced by `true`, 8 isolation tests fail (then restored).
 
 - Architecture (12) and Phase 1 integration (17), unchanged.
 - API integration (27), all through HTTP against SQL Server:
@@ -100,8 +118,12 @@ See git history. Highlights: ADR-001..007, architecture docs, `ModuleDbContext` 
 - EF tools 10.0.7 older than runtime 10.0.14 (warning): `dotnet tool update -g dotnet-ef`.
 - OpenTelemetry deferred to Phase 10. Docker not needed yet.
 
-## Next tasks (Phase 5)
+- Scheduling: appointment events are defined but not published (needs the outbox, Phase 6/8). Soft-deleted tick rows stay in `AppointmentSlots` (filtered out of the unique index); a cleanup job can come later.
+- Scheduling: booking rules (90-day horizon, 3 h, 2 h, 30 min, 3 no-shows) are constants in `SchedulingRules`, to move to tenant settings.
 
-Design is fixed in `docs/decisions/ADR-008-Booking-Concurrency.md`; the ordered task list is "Phase 5 detail" in `project/implementation-roadmap.md` (steps 1–8). Implement on **sonnet / medium**; run step 8 (review) on **opus / high**.
+## Next tasks
 
-Open item to decide during Phase 5: the staff-listing branch scope (see Known gaps), together with "a branch-limited member only books and sees appointments of their branches".
+1. Phase 5 step 8: review on **opus / high** (concurrency, idempotency, branch scope, portal rules, DST).
+2. Phase 6 per `project/implementation-roadmap.md`.
+
+Decided in Phase 5: appointments follow branch scope (a branch-limited member only books and sees appointments of their branches). Still open: the staff listing (`api/staff`) is tenant-wide (see accepted risks).
