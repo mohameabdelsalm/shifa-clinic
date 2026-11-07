@@ -13,12 +13,35 @@ _Last updated: 2026-11-07_
 | 4 — Patients | ✅ Done |
 | 5 — Scheduling | ✅ Done, reviewed (opus / high) and fixed |
 | HRM layout | ✅ Restructured like Trio HRM (ADR-009) |
-| 6 — Clinical / EMR | ✅ Implemented (ADR-010); review (opus / high) pending |
+| 6 — Clinical / EMR | ✅ Done, reviewed (opus / high) and fixed |
 | 7–10 | Not started (see `implementation-roadmap.md`) |
 
 ## Current phase
 
-**Phase 6 implemented.** Next: the Phase 6 review on **opus / high** (immutability, access rules, audit, attachments), then Phase 7 (Billing, opus / high design first).
+**Phase 6 done and reviewed.** Next: Phase 7 (Billing): **opus / high design** first (ADR), then implementation.
+
+## Phase 6 review (2026-11-07, opus / high)
+
+My own read plus an independent reviewer that didn't see my conclusions. **No High findings**: visit authorization (only the appointment's linked doctor), branch scope, tenant isolation, completed-visit immutability (rowversion on every content write), portal isolation and upload path safety were confirmed.
+
+| # | Severity | Finding | Fix |
+|---|---|---|---|
+| C1 | Medium | If the audit write failed after an attachment row was committed, the cleanup deleted the stored file → a record pointing at a missing file | The file is deleted only when the row wasn't saved; audit runs after, separately |
+| C2 | Medium | Re-linking a doctor's staff account while the doctor had open visits handed those visits to another person (e.g. an admin could link themselves and write as Dr. A) | Link/unlink refused while the doctor has open visits (`IClinicalApi.HasOpenVisitsAsync`). Self-link stays allowed (owner-doctor case) and audited |
+| C3 | Low-Med | Clinical audit rows used the request's cancellation token: a client disconnect after a commit lost the audit row | Clinical audits use `CancellationToken.None` |
+| C4 | Low | Deactivating a doctor mid-visit left visits open for ever | Deactivation refused while the doctor has open visits |
+| C5 | Low | Portal prescription reads weren't audited | One audit row per patient returned |
+| C6 | Low | `items: [null]` in diagnoses/prescription → 500 | Validators refuse null items (400) |
+| C7 | Low | Duplicate ICD codes were silently de-duplicated and could drop the primary flag | Duplicates refused (400) |
+| C8 | Low | A cancelled upload could leave a half-written file | Storage deletes partial files; the save is inside the cleanup block |
+| C9 | Low | Original file names kept control characters/quotes; no `nosniff` on downloads | Names sanitized; downloads send `X-Content-Type-Options: nosniff` |
+| C10 | Low | Unknown/foreign patient id on allergy/condition add returned 400 | 404, per the tenant rule |
+| C11 | Low | Visit searches without a patient filter weren't audited (who saw which doctor when) | Every search is audited with its filters (ids only) |
+| C12 | Low (mine) | ICD-10 format refused valid U codes (e.g. U07.1 COVID-19) | Pattern `^[A-Z][0-9][0-9A-Z](\.[0-9A-Z]{1,4})?$` |
+
+Verification: build clean; the HTTP smoke run on `Shifa_Smoke` now has **56/56 checks passing**, including new checks for C2, C4, C6, C7, C9, C10, C12. Audit rows for portal reads and searches were confirmed in the database. Not covered by the run: audit failure after commit (C1/C3) and cancelled uploads (C8), which were checked by reading the code only.
+
+Accepted: retrying "add vitals" after a lost response can create a duplicate vitals row (no idempotency key on clinical writes).
 
 ## Done in Phase 6 (2026-11-07)
 

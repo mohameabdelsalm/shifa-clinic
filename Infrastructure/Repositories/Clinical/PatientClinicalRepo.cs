@@ -68,7 +68,7 @@ public class PatientClinicalRepo : IPatientClinicalRepo
                 .ProjectTo<VisitListDto>(_mapper.ConfigurationProvider).ToListAsync(cancellationToken),
         };
 
-        await _audit.LogAsync("Clinical.PatientSummaryViewed", "Patient", patientId, cancellationToken: cancellationToken);
+        await _audit.LogAsync("Clinical.PatientSummaryViewed", "Patient", patientId, cancellationToken: CancellationToken.None);
         return new Response(_localizer["Retrieved"].Value, HttpStatusCode.OK, data: summary);
     }
 
@@ -81,7 +81,7 @@ public class PatientClinicalRepo : IPatientClinicalRepo
         _context.PatientAllergies.Add(allergy);
         await _context.SaveChangesAsync(cancellationToken);
 
-        await _audit.LogAsync("Clinical.AllergyAdded", "Patient", model.PatientId, cancellationToken: cancellationToken);
+        await _audit.LogAsync("Clinical.AllergyAdded", "Patient", model.PatientId, cancellationToken: CancellationToken.None);
         return new Response(_localizer["Created"].Value, HttpStatusCode.OK, data: allergy.Id);
     }
 
@@ -93,7 +93,7 @@ public class PatientClinicalRepo : IPatientClinicalRepo
         _context.PatientAllergies.Remove(allergy);   // soft delete: the row stays for the record
         await _context.SaveChangesAsync(cancellationToken);
 
-        await _audit.LogAsync("Clinical.AllergyRemoved", "Patient", allergy.PatientId, detail: $"allergy {id}", cancellationToken: cancellationToken);
+        await _audit.LogAsync("Clinical.AllergyRemoved", "Patient", allergy.PatientId, detail: $"allergy {id}", cancellationToken: CancellationToken.None);
         return new Response(_localizer["Deleted"].Value, HttpStatusCode.OK);
     }
 
@@ -106,7 +106,7 @@ public class PatientClinicalRepo : IPatientClinicalRepo
         _context.PatientConditions.Add(condition);
         await _context.SaveChangesAsync(cancellationToken);
 
-        await _audit.LogAsync("Clinical.ConditionAdded", "Patient", model.PatientId, cancellationToken: cancellationToken);
+        await _audit.LogAsync("Clinical.ConditionAdded", "Patient", model.PatientId, cancellationToken: CancellationToken.None);
         return new Response(_localizer["Created"].Value, HttpStatusCode.OK, data: condition.Id);
     }
 
@@ -118,14 +118,14 @@ public class PatientClinicalRepo : IPatientClinicalRepo
         _context.PatientConditions.Remove(condition);
         await _context.SaveChangesAsync(cancellationToken);
 
-        await _audit.LogAsync("Clinical.ConditionRemoved", "Patient", condition.PatientId, detail: $"condition {id}", cancellationToken: cancellationToken);
+        await _audit.LogAsync("Clinical.ConditionRemoved", "Patient", condition.PatientId, detail: $"condition {id}", cancellationToken: CancellationToken.None);
         return new Response(_localizer["Deleted"].Value, HttpStatusCode.OK);
     }
 
     private async Task EnsurePatientAsync(long patientId, CancellationToken cancellationToken)
     {
         if (!await _patients.PatientExistsAsync(patientId, cancellationToken))
-            throw new BusinessException(_localizer["PatientNotFound"].Value, HttpStatusCode.BadRequest);
+            throw new BusinessException(_localizer["PatientNotFound"].Value, HttpStatusCode.NotFound);
     }
 
     private long CurrentUserId() => _currentUser.GetUserId() ?? throw new InvalidOperationException("No signed-in user.");

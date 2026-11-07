@@ -61,6 +61,8 @@ public class VisitController : ControllerBase
     public async Task<IActionResult> DownloadAttachment(long attachmentId, CancellationToken ct)
     {
         var attachment = await _repo.DownloadAttachment(attachmentId, ct);
+        // Browsers must not guess another type (e.g. treat an uploaded file as HTML).
+        Response.Headers.XContentTypeOptions = "nosniff";
         return File(attachment.Content, attachment.ContentType, attachment.FileName);
     }
 

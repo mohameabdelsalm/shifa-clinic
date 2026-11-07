@@ -112,7 +112,7 @@ public class VisitRepo : IVisitRepo
             return Created((await ExistingVisitIdAsync(appointment.Id, cancellationToken))!.Value);
         }
 
-        await _audit.LogAsync("Clinical.VisitOpened", "Visit", visit.Id, cancellationToken: cancellationToken);
+        await AuditAsync("Clinical.VisitOpened", "Visit", visit.Id);
         return Created(visit.Id);
     }
 
@@ -142,8 +142,9 @@ public class VisitRepo : IVisitRepo
             .ProjectTo<VisitListDto>(_mapper.ConfigurationProvider)
             .ToPagedListAsync(model, cancellationToken);
 
-        if (model.PatientId is not null)
-            await _audit.LogAsync("Clinical.HistoryViewed", "Patient", model.PatientId, cancellationToken: cancellationToken);
+        // Even without a patient filter the list shows who saw which doctor when, so every search is audited.
+        await AuditAsync("Clinical.VisitsSearched", "Patient", model.PatientId,
+            $"doctor={model.DoctorId} branch={model.BranchId} from={model.FromDate} to={model.ToDate}");
         return new Response(_localizer["Retrieved"].Value, HttpStatusCode.OK, data: paged);
     }
 
@@ -172,7 +173,7 @@ public class VisitRepo : IVisitRepo
         dto.Addenda = _mapper.Map<List<ClinicalAddendumDto>>(
             await _context.ClinicalAddenda.AsNoTracking().Where(a => a.VisitId == id).OrderBy(a => a.Id).ToListAsync(cancellationToken));
 
-        await _audit.LogAsync("Clinical.VisitViewed", "Visit", id, cancellationToken: cancellationToken);
+        await AuditAsync("Clinical.VisitViewed", "Visit", id);
         return new Response(_localizer["Retrieved"].Value, HttpStatusCode.OK, data: dto);
     }
 
@@ -210,7 +211,7 @@ public class VisitRepo : IVisitRepo
         var visit = await LoadOpenVisitForDoctorAsync(model.VisitId, cancellationToken);
 
         _context.Diagnoses.RemoveRange(await _context.Diagnoses.Where(d => d.VisitId == visit.Id).ToListAsync(cancellationToken));
-        foreach (var item in model.Items.DistinctBy(i => i.Icd10Code.Trim().ToUpperInvariant()))
+        foreach (var item in model.Items)
         {
             var diagnosis = _mapper.Map<Diagnosis>(item);
             diagnosis.VisitId = visit.Id;
@@ -274,32 +275,31 @@ public class VisitRepo : IVisitRepo
 
         var tenantId = _tenant.TenantId ?? throw new InvalidOperationException("No tenant context.");
         var path = $"tenants/{tenantId}/visits/{visit.Id}/{Guid.NewGuid():N}{extension.ToLowerInvariant()}";
-        await using (var content = file.OpenReadStream())
-            await _storage.SaveAsync(path, content, cancellationToken);
-
-        var fileName = Path.GetFileName(file.FileName);
         var attachment = new VisitAttachment
         {
             VisitId = visit.Id,
-            FileName = fileName.Length > 255 ? fileName[..255] : fileName,
+            FileName = SafeFileName(file.FileName, extension),
             StoragePath = path,
             ContentType = contentType,
             SizeBytes = file.Length,
             UploadedByUserId = CurrentUserId(),
         };
-        _context.VisitAttachments.Add(attachment);
 
+        // The file is removed again only if the row was NOT saved (a failure after the commit must keep the file).
         try
         {
-            await SaveVisitChangeAsync(visit, "Clinical.AttachmentAdded", cancellationToken);
+            await using (var content = file.OpenReadStream())
+                await _storage.SaveAsync(path, content, cancellationToken);
+            _context.VisitAttachments.Add(attachment);
+            await SaveVisitContentAsync(visit, cancellationToken);
         }
         catch
         {
-            // Don't leave an orphan file when the row couldn't be saved (e.g. the visit was completed meanwhile).
             await _storage.DeleteAsync(path, CancellationToken.None);
             throw;
         }
 
+        await AuditAsync("Clinical.AttachmentAdded", "Visit", visit.Id);
         return Created(attachment.Id);
     }
 
@@ -321,7 +321,7 @@ public class VisitRepo : IVisitRepo
 
         try
         {
-            await _audit.LogAsync("Clinical.AttachmentDownloaded", "VisitAttachment", attachment.Id, cancellationToken: cancellationToken);
+            await AuditAsync("Clinical.AttachmentDownloaded", "VisitAttachment", attachment.Id);
         }
         catch
         {
@@ -341,7 +341,7 @@ public class VisitRepo : IVisitRepo
         if (visit.Complete(_time.GetUtcNow()))
         {
             await _context.SaveChangesAsync(cancellationToken);
-            await _audit.LogAsync("Clinical.VisitCompleted", "Visit", visit.Id, cancellationToken: cancellationToken);
+            await AuditAsync("Clinical.VisitCompleted", "Visit", visit.Id);
         }
 
         await _scheduling.CompleteVisitAsync(visit.AppointmentId, cancellationToken);
@@ -359,12 +359,19 @@ public class VisitRepo : IVisitRepo
         _context.ClinicalAddenda.Add(addendum);
         await _context.SaveChangesAsync(cancellationToken);
 
-        await _audit.LogAsync("Clinical.AddendumAdded", "Visit", visit.Id, cancellationToken: cancellationToken);
+        await AuditAsync("Clinical.AddendumAdded", "Visit", visit.Id);
         return Created(addendum.Id);
     }
 
-    /// <summary>Saves a change to an open visit's content together with an UPDATE of the visit row (rowversion check).</summary>
+    /// <summary>Saves a change to an open visit's content and writes its audit row.</summary>
     private async Task SaveVisitChangeAsync(Visit visit, string auditAction, CancellationToken cancellationToken)
+    {
+        await SaveVisitContentAsync(visit, cancellationToken);
+        await AuditAsync(auditAction, "Visit", visit.Id);
+    }
+
+    /// <summary>Saves the content together with an UPDATE of the visit row, so its rowversion is checked.</summary>
+    private async Task SaveVisitContentAsync(Visit visit, CancellationToken cancellationToken)
     {
         _context.Entry(visit).Property(v => v.OpenedAt).IsModified = true;
         try
@@ -376,9 +383,14 @@ public class VisitRepo : IVisitRepo
             // Two first-time writes of the same visit content at once (e.g. the note): the other one won.
             throw new BusinessException(_localizer["ConcurrentChange"].Value, HttpStatusCode.Conflict);
         }
-
-        await _audit.LogAsync(auditAction, "Visit", visit.Id, cancellationToken: cancellationToken);
     }
+
+    /// <summary>
+    /// Clinical audit rows are written even if the client disconnects: once data was saved or read, the record of it
+    /// must not be lost to a cancelled request.
+    /// </summary>
+    private Task AuditAsync(string action, string entity, long? entityId, string? detail = null) =>
+        _audit.LogAsync(action, entity, entityId, detail: detail, cancellationToken: CancellationToken.None);
 
     private async Task<Visit> LoadOpenVisitForDoctorAsync(long visitId, CancellationToken cancellationToken)
     {
@@ -422,6 +434,15 @@ public class VisitRepo : IVisitRepo
 
     private Task<long?> ExistingVisitIdAsync(long appointmentId, CancellationToken cancellationToken) =>
         _context.Visits.Where(v => v.AppointmentId == appointmentId).Select(v => (long?)v.Id).FirstOrDefaultAsync(cancellationToken);
+
+    /// <summary>The original name for display and Content-Disposition only: no path, no control characters or quotes, ≤ 255.</summary>
+    private static string SafeFileName(string original, string extension)
+    {
+        var name = new string(Path.GetFileName(original).Where(c => !char.IsControl(c) && c is not ('"' or '\\' or '/')).ToArray()).Trim();
+        if (string.IsNullOrWhiteSpace(name))
+            name = "attachment" + extension.ToLowerInvariant();
+        return name.Length > 255 ? name[..255] : name;
+    }
 
     private long CurrentUserId() => _currentUser.GetUserId() ?? throw new InvalidOperationException("No signed-in user.");
 
