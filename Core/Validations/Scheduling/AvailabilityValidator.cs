@@ -12,5 +12,6 @@ public class AvailabilityValidator : AbstractValidator<AvailabilityModel>
         RuleFor(x => x.DoctorId).GreaterThan(0).WithMessage(_ => l["Required"]);
         RuleFor(x => x.ServiceId).GreaterThan(0).WithMessage(_ => l["Required"]);
         RuleFor(x => x.Date).NotEqual(default(DateOnly)).WithMessage(_ => l["Required"]);
+        RuleFor(x => x.Date).Must(SchedulingDateRules.IsSaneDate).When(x => x.Date != default).WithMessage(_ => l["InvalidDateRange"]);
     }
 }

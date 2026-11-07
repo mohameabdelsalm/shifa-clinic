@@ -74,7 +74,7 @@ public class PortalAppointmentRepo : IPortalAppointmentRepo
             .Where(a => patientIds.Contains(a.PatientId))
             .OrderByDescending(a => a.StartAt)
             .Take(200)
-            .ProjectTo<AppointmentDto>(_mapper.ConfigurationProvider)
+            .ProjectTo<PortalAppointmentDto>(_mapper.ConfigurationProvider)
             .ToListAsync(cancellationToken);
         return new Response(_localizer["Retrieved"].Value, HttpStatusCode.OK, data: appointments);
     }

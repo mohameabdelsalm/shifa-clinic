@@ -84,8 +84,9 @@ One class per file. Namespaces follow folders without a `Shifa.` prefix: `Core.E
 - The final guard against double booking is the unique key on `scheduling.AppointmentSlots` (5-minute ticks per doctor, any branch). Never replace it with code checks, locks or Redis; map its violation to 409.
 - Appointment + ticks + history + idempotency record are saved in one `SaveChanges`. Rescheduling: release old ticks, then claim new ones, in one explicit transaction.
 - Availability is computed by `AvailabilityCalculator` from schedules (branch-local, IANA time zone), time off and existing appointments; booking re-validates against it.
-- Booking endpoints require an `Idempotency-Key` header. Any "taken" outcome (slot, day, unique violation) first checks for a replay of the same key.
-- Status changes go through `Appointment.MoveTo` and write an `AppointmentStatusHistory` row and an audit entry. Staff appointment endpoints follow branch scope (outside it = 404).
+- Booking endpoints require an `Idempotency-Key` header, scoped to the caller (staff membership or portal phone). Any "taken" outcome (slot, day, unique violation) first checks for a replay of the same key.
+- Status changes go through `Appointment.MoveTo` and write an `AppointmentStatusHistory` row and an audit entry. Cancel and no-show release the ticks in the same save. Any change that must not race (reschedule) must UPDATE the appointment row so its `rowversion` is checked. Staff appointment endpoints follow branch scope (outside it = 404).
+- The portal gets `PortalAppointmentDto`, never the staff `AppointmentDto`.
 
 ## Patient portal rules (ADR-007)
 

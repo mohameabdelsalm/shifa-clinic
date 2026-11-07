@@ -5,7 +5,6 @@ public class PatientDto : SearchPatientsDto
 {
     public string? Email { get; set; }
     public string? Address { get; set; }
-    public int NoShowCount { get; set; }
     public List<PatientIdentifierDto> Identifiers { get; set; } = [];
     public List<PatientGuardianDto> Guardians { get; set; } = [];
     public List<PatientConsentDto> Consents { get; set; } = [];

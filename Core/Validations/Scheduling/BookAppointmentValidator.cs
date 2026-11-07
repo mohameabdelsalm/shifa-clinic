@@ -14,6 +14,7 @@ public class BookAppointmentValidator : AbstractValidator<BookAppointmentModel>
         RuleFor(x => x.DoctorId).GreaterThan(0).WithMessage(_ => l["Required"]);
         RuleFor(x => x.ServiceId).GreaterThan(0).WithMessage(_ => l["Required"]);
         RuleFor(x => x.StartAt).NotEqual(default(DateTimeOffset)).WithMessage(_ => l["Required"]);
+        RuleFor(x => x.StartAt).Must(SchedulingDateRules.IsSaneInstant).When(x => x.StartAt != default).WithMessage(_ => l["InvalidDateRange"]);
         RuleFor(x => x.Source).Must(s => s is AppointmentSourceEnum.Reception or AppointmentSourceEnum.Phone).WithMessage(_ => l["InvalidInput"]);
     }
 }

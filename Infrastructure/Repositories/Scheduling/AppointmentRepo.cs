@@ -100,11 +100,13 @@ public class AppointmentRepo : IAppointmentRepo
     {
         var appointment = await LoadAsync(id, cancellationToken);
         if (appointment.Status == AppointmentStatusEnum.CheckedIn)
-            return Ok();
+            return CheckedIn(appointment.QueueNumber);   // repeat = no-op, same queue number
 
+        // Open from 2 hours before the start (that may be the evening before a visit just after midnight)
+        // until the end of the appointment's local day.
         var now = _time.GetUtcNow();
         var timeZone = await _booking.GetBranchTimeZoneAsync(appointment.BranchId, cancellationToken);
-        if (now < appointment.StartAt - SchedulingRules.CheckInOpensBefore || AvailabilityCalculator.LocalDateOf(now, timeZone) != appointment.LocalDate)
+        if (now < appointment.StartAt - SchedulingRules.CheckInOpensBefore || AvailabilityCalculator.LocalDateOf(now, timeZone) > appointment.LocalDate)
             throw new BusinessException(_localizer["CheckInNotAllowedNow"].Value, HttpStatusCode.BadRequest);
 
         var from = appointment.Status;
@@ -116,8 +118,9 @@ public class AppointmentRepo : IAppointmentRepo
 
         // Queue number per branch, doctor and local day: max + 1. Check-ins of the same queue take their number one at a
         // time (ids are unique across tenants, so the lock name needs no tenant); the unique index is the final guard.
-        await using (var transaction = await _context.Database.BeginTransactionAsync(cancellationToken))
+        try
         {
+            await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
             await _context.Database.AcquireAsync(
                 $"scheduling:queue:{appointment.BranchId}:{appointment.DoctorId}:{appointment.LocalDate:yyyyMMdd}", cancellationToken);
             appointment.QueueNumber = (await _context.Appointments
@@ -126,10 +129,22 @@ public class AppointmentRepo : IAppointmentRepo
             await _context.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
         }
+        catch (DbUpdateConcurrencyException)
+        {
+            // Changed by someone else since we read it. A double-click check-in that lost the race is still a no-op;
+            // anything else (e.g. cancelled meanwhile) is a real conflict (409).
+            _context.ChangeTracker.Clear();
+            var current = await _context.Appointments.AsNoTracking().FirstAsync(a => a.Id == id, cancellationToken);
+            if (current.Status != AppointmentStatusEnum.CheckedIn)
+                throw;
+            return CheckedIn(current.QueueNumber);
+        }
 
         await _audit.LogAsync("Appointments.CheckedIn", "Appointment", appointment.Id, cancellationToken: cancellationToken);
-        return new Response(_localizer["Updated"].Value, HttpStatusCode.OK, data: appointment.QueueNumber);
+        return CheckedIn(appointment.QueueNumber);
     }
+
+    private Response CheckedIn(int? queueNumber) => new(_localizer["Updated"].Value, HttpStatusCode.OK, data: queueNumber);
 
     public async Task<Response> Cancel(long id, CancelAppointmentModel model, CancellationToken cancellationToken)
     {
@@ -143,7 +158,8 @@ public class AppointmentRepo : IAppointmentRepo
         if (appointment.Status != AppointmentStatusEnum.NoShow && _time.GetUtcNow() < appointment.StartAt + SchedulingRules.NoShowAfter)
             throw new BusinessException(_localizer["NoShowTooEarly"].Value, HttpStatusCode.BadRequest);
 
-        return await TransitionAsync(appointment, AppointmentStatusEnum.NoShow, reason: null, cancellationToken);
+        // The patient didn't come, so the doctor's time is free again (availability already ignores no-shows).
+        return await TransitionAsync(appointment, AppointmentStatusEnum.NoShow, reason: null, cancellationToken, releaseTicks: true);
     }
 
     public async Task<Response> Reschedule(RescheduleAppointmentModel model, CancellationToken cancellationToken)
@@ -166,7 +182,7 @@ public class AppointmentRepo : IAppointmentRepo
 
         appointment.CancelledAt = _time.GetUtcNow();
         appointment.CancelReason = reason?.Trim();
-        _context.AppointmentSlots.RemoveRange(await _context.AppointmentSlots.Where(s => s.AppointmentId == appointment.Id).ToListAsync(cancellationToken));
+        await ReleaseTicksAsync(appointment, cancellationToken);
         _context.AppointmentStatusHistory.Add(new AppointmentStatusHistory { AppointmentId = appointment.Id, FromStatus = from, ToStatus = appointment.Status, Reason = reason });
 
         await _context.SaveChangesAsync(cancellationToken);
@@ -174,7 +190,8 @@ public class AppointmentRepo : IAppointmentRepo
         return Ok();
     }
 
-    private async Task<Response> TransitionAsync(Appointment appointment, AppointmentStatusEnum target, string? reason, CancellationToken cancellationToken)
+    private async Task<Response> TransitionAsync(Appointment appointment, AppointmentStatusEnum target, string? reason,
+        CancellationToken cancellationToken, bool releaseTicks = false)
     {
         var from = appointment.Status;
         var result = appointment.MoveTo(target);
@@ -183,11 +200,17 @@ public class AppointmentRepo : IAppointmentRepo
         if (result == TransitionResult.Unchanged)
             return Ok();
 
+        if (releaseTicks)
+            await ReleaseTicksAsync(appointment, cancellationToken);
         _context.AppointmentStatusHistory.Add(new AppointmentStatusHistory { AppointmentId = appointment.Id, FromStatus = from, ToStatus = target, Reason = reason });
         await _context.SaveChangesAsync(cancellationToken);
         await _audit.LogAsync($"Appointments.{target}", "Appointment", appointment.Id, cancellationToken: cancellationToken);
         return Ok();
     }
+
+    /// <summary>Soft-deletes the appointment's ticks in the same save as its status change, so the time can be booked again.</summary>
+    private async Task ReleaseTicksAsync(Appointment appointment, CancellationToken cancellationToken) =>
+        _context.AppointmentSlots.RemoveRange(await _context.AppointmentSlots.Where(s => s.AppointmentId == appointment.Id).ToListAsync(cancellationToken));
 
     private async Task<Appointment> LoadAsync(long id, CancellationToken cancellationToken) =>
         await InScope(_context.Appointments).FirstOrDefaultAsync(a => a.Id == id, cancellationToken) ?? throw NotFound();

@@ -1,13 +1,14 @@
-using Core.DTO.Scheduling;
 using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using Core;
 using Core.Common;
 using Core.DTO.Clinic;
+using Core.DTO.Scheduling;
 using Core.Entities.Scheduling;
 using Core.Enums.Scheduling;
 using Core.Interfaces.Clinic;
+using Core.Interfaces.Common;
 using Infrastructure.Configurations.Scheduling;
 using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
@@ -30,13 +31,16 @@ public sealed class BookingService
 
     private readonly SchedulingDbContext _context;
     private readonly IClinicApi _clinic;
+    private readonly IAccessContext _access;
     private readonly TimeProvider _time;
     private readonly IStringLocalizer<LanguageResource> _localizer;
 
-    public BookingService(SchedulingDbContext context, IClinicApi clinic, TimeProvider time, IStringLocalizer<LanguageResource> localizer)
+    public BookingService(SchedulingDbContext context, IClinicApi clinic, IAccessContext access, TimeProvider time,
+        IStringLocalizer<LanguageResource> localizer)
     {
         _context = context;
         _clinic = clinic;
+        _access = access;
         _time = time;
         _localizer = localizer;
     }
@@ -55,10 +59,11 @@ public sealed class BookingService
             throw Fail("IdempotencyKeyRequired", HttpStatusCode.BadRequest);
 
         var key = idempotencyKey.Trim();
+        var operation = OperationForCaller();
         var requestHash = Hash(request);
         var now = _time.GetUtcNow();
 
-        var replay = await FindReplayAsync(key, requestHash, now, cancellationToken);
+        var replay = await FindReplayAsync(operation, key, requestHash, now, cancellationToken);
         if (replay is not null)
             return replay.Value;
 
@@ -71,10 +76,10 @@ public sealed class BookingService
         var slots = await ComputeAsync(inputs, timeZone, localDate, excludeAppointmentId: null, cancellationToken);
         var slot = slots.FirstOrDefault(s => s.StartUtc == startUtc);
         if (slot is null)
-            return await FindReplayAsync(key, requestHash, now, cancellationToken) ?? throw Fail("SlotNotAvailable", HttpStatusCode.Conflict);
+            return await FindReplayAsync(operation, key, requestHash, now, cancellationToken) ?? throw Fail("SlotNotAvailable", HttpStatusCode.Conflict);
 
         if (await HasOtherVisitThatDayAsync(request.PatientId, request.DoctorId, localDate, ignoreAppointmentId: null, cancellationToken))
-            return await FindReplayAsync(key, requestHash, now, cancellationToken) ?? throw Fail("PatientAlreadyBookedThatDay", HttpStatusCode.BadRequest);
+            return await FindReplayAsync(operation, key, requestHash, now, cancellationToken) ?? throw Fail("PatientAlreadyBookedThatDay", HttpStatusCode.BadRequest);
 
         var appointment = new Appointment
         {
@@ -94,7 +99,7 @@ public sealed class BookingService
         _context.AppointmentStatusHistory.Add(new AppointmentStatusHistory { AppointmentId = appointment.Id, ToStatus = appointment.Status });
         _context.IdempotencyRecords.Add(new IdempotencyRecord
         {
-            Operation = BookOperation,
+            Operation = operation,
             Key = key,
             RequestHash = requestHash,
             ResultId = appointment.Id,
@@ -115,7 +120,7 @@ public sealed class BookingService
             if (IsUniqueViolation(ex, SchedulingIndexes.SlotTick) || IsUniqueViolation(ex, SchedulingIndexes.PatientDoctorDay)
                 || IsUniqueViolation(ex, SchedulingIndexes.Idempotency))
             {
-                var replayed = await FindReplayAsync(key, requestHash, now, cancellationToken);
+                var replayed = await FindReplayAsync(operation, key, requestHash, now, cancellationToken);
                 if (replayed is not null)
                     return replayed.Value;
             }
@@ -159,6 +164,9 @@ public sealed class BookingService
             appointment.StartAt = slot.StartUtc;
             appointment.EndAt = slot.EndUtc;
             appointment.LocalDate = localDate;
+            // Always UPDATE the appointment row, even when the start didn't change, so its rowversion is checked:
+            // otherwise a cancel committed meanwhile would leave this cancelled appointment holding new live ticks.
+            _context.Entry(appointment).Property(a => a.StartAt).IsModified = true;
             ClaimTicks(appointment);
             _context.AppointmentStatusHistory.Add(new AppointmentStatusHistory
             {
@@ -219,9 +227,22 @@ public sealed class BookingService
             notBefore: now, notAfter: now + SchedulingRules.BookingHorizon);
     }
 
-    private async Task<long?> FindReplayAsync(string key, string requestHash, DateTimeOffset now, CancellationToken cancellationToken)
+    /// <summary>
+    /// Idempotency keys are scoped to the caller (staff membership or portal phone), so one caller's key can never
+    /// block or replay another caller's request. The phone is stored hashed.
+    /// </summary>
+    private string OperationForCaller()
     {
-        var record = await _context.IdempotencyRecords.FirstOrDefaultAsync(r => r.Operation == BookOperation && r.Key == key, cancellationToken);
+        if (_access.IsPortalUser && _access.PortalPhoneNumber is { } phone)
+            return $"{BookOperation}:p:{Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(phone)))[..16]}";
+        if (_access.MembershipId is { } membershipId)
+            return $"{BookOperation}:m:{membershipId}";
+        throw new InvalidOperationException("Booking needs a staff membership or a portal user.");
+    }
+
+    private async Task<long?> FindReplayAsync(string operation, string key, string requestHash, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        var record = await _context.IdempotencyRecords.FirstOrDefaultAsync(r => r.Operation == operation && r.Key == key, cancellationToken);
         if (record is null)
             return null;
 
