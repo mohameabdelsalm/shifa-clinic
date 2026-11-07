@@ -1,5 +1,7 @@
-using Microsoft.Extensions.Configuration;
+using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
+using Shifa.Clinic.Data;
+using Shifa.Infrastructure.Data;
 
 namespace Shifa.Clinic;
 
@@ -10,12 +12,13 @@ namespace Shifa.Clinic;
 /// </summary>
 public static class ClinicModule
 {
-    public static IServiceCollection AddClinicModule(this IServiceCollection services, IConfiguration configuration)
+    public static IServiceCollection AddClinicModule(this IServiceCollection services)
     {
-        // Controllers live in this project's Controllers/ folder; tell MVC to look here.
         services.AddControllers().AddApplicationPart(typeof(ClinicModule).Assembly);
+        services.AddModuleDbContext<ClinicDbContext>(ClinicDbContext.SchemaName);
+        services.AddValidatorsFromAssembly(typeof(ClinicModule).Assembly, includeInternalTypes: true);
 
-        // ClinicDbContext, repos and validators are added here as the module grows.
+        // Repos are registered here as the module grows.
         return services;
     }
 }

@@ -1,0 +1,52 @@
+using System.Net;
+using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.Extensions.Localization;
+using Shifa.Core;
+using Shifa.Core.Common;
+
+namespace Shifa.API.Middleware;
+
+/// <summary>
+/// Turns every exception into the HRM <see cref="Response"/> shape.
+/// <list type="bullet">
+/// <item><see cref="BusinessException"/>: its localized message and status (e.g. 404, 409).</item>
+/// <item>Anything else: 500 with a generic localized message. The exception goes to the logs only,
+/// so stack traces, SQL and internal names never reach the client.</item>
+/// </list>
+/// Registered with UseExceptionHandler() as the first middleware, so it catches errors from
+/// everything after it (authentication, tenant resolution, controllers).
+/// </summary>
+public sealed class GlobalExceptionHandler : IExceptionHandler
+{
+    private readonly ILogger<GlobalExceptionHandler> _logger;
+    private readonly IStringLocalizer<LanguageResource> _localizer;
+
+    public GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logger, IStringLocalizer<LanguageResource> localizer)
+    {
+        _logger = logger;
+        _localizer = localizer;
+    }
+
+    public async ValueTask<bool> TryHandleAsync(HttpContext httpContext, Exception exception, CancellationToken cancellationToken)
+    {
+        Response response;
+
+        if (exception is BusinessException businessException)
+        {
+            _logger.LogInformation("Request rejected by a business rule with status {Status}", (int)businessException.Status);
+            response = new Response(
+                businessException.ErrorMessage ?? _localizer["UnexpectedError"].Value,
+                businessException.Status,
+                isSuccess: false);
+        }
+        else
+        {
+            _logger.LogError(exception, "Unhandled exception");
+            response = new Response(_localizer["UnexpectedError"].Value, HttpStatusCode.InternalServerError, isSuccess: false);
+        }
+
+        httpContext.Response.StatusCode = (int)response.Status;
+        await httpContext.Response.WriteAsJsonAsync(response, cancellationToken);
+        return true;
+    }
+}

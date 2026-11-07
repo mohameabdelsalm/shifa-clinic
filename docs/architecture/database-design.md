@@ -10,7 +10,9 @@ Decision: ADR-003. Tenancy rules: [tenancy-design.md](tenancy-design.md).
 - **Tenant-owned** tables also have `TenantId` and a unique alternate key `(TenantId, Id)`. Foreign keys between tenant-owned tables are composite `(TenantId, XId)`. Diagrams show `TenantId` once per table and draw the relationship once.
 - **Platform-owned** tables (marked ◆ below) have no `TenantId`.
 - Solid line = FK inside the schema. Dashed line = reference to another module by ID (no FK).
-- Money `decimal(18,2)`; times `datetimeoffset` UTC; `rowversion` where noted (RV).
+- Money `decimal(18,2)`; times `datetimeoffset` UTC; `rowversion` where noted (RV); enums stored as `nvarchar(50)` text.
+- Each schema has its own HiLo sequence `EntityFrameworkHiLoSequence` and `__EFMigrationsHistory` table.
+- The local server collation is `Arabic_CI_AS` (databases inherit it). The production collation is decided in Phase 10.
 
 ## Identity (`identity`)
 
@@ -145,7 +147,7 @@ erDiagram
     nvarchar TimeZoneId
     nvarchar Phone
     nvarchar Address
-    int Status
+    nvarchar Status
   }
   Doctor {
     bigint TenantId
@@ -153,7 +155,7 @@ erDiagram
     nvarchar FullNameEn
     nvarchar FullNameAr
     nvarchar Title
-    int Status
+    nvarchar Status
   }
   Specialty {
     bigint TenantId
@@ -169,7 +171,7 @@ erDiagram
     bigint TenantId
     bigint DoctorId FK
     bigint BranchId FK
-    int Status
+    nvarchar Status
   }
   DoctorSchedule {
     bigint TenantId
@@ -193,7 +195,7 @@ erDiagram
     nvarchar NameEn
     nvarchar NameAr
     int DurationMinutes
-    int Status
+    nvarchar Status
   }
   ServicePrice {
     bigint TenantId

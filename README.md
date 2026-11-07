@@ -1,62 +1,53 @@
-# Shifa — Clinic Management Backend
+# Shifa — Multi-tenant Clinic Management SaaS
 
-Backend for a multi-branch outpatient clinic group: online booking, reception queue, electronic medical records (EMR), billing and automated reminders.
+One platform, many customer organizations (tenants). Each tenant manages its own branches, doctors, services and prices, staff and permissions, patients, appointments, medical records, invoices and reports, with strict data isolation.
 
-Built as a **modular monolith** on ASP.NET Core (.NET 10) with strict module boundaries, so modules can be extracted into microservices later without a rewrite.
+Built as a **multi-tenant modular monolith** on ASP.NET Core .NET 10 and SQL Server, with module boundaries that allow extracting a module into a service later.
 
 ## Documentation
 
-| Document | What it covers |
+| Where | What |
 |---|---|
-| [docs/vision.md](docs/vision.md) | The client, the problems we solve, users, MVP scope, business rules |
-| [docs/erd.md](docs/erd.md) | Data model per module, constraints and indexes |
-| [docs/adr/](docs/adr/) | Architecture decisions and why we made them |
-| [CLAUDE.md](CLAUDE.md) | Project rules and conventions (for developers and Claude Code) |
-
-## Stack
-
-- .NET 10 / ASP.NET Core Web API (controllers, same conventions as the Trio ERP HRM API)
-- SQL Server 2022 (one schema per module) + EF Core 10
-- Redis (HybridCache L2, OTP, rate limiting)
-- Hangfire (background jobs, SQL Server storage)
-- Serilog + Seq, OpenTelemetry, Sentry
+| [project/progress.md](project/progress.md) | Current phase, what's done, test results, next tasks — **start here** |
+| [project/implementation-roadmap.md](project/implementation-roadmap.md) | Phases 0–10 |
+| [project/assumptions.md](project/assumptions.md) | Business defaults and items needing legal review |
+| [docs/vision.md](docs/vision.md) | Product, users, scope, business rules |
+| [docs/architecture/](docs/architecture/) | System, module boundaries, tenancy, database (ERD), security |
+| [docs/decisions/](docs/decisions/) | ADR-001..007 |
+| [CLAUDE.md](CLAUDE.md) | Rules and conventions for developers and Claude Code |
 
 ## Running locally
 
-Prerequisites:
-
-- .NET 10 SDK
-- SQL Server running locally as the default instance (`.`) with Windows Authentication
-- Docker Desktop (for Redis, Seq, Mailpit, Azurite)
+Prerequisites: .NET 10 SDK, SQL Server running locally as the default instance (`.`, Windows auth), Docker Desktop for Redis/Seq/Mailpit/Azurite (optional until later phases).
 
 ```bash
 dotnet build Shifa.slnx
 dotnet test --solution Shifa.slnx
-dotnet run --project src/Shifa.API      # http://localhost:5080
+dotnet run --project src/Shifa.API
 ```
 
-> `docker-compose.yml` is added in step 4.
+The API listens on `http://localhost:5080` (Swagger at `/swagger`, health at `/health/live` and `/health/ready`).
+
+Apply migrations to the dev database (one command per module):
+
+```bash
+dotnet ef database update -p src/Modules/Tenancy/Shifa.Tenancy -s src/Shifa.API -c TenancyDbContext
+dotnet ef database update -p src/Modules/Clinic/Shifa.Clinic -s src/Shifa.API -c ClinicDbContext
+```
+
+Integration tests create and migrate `Shifa_Tests` on the local instance automatically (override with `SHIFA_TEST_CONNECTION`).
 
 ## Solution layout
 
 ```
 src/
-├─ Shifa.API/                   host: Program.cs, Middleware, Extensions
-├─ Shifa.Core/                  shared: Response, BusinessException, PagedList, BaseModel, interfaces
-├─ Shifa.Infrastructure/        shared: caching, current user, outbox, jobs, files, email, SMS
+├─ Shifa.API/              host: Program.cs, Middleware, Extensions
+├─ Shifa.Core/             Response, BusinessException, BaseModel, TenantOwnedEntity, interfaces, resources
+├─ Shifa.Infrastructure/   tenant context, current user, ModuleDbContext, interceptors, validation
 └─ Modules/
-   └─ Clinic/
-      ├─ Shifa.Clinic/          implementation (HRM folder conventions)
-      └─ Shifa.Clinic.Contracts/  events + IClinicApi: the only part other modules may use
+   ├─ Tenancy/  Shifa.Tenancy + Shifa.Tenancy.Contracts
+   └─ Clinic/   Shifa.Clinic  + Shifa.Clinic.Contracts
 tests/
-└─ Shifa.ArchitectureTests/     fails the build when module boundaries are broken
+├─ Shifa.ArchitectureTests/   module boundaries, entity ownership, tenant keys
+└─ Shifa.IntegrationTests/    real SQL Server: tenant isolation, API foundation
 ```
-
-## Status
-
-| Step | Content | State |
-|---|---|---|
-| 1 | Repository, vision, ERD, ADRs, CLAUDE.md | ✅ Done |
-| 2 | Solution skeleton | ✅ Done |
-| 3 | Building blocks | ⏳ Next |
-| 4 | Local infrastructure + first migration | ⏳ |
