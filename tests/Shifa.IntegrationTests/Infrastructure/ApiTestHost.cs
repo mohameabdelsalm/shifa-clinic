@@ -77,11 +77,16 @@ internal sealed class ApiTestHost : IAsyncDisposable
 
     public Task<string> PlatformTokenAsync() => TokenAsync(PlatformEmail, PlatformPassword);
 
-    public async Task<long> CreatePlanAsync(string platformToken, string code, int? maxEmployees = null)
+    public async Task<long> CreatePlanAsync(string platformToken, string code, int? maxEmployees = null,
+        int? maxBranches = null, int? maxDoctors = null)
     {
-        var entitlements = maxEmployees is null
-            ? Array.Empty<object>()
-            : [new { code = "MaxEmployees", enabled = true, limitValue = maxEmployees }];
+        var entitlements = new List<object>();
+        if (maxEmployees is not null)
+            entitlements.Add(new { code = "MaxEmployees", enabled = true, limitValue = maxEmployees });
+        if (maxBranches is not null)
+            entitlements.Add(new { code = "MaxBranches", enabled = true, limitValue = maxBranches });
+        if (maxDoctors is not null)
+            entitlements.Add(new { code = "MaxDoctors", enabled = true, limitValue = maxDoctors });
 
         var result = await PostAsync("/api/platform/plans", platformToken,
             new { code, name = code, price = 100m, billingPeriod = "Monthly", trialDays = 14, entitlements });

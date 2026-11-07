@@ -17,6 +17,8 @@ public sealed class AccessContext : IAccessContext
 
     public bool HasAllBranches => _allBranches;
 
+    public IReadOnlyCollection<long> BranchIds => _branchIds;
+
     public bool CanAccessBranch(long branchId) => _allBranches || _branchIds.Contains(branchId);
 
     public void SetPlatformAdmin()

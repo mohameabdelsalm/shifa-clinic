@@ -58,5 +58,15 @@
   <data name="PlanNotFound" xml:space="preserve"><value>الباقة غير موجودة.</value></data>
   <data name="PlanCodeDuplicated" xml:space="preserve"><value>يوجد باقة بنفس الكود.</value></data>
   <data name="LastTenantAdmin" xml:space="preserve"><value>يجب أن يبقى في المؤسسة مسؤول نشط واحد على الأقل.</value></data>
+  <data name="InvalidSchedule" xml:space="preserve"><value>الجدول غير صحيح: وقت النهاية يجب أن يكون بعد البداية وطول الفترة يقبل القسمة على مدة الموعد.</value></data>
+  <data name="ScheduleOverlap" xml:space="preserve"><value>للدكتور مواعيد عمل أخرى تتداخل مع هذا الجدول.</value></data>
+  <data name="DoctorNotFound" xml:space="preserve"><value>الدكتور غير موجود.</value></data>
+  <data name="DoctorNotAtBranch" xml:space="preserve"><value>الدكتور لا يعمل في هذا الفرع.</value></data>
+  <data name="SpecialtyNotFound" xml:space="preserve"><value>تخصص واحد أو أكثر غير موجود.</value></data>
+  <data name="ServiceNotFound" xml:space="preserve"><value>الخدمة غير موجودة.</value></data>
+  <data name="TimeOffNotFound" xml:space="preserve"><value>الإجازة غير موجودة.</value></data>
+  <data name="DuplicateName" xml:space="preserve"><value>الاسم أو الكود مستخدم بالفعل.</value></data>
+  <data name="BranchLimitReached" xml:space="preserve"><value>تم الوصول للحد الأقصى للفروع في باقتك.</value></data>
+  <data name="DoctorLimitReached" xml:space="preserve"><value>تم الوصول للحد الأقصى للدكاترة في باقتك.</value></data>
   <data name="TooManyRequests" xml:space="preserve"><value>طلبات كثيرة. من فضلك حاول لاحقًا.</value></data>
 </root>

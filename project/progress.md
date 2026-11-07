@@ -9,12 +9,13 @@ _Last updated: 2026-11-07_
 | 0 — Architecture finalization | ✅ Done |
 | 1 — Solution foundation | ✅ Done |
 | 2 — Identity, Tenancy, Platform Admin | ✅ Done, security-reviewed (opus / high) and fixed |
-| 3 — Clinic setup | ⏳ Next |
-| 4–10 | Not started (see `implementation-roadmap.md`) |
+| 3 — Clinic setup | ✅ Done |
+| 4 — Patients | ⏳ Next |
+| 5–10 | Not started (see `implementation-roadmap.md`) |
 
 ## Current phase
 
-**Phase 3 — Clinic setup** (branches, doctors, specialties, services, prices, schedules, time off). Model: sonnet / medium.
+**Phase 4 — Patients** (registration, MRN, identifiers, guardians, account access, consent, search, patient OTP login). Model: sonnet / medium.
 
 ## Phase 2 security review (2026-11-07, opus / high)
 
@@ -40,11 +41,21 @@ Accepted risks (documented, not fixed now):
 - Membership/tenant status cache is per instance (30 s): with several instances a suspension can take up to 30 s to apply everywhere.
 - Concurrent staff additions can exceed `MaxEmployees` by one (commercial limit, not a safety rule).
 - Onboarding writes two schemas without a shared transaction; failure is compensated by soft-deleting the tenant.
-- Staff listing isn't branch-scoped yet (Phase 3 with branch endpoints). No CORS or security headers yet (Phase 10).
+- Staff listing (`api/staff`) is still tenant-wide, not limited by the caller's branches: a branch-limited member with `Staff.Read` sees every member of the organization. Decide and implement together with branch-aware staff management (Phase 4 or a follow-up).
+- No CORS or security headers yet (Phase 10).
 
 ## Done in Phase 0–1
 
 See git history. Highlights: ADR-001..007, architecture docs, `ModuleDbContext` (schema, HiLo, `Tenant`/`SoftDelete` filters, `(TenantId, Id)` keys), `AuditTenantInterceptor`, `GlobalExceptionHandler`, validation filter, health checks, Serilog, Tenancy + Clinic initial migrations.
+
+## Done in Phase 3
+
+- **Clinic module:** `Specialty`, `Doctor`, `DoctorSpecialty`, `DoctorBranch`, `DoctorSchedule`, `DoctorTimeOff`, `Service`, `ServicePrice` (all with composite tenant FKs); `api/branches`, `api/specialties`, `api/doctors` (search/view/add/update/status, `PUT schedule`, `POST|DELETE time-off`), `api/services` (CRUD, `PUT price`).
+- **Branch scope:** members limited to some branches only see those branches, doctors who work there, and prices for them; they can't add a doctor to another branch, set schedules or prices elsewhere, create branches, or deactivate a doctor who also works elsewhere. `IAccessContext.BranchIds` added.
+- **Plan limits:** `MaxBranches`, `MaxDoctors` (disabled entitlement = none allowed).
+- **Schedules:** end after start, whole slots, no overlap inside the request or across the doctor's other branches; replacing a schedule is atomic; removing a doctor from a branch drops its schedule.
+- **Prices:** history kept, one open price per service and branch (filtered unique index), same price = no-op.
+- **Contract:** `IClinicApi.GetExistingBranchIdsAsync` (used by Staff).
 
 ## Done in Phase 2
 
@@ -59,12 +70,12 @@ See git history. Highlights: ADR-001..007, architecture docs, `ModuleDbContext` 
 | Module | Migration | Applied to |
 |---|---|---|
 | Tenancy | `InitialCreate`, `AddPlansAndSubscriptions`, `FilterTenantSlugIndex` | `Shifa` (dev), `Shifa_Tests` |
-| Clinic | `InitialCreate` | `Shifa` (dev), `Shifa_Tests` |
+| Clinic | `InitialCreate`, `AddClinicSetup` (9 composite tenant FKs) | `Shifa` (dev), `Shifa_Tests` |
 | Identity | `InitialCreate` (users, memberships with composite tenant FKs, roles, permissions, tokens, audit) | `Shifa` (dev), `Shifa_Tests` |
 
 ## Tests
 
-`dotnet test --solution Shifa.slnx` → **63 passed, 0 failed** (2026-11-07, after the security review). Mutation check: with the `Tenant` query filter replaced by `true`, 8 isolation tests fail (then restored).
+`dotnet test --solution Shifa.slnx` → **72 passed, 0 failed** (2026-11-07). Phase 3 mutation check: with `HasAllBranches` forced to true, the two branch-scope tests fail. Mutation check: with the `Tenant` query filter replaced by `true`, 8 isolation tests fail (then restored).
 
 - Architecture (12) and Phase 1 integration (17), unchanged.
 - API integration (27), all through HTTP against SQL Server:
@@ -80,8 +91,9 @@ See git history. Highlights: ADR-001..007, architecture docs, `ModuleDbContext` 
 - EF tools 10.0.7 older than runtime 10.0.14 (warning): `dotnet tool update -g dotnet-ef`.
 - OpenTelemetry deferred to Phase 10. Docker not needed yet.
 
-## Next tasks (Phase 3)
+## Next tasks (Phase 4)
 
-1. Clinic: `Specialty`, `Doctor`, `DoctorSpecialty`, `Service`, `ServicePrice`, `DoctorBranch`, `DoctorSchedule`, `DoctorTimeOff`; branch CRUD with `MaxBranches` / `MaxDoctors` plan limits.
-2. Branch-scope authorization on branch-owned data; composite tenant FKs for all of it.
-3. Tests: tenant isolation + branch scope for every new endpoint (read/update/delete by another tenant → 404).
+1. Patients module: `Patient` (MRN per tenant), `PatientIdentifier`, `PatientGuardian`, `PatientAccountAccess`, `PatientConsent`; registration and search with branch-aware permissions.
+2. Patient portal login by phone OTP (`OtpChallenge`, rate limited, hashed codes) and a user → patient-profile access check (a guardian reaches their children).
+3. `IPatientsApi` for Scheduling; allergies and conditions stay in Clinical (Phase 6).
+4. Legal items L1/L2 (consent wording, guardians of minors) need review before go-live; default text is a placeholder.
