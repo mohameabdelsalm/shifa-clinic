@@ -1,8 +1,14 @@
-# Vision — Shifa Clinics
+# Vision — Shifa
 
-## The client
+## The product
 
-**Shifa Clinics** is a (fictional) multi-specialty outpatient clinic group. We design against its numbers so every technical decision has a reason.
+**Shifa** is a multi-tenant clinic management SaaS. The platform owner sells subscriptions to clinics, medical centers and healthcare organizations. Each customer is a **tenant** that manages its own branches, doctors, services and prices, staff and permissions, patients, appointments, medical records, invoices and reports, with its data strictly isolated from every other tenant (ADR-002).
+
+New customers are onboarded by the Platform Admin without new deployments or code changes. Plans define limits (branches, doctors, employees, modules) and trial periods.
+
+## Reference tenant
+
+We size the system against a typical (fictional) tenant, **Al Noor Clinics**, a multi-specialty outpatient group. The platform must serve many tenants of this size and smaller.
 
 | Metric | Value |
 |---|---|
@@ -50,7 +56,7 @@
 ## Key business rules
 
 1. A booking must fall inside the doctor's schedule at that branch, and not during time off.
-2. A doctor can never have two overlapping appointments. The database enforces this (see `appointment_slots` in [erd.md](erd.md)).
+2. A doctor can never have two overlapping appointments. The database enforces this (see `AppointmentSlots` in [architecture/database-design.md](architecture/database-design.md)).
 3. A patient cannot have more than one appointment with the same doctor on the same day.
 4. Patients can cancel from the app up to 3 hours before the appointment (configurable).
 5. A patient with 3 or more no-shows gets online bookings in `Pending` until reception confirms them.

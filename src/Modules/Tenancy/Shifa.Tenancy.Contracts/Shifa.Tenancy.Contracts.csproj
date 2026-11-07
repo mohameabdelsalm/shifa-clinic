@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The only part of the Tenancy module other modules may reference:
+       ITenancyApi (tenant status, entitlements) and Events/. -->
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Shifa.Core\Shifa.Core.csproj" />
+  </ItemGroup>
+
+</Project>

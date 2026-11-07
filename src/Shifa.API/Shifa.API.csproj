@@ -5,7 +5,18 @@
   <ItemGroup>
     <ProjectReference Include="..\Shifa.Core\Shifa.Core.csproj" />
     <ProjectReference Include="..\Shifa.Infrastructure\Shifa.Infrastructure.csproj" />
+    <ProjectReference Include="..\Modules\Tenancy\Shifa.Tenancy\Shifa.Tenancy.csproj" />
     <ProjectReference Include="..\Modules\Clinic\Shifa.Clinic\Shifa.Clinic.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Serilog.AspNetCore" />
+    <PackageReference Include="Serilog.Sinks.Seq" />
+    <PackageReference Include="Swashbuckle.AspNetCore" />
   </ItemGroup>
 
 </Project>

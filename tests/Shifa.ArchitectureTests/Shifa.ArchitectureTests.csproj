@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- Enforces the module boundary rules (ADR 0001) by reading the .csproj files.
-       If a test here fails, fix the project reference; never weaken the test. -->
+  <!-- Enforces the module boundary and data ownership rules (ADR-001, ADR-002).
+       If a test here fails, fix the code; never weaken the test. -->
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
@@ -19,6 +19,14 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="xunit.v3" />
+  </ItemGroup>
+
+  <!-- Every module implementation must be referenced here so its DbContext model is checked.
+       ModuleAssemblies fails when a module is missing from this list. -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Shifa.Infrastructure\Shifa.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Tenancy\Shifa.Tenancy\Shifa.Tenancy.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Clinic\Shifa.Clinic\Shifa.Clinic.csproj" />
   </ItemGroup>
 
 </Project>

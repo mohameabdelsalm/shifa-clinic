@@ -9,7 +9,12 @@
     <Project Path="src/Modules/Clinic/Shifa.Clinic.Contracts/Shifa.Clinic.Contracts.csproj" />
     <Project Path="src/Modules/Clinic/Shifa.Clinic/Shifa.Clinic.csproj" />
   </Folder>
+  <Folder Name="/src/Modules/Tenancy/">
+    <Project Path="src/Modules/Tenancy/Shifa.Tenancy.Contracts/Shifa.Tenancy.Contracts.csproj" />
+    <Project Path="src/Modules/Tenancy/Shifa.Tenancy/Shifa.Tenancy.csproj" />
+  </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Shifa.ArchitectureTests/Shifa.ArchitectureTests.csproj" />
+    <Project Path="tests/Shifa.IntegrationTests/Shifa.IntegrationTests.csproj" />
   </Folder>
 </Solution>

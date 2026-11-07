@@ -1,0 +1,21 @@
+# Local development services (ADR-006). SQL Server is NOT here: we use the local instance (Server=.).
+# Start: docker compose up -d     Stop: docker compose down
+services:
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+
+  seq:
+    image: datalust/seq:latest
+    environment:
+      ACCEPT_EULA: "Y"
+      SEQ_FIRSTRUN_NOAUTHENTICATION: "true"   # local only
+    ports: ["5341:80"]
+
+  mailpit:
+    image: axllent/mailpit:latest
+    ports: ["8025:8025", "1025:1025"]
+
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite
+    ports: ["10000:10000"]
