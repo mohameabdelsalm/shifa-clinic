@@ -8,54 +8,62 @@ _Last updated: 2026-11-07_
 |---|---|
 | 0 — Architecture finalization | ✅ Done |
 | 1 — Solution foundation | ✅ Done |
-| 2 — Identity, Tenancy, Platform Admin | ⏳ Next |
-| 3–10 | Not started (see `implementation-roadmap.md`) |
+| 2 — Identity, Tenancy, Platform Admin | ✅ Implemented; **opus / high security review still to do** |
+| 3 — Clinic setup | ⏳ Next |
+| 4–10 | Not started (see `implementation-roadmap.md`) |
 
 ## Current phase
 
-**Phase 2 — Identity, Tenancy & Platform Administration** (security critical). Model: sonnet / medium for implementation, opus / high for the isolation and security review.
+**Phase 3 — Clinic setup** (branches, doctors, specialties, services, prices, schedules, time off). Model: sonnet / medium. Before it, run the Phase 2 review with opus / high (see "Review checklist" below).
 
-## Done in Phase 0
+## Done in Phase 0–1
 
-- ADR-001..007 in `docs/decisions/` (multi-tenant modular monolith, shared DB + TenantId, SQL Server + HiLo `long` keys, HRM code conventions — chosen over the prompt's vertical slices by the product owner, outbox, local-first, authN/authZ model).
-- Architecture docs in `docs/architecture/`: system, module boundaries, tenancy, database (revised ERD with TenantId and composite keys), security.
-- `project/assumptions.md` (business defaults, legal review items), `project/implementation-roadmap.md`.
+See git history. Highlights: ADR-001..007, architecture docs, `ModuleDbContext` (schema, HiLo, `Tenant`/`SoftDelete` filters, `(TenantId, Id)` keys), `AuditTenantInterceptor`, `GlobalExceptionHandler`, validation filter, health checks, Serilog, Tenancy + Clinic initial migrations.
 
-## Done in Phase 1
+## Done in Phase 2
 
-- Shared (HRM names): `Response`, `BusinessException`, `BaseModel`, `TenantOwnedEntity`, `[PlatformOwned]`, `StatusEnum`, `ICurrentUser`, `ITenantContext`, `LanguageResource` (en, ar), `ShifaClaimTypes`.
-- Tenancy foundation: scoped set-once `TenantContext`; `TenantResolutionHandler` (token claim → context); `ModuleDbContext` with schema, HiLo, named filters `Tenant` + `SoftDelete`, `(TenantId, Id)` alternate key, decimal/enum conventions; `AuditTenantInterceptor` (stamp TenantId, block cross-tenant writes, audit columns, soft delete).
-- API: Serilog (console; Seq in Development), localization en/ar, `GlobalExceptionHandler` (`IExceptionHandler`), model-state + FluentValidation `ValidationFilter` returning `Response`, Swagger (Development only), HSTS/HTTPS outside Development, `/health/live`, `/health/ready` (DbContext checks).
-- Modules: Tenancy (`Tenant`, platform-owned) and Clinic (`Branch`, tenant-owned), each with its own DbContext, schema and `InitialCreate` migration.
-- `docker-compose.yml` (Redis, Seq, Mailpit, Azurite). Docker Desktop not running yet; nothing in Phase 1 needs it.
-- Security pin: `System.Security.Cryptography.Pkcs` 10.0.14 (transitive from Microsoft.Data.SqlClient 9.0.11 had known vulnerabilities).
+- **Auth plumbing:** JWT (15 min) + rotating refresh tokens with theft detection, `Jwt` settings + dev-only ephemeral key, `[Permission]` / `[PlatformAdmin]` policies, scoped set-once `IAccessContext`, `ITenantScopeFactory`, `IAuditService`, `Permissions` catalog + default roles, `PagedList`, rate limiter on `api/auth`, Swagger Bearer scheme.
+- **Identity module:** `User`, `Membership`, `Role`, `RolePermission`, `MembershipRole`, `MembershipBranch`, `RefreshToken`, `AuditLog`; `api/auth` (login, refresh, switch-tenant, logout), `api/roles`, `api/staff`; lockout; escalation guards; `IIdentityApi`; Platform Admin seed command.
+- **Tenancy module:** `Plan`, `PlanEntitlement`, `TenantSubscription`, `SubscriptionPayment`; `api/platform/plans`, `api/platform/tenants` (create + onboarding with default roles and first TenantAdmin, suspend, activate, change plan, record payment); `ITenancyApi` (status, entitlements).
+- **Clinic:** `IClinicApi.GetExistingBranchIdsAsync`.
+- **TenantResolutionHandler:** validates tenant + membership per request (30 s cache) before setting the tenant and access contexts.
 
 ## Database migrations
 
 | Module | Migration | Applied to |
 |---|---|---|
-| Tenancy | `InitialCreate` (schema `tenancy`, `Tenants`, HiLo sequence) | `Shifa` (dev), `Shifa_Tests` |
-| Clinic | `InitialCreate` (schema `clinic`, `Branches`, HiLo sequence) | `Shifa` (dev), `Shifa_Tests` |
+| Tenancy | `InitialCreate`, `AddPlansAndSubscriptions` | `Shifa` (dev), `Shifa_Tests` |
+| Clinic | `InitialCreate` | `Shifa` (dev), `Shifa_Tests` |
+| Identity | `InitialCreate` (users, memberships with composite tenant FKs, roles, permissions, tokens, audit) | `Shifa` (dev), `Shifa_Tests` |
 
 ## Tests
 
-`dotnet test --solution Shifa.slnx` → **29 passed, 0 failed** (2026-11-07).
+`dotnet test --solution Shifa.slnx` → **56 passed, 0 failed** (2026-11-07). Mutation check: with the `Tenant` query filter replaced by `true`, 8 isolation tests fail (then restored).
 
-- Architecture (12): project references, every module has Contracts, every entity tenant- or platform-owned, Tenant filter + `(TenantId, Id)` key on tenant entities, composite tenant FKs, one schema per module.
-- Integration on SQL Server (17): tenant sees only its rows, other tenant's row not found by id, no context → no rows, TenantId stamped, insert/update for another tenant rejected, TenantId change rejected (EF key protection), save without context rejected, unique code per tenant, HiLo id before save, soft delete; platform entity save, unique slug; health live/ready; exception handler 500 (en/ar, no leak) and BusinessException mapping.
+- Architecture (12) and Phase 1 integration (17), unchanged.
+- API integration (27), all through HTTP against SQL Server:
+  - Authentication: tokens, identical 401s for 5 failure kinds, lockout, refresh rotation + family revocation, logout, one person in two tenants + switch, bad tokens, platform token has no tenant permissions.
+  - **Tenant isolation:** each tenant sees only its roles; B can't read/update/delete A's roles; B can't read/update/suspend A's staff; A can't assign B's roles; membership lookup never crosses tenants; suspended tenant locked out immediately (and a stale token doesn't block signing in elsewhere).
+  - Authorization: 403 without permission, staff-manager and role-manager escalation blocked, system roles protected, suspended member loses access at once, can't suspend self, plan employee limit, unknown branch ids, platform endpoints reject anonymous and tenant admins, onboarding validation, audit rows for platform actions, tenant list.
 
-## Known issues / notes
+## Review checklist for the Phase 2 opus / high review
 
-- Tenant resolution trusts the token claim only; membership and tenant status validation arrive with Identity in Phase 2. No endpoints exist yet, so nothing is exposed.
-- Swagger JWT security definition is added in Phase 2 with authentication.
-- EF tools 10.0.7 are older than runtime 10.0.14 (warning only): `dotnet tool update -g dotnet-ef`.
-- OpenTelemetry is deferred to Phase 10 (roadmap).
+- Walk every `[AllowAnonymous]` endpoint and every repo method that reads by id (IDOR).
+- `TenantResolutionHandler`: order in the pipeline, behaviour on cache staleness across instances (30 s), JWT key handling in production.
+- `AuditTenantInterceptor` + composite FKs under bulk operations (`ExecuteUpdate/Delete`) — none exist yet.
+- Onboarding compensation (`TenantRepo.Add`): tenant and identity data are in different schemas without a shared transaction.
+- Refresh/login rate limits are per IP only (behind a proxy the forwarded IP must be configured).
 
-## Next tasks (Phase 2)
+## Known gaps / notes
 
-1. Identity module: `User` (ASP.NET Core Identity, `long` keys), `Membership`, roles, permission catalog, `MembershipBranch`, refresh tokens, OTP.
-2. Tenancy module: tenant onboarding (default roles, platform admin flow), plans, entitlements, subscriptions.
-3. JWT + refresh rotation; tenant-scoped tokens; switch-tenant endpoint.
-4. `TenantResolutionHandler`: validate membership and tenant status (cached) before setting the context.
-5. `[Permission]` policies, branch scope, Platform Admin policy + audit log.
-6. Integration tests: Tenant A cannot read, update or delete Tenant B data through the API.
+- Patient OTP login, password reset/change, subscription-expiry enforcement (assumption A6), JWT key rotation and Platform Admin usage monitoring are deferred (ADR-007).
+- No branch endpoints yet, so branch-scope assignment is only tested for rejection of unknown ids; positive branch-scope tests come with Phase 3.
+- `AuditService` saves through the request's `IdentityDbContext`; an audit failure after a business change surfaces as an error to the caller (change already committed).
+- EF tools 10.0.7 older than runtime 10.0.14 (warning): `dotnet tool update -g dotnet-ef`.
+- OpenTelemetry deferred to Phase 10. Docker not needed yet.
+
+## Next tasks (Phase 3)
+
+1. Clinic: `Specialty`, `Doctor`, `DoctorSpecialty`, `Service`, `ServicePrice`, `DoctorBranch`, `DoctorSchedule`, `DoctorTimeOff`; branch CRUD with `MaxBranches` / `MaxDoctors` plan limits.
+2. Branch-scope authorization on branch-owned data; composite tenant FKs for all of it.
+3. Tests: tenant isolation + branch scope for every new endpoint (read/update/delete by another tenant → 404).

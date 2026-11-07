@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
+using Shifa.Core.Common;
 using Shifa.Core.Interfaces.Common;
 
 namespace Shifa.Infrastructure.Common.CurrentUserManager;
@@ -14,10 +15,10 @@ public class CurrentUser : ICurrentUser
     }
 
     public long? GetUserId()
-        => long.TryParse(_httpContext.HttpContext?.User?.FindFirstValue(ClaimTypes.NameIdentifier), out var userId)
+        => long.TryParse(_httpContext.HttpContext?.User?.FindFirstValue(ShifaClaimTypes.UserId), out var userId)
             ? userId
             : null;
 
     public string GetUserName()
-        => _httpContext.HttpContext?.User?.FindFirstValue(ClaimTypes.Name) ?? "";
+        => _httpContext.HttpContext?.User?.FindFirstValue(ShifaClaimTypes.UserName) ?? "";
 }

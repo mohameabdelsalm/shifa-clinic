@@ -32,8 +32,19 @@ Apply migrations to the dev database (one command per module):
 
 ```bash
 dotnet ef database update -p src/Modules/Tenancy/Shifa.Tenancy -s src/Shifa.API -c TenancyDbContext
+dotnet ef database update -p src/Modules/Identity/Shifa.Identity -s src/Shifa.API -c IdentityDbContext
 dotnet ef database update -p src/Modules/Clinic/Shifa.Clinic -s src/Shifa.API -c ClinicDbContext
 ```
+
+Create the first Platform Admin (an explicit command; the password comes from user-secrets, never from a file in the repo):
+
+```bash
+dotnet user-secrets --project src/Shifa.API set "PlatformAdmin:Email" "you@example.com"
+dotnet user-secrets --project src/Shifa.API set "PlatformAdmin:Password" "<a strong password>"
+dotnet run --project src/Shifa.API -- --seed-platform-admin
+```
+
+Then sign in with `POST /api/auth/login` (no `tenantSlug`) and use `api/platform/plans` and `api/platform/tenants` to onboard a customer.
 
 Integration tests create and migrate `Shifa_Tests` on the local instance automatically (override with `SHIFA_TEST_CONNECTION`).
 
@@ -46,6 +57,7 @@ src/
 ├─ Shifa.Infrastructure/   tenant context, current user, ModuleDbContext, interceptors, validation
 └─ Modules/
    ├─ Tenancy/  Shifa.Tenancy + Shifa.Tenancy.Contracts
+   ├─ Identity/ Shifa.Identity + Shifa.Identity.Contracts
    └─ Clinic/   Shifa.Clinic  + Shifa.Clinic.Contracts
 tests/
 ├─ Shifa.ArchitectureTests/   module boundaries, entity ownership, tenant keys

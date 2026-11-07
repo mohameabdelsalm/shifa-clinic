@@ -13,10 +13,13 @@ public static class InfrastructureModule
     public static IServiceCollection AddShifaInfrastructure(this IServiceCollection services)
     {
         services.AddHttpContextAccessor();
+        services.AddMemoryCache();
         services.TryAddSingleton(TimeProvider.System);
 
         services.AddScoped<ICurrentUser, CurrentUser>();
         services.AddScoped<ITenantContext, TenantContext>();
+        services.AddScoped<IAccessContext, AccessContext>();
+        services.AddSingleton<ITenantScopeFactory, TenantScopeFactory>();
         services.AddScoped<AuditTenantInterceptor>();
 
         return services;

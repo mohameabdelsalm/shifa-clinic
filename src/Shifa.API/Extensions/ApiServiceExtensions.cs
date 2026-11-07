@@ -1,11 +1,15 @@
 using System.Net;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Localization;
+using Microsoft.OpenApi;
 using Serilog;
 using Shifa.API.Middleware;
 using Shifa.Core;
 using Shifa.Core.Common;
+using Shifa.Infrastructure.Auth;
 using Shifa.Infrastructure.Common.Validation;
 
 namespace Shifa.API.Extensions;
@@ -26,7 +30,7 @@ public static class ApiServiceExtensions
         return builder;
     }
 
-    public static IServiceCollection AddShifaApi(this IServiceCollection services)
+    public static IServiceCollection AddShifaApi(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddLocalization(options => options.ResourcesPath = "Resources");
         services.Configure<RequestLocalizationOptions>(options =>
@@ -55,15 +59,55 @@ public static class ApiServiceExtensions
 
         services.AddExceptionHandler<GlobalExceptionHandler>();
         services.AddProblemDetails();
-
-        // Schemes (JWT) are added in Phase 2.
-        services.AddAuthentication();
-        services.AddAuthorization();
+        services.AddShifaAuthentication(configuration);
+        services.AddShifaRateLimiting(configuration);
 
         services.AddEndpointsApiExplorer();
-        services.AddSwaggerGen();
+        services.AddSwaggerGen(options =>
+        {
+            options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+            {
+                Type = SecuritySchemeType.Http,
+                Scheme = "bearer",
+                BearerFormat = "JWT",
+                Description = "Access token from POST /api/auth/login.",
+            });
+            options.AddSecurityRequirement(document => new OpenApiSecurityRequirement
+            {
+                [new OpenApiSecuritySchemeReference("Bearer", document)] = [],
+            });
+        });
 
         services.AddHealthChecks();
+
+        return services;
+    }
+
+    /// <summary>
+    /// Limits sign-in, refresh and sign-out requests per client IP (brute force and OTP/SMS abuse protection).
+    /// The limit comes from RateLimiting:AuthPermitLimit (default 10 per minute).
+    /// </summary>
+    private static IServiceCollection AddShifaRateLimiting(this IServiceCollection services, IConfiguration configuration)
+    {
+        services.AddRateLimiter(_ => { });
+
+        // Configured through DI so the permit limit is read from the final configuration (also in tests).
+        services.AddOptions<RateLimiterOptions>().Configure<IConfiguration>((options, config) =>
+        {
+            var permitLimit = config.GetValue("RateLimiting:AuthPermitLimit", 10);
+
+            options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+            options.AddPolicy("auth", httpContext => RateLimitPartition.GetFixedWindowLimiter(
+                httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                _ => new FixedWindowRateLimiterOptions { PermitLimit = permitLimit, Window = TimeSpan.FromMinutes(1) }));
+
+            options.OnRejected = async (context, cancellationToken) =>
+            {
+                var localizer = context.HttpContext.RequestServices.GetRequiredService<IStringLocalizer<LanguageResource>>();
+                await context.HttpContext.Response.WriteAsJsonAsync(
+                    new Response(localizer["TooManyRequests"].Value, HttpStatusCode.TooManyRequests, isSuccess: false), cancellationToken);
+            };
+        });
 
         return services;
     }

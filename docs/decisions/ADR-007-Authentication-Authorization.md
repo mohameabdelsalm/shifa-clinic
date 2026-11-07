@@ -16,6 +16,18 @@ Users include platform staff (the product owner), tenant staff with different ro
 - **Patient scope:** a portal user sees only patient profiles linked to them by `PatientAccountAccess` (self, child, ward) inside the current tenant.
 - **Platform scope:** Platform Admin is a separate claim and policy, with endpoints under `api/platform/...`. Cross-tenant data access is explicit (`IgnoreQueryFilters` on a named filter) and always audited.
 
+## Implementation notes (Phase 2)
+
+- **Passwords:** `PasswordHasher<User>` from ASP.NET Core Identity (PBKDF2, rehash on sign-in). The full Identity stores/`IdentityDbContext` are not used: `User` is a plain `BaseModel` entity, so every module keeps the same `ModuleDbContext` rules. Lockout: 5 failures → 15 minutes.
+- **Same generic 401** for wrong password, unknown user, unknown or inactive tenant, missing membership and locked accounts; unknown users still run a password verification (timing).
+- **Refresh tokens:** random, stored as SHA-256, rotated on every use, grouped in a family; reuse of a used token revokes the family and is audited. Refresh re-checks user, tenant and membership.
+- **Per-request validation** (`TenantResolutionHandler`): tenant active (`ITenancyApi`) and membership active for the token's user (`IIdentityApi`), both cached 30 s; role/membership/tenant changes invalidate the cache in-process (version per tenant), so a second instance sees a change within 30 s. `AllowAnonymous` endpoints skip this check so a stale token can't block sign-in.
+- **Tenant scopes:** lookups for a tenant other than the request's (login, membership, onboarding) run in `ITenantScopeFactory`, a new DI scope with its own `ITenantContext`. No `IgnoreQueryFilters` outside platform code.
+- **Escalation guards:** you can only create/edit roles with permissions you hold, assign roles whose permissions you hold, and assign branches inside your own scope. The `TenantAdmin` role can't be edited; system roles can't be deleted; you can't suspend yourself.
+- **Platform Admin:** `platform_admin` claim + per-request re-check; has no tenant permissions (`403` on tenant endpoints). First admin is created by an explicit command: `dotnet run --project src/Shifa.API -- --seed-platform-admin` with `PlatformAdmin:Email/Password/FullName` from user-secrets.
+- **Rate limiting:** `auth` policy (10/min per IP, `RateLimiting:AuthPermitLimit`) on `api/auth`.
+- **Deferred:** patient OTP login (Phase 4 with the patient portal), password reset/change, subscription-expiry enforcement (assumption A6), JWT key rotation, usage monitoring for the Platform Admin.
+
 ## Consequences
 
 - One login per person, with explicit tenant selection; a token can never act on two tenants.

@@ -41,6 +41,16 @@ tests/
 - Cache keys start with `t:{tenantId}:`; file paths start with `tenants/{tenantId}/`.
 - Every read by ID also checks branch scope and, for patient data, patient access. Out-of-scope → 404.
 
+## Authorization rules (ADR-007)
+
+- Endpoints require `[Permission(Permissions.X)]` (tenant data) or `[PlatformAdmin]` (`api/platform/...`). Anonymous endpoints say `[AllowAnonymous]` explicitly.
+- Permissions live in `Shifa.Core.Common.Permissions`. Adding a feature = add its codes there (and to the default roles).
+- Rate-limit new anonymous or SMS/OTP-sending endpoints with `[EnableRateLimiting("auth")]`.
+- A repo that hands out roles, permissions or branches must check the caller holds them (`IAccessContext`) — see `StaffRepo`/`RoleRepo`.
+- Write an audit row (`IAuditService`) for security-relevant changes and for every Platform Admin action.
+- Another tenant's id returns 404, never 403.
+- New tenant-owned endpoints get a cross-tenant test in `Shifa.IntegrationTests/Api` (read, update, delete by Tenant B must be 404).
+
 ## Architecture rules (ADR-001, docs/architecture/module-boundaries.md)
 
 - `Shifa.Core` → nothing. `Shifa.Infrastructure` → Core. `Shifa.<Module>.Contracts` → Core only.

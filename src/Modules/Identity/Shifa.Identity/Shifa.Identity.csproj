@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Identity module: users, memberships, roles/permissions, tokens, audit log (schema "identity").
+       Folders follow the HRM conventions (ADR-004). Only Shifa.API references this project. -->
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Shifa.Core\Shifa.Core.csproj" />
+    <ProjectReference Include="..\..\..\Shifa.Infrastructure\Shifa.Infrastructure.csproj" />
+    <ProjectReference Include="..\Shifa.Identity.Contracts\Shifa.Identity.Contracts.csproj" />
+    <ProjectReference Include="..\..\Tenancy\Shifa.Tenancy.Contracts\Shifa.Tenancy.Contracts.csproj" />
+    <ProjectReference Include="..\..\Clinic\Shifa.Clinic.Contracts\Shifa.Clinic.Contracts.csproj" />
+  </ItemGroup>
+
+</Project>

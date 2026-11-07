@@ -36,4 +36,26 @@
   <data name="Deleted" xml:space="preserve">
     <value>Deleted successfully.</value>
   </data>
+  <data name="Required" xml:space="preserve"><value>A required field is missing.</value></data>
+  <data name="InvalidEmail" xml:space="preserve"><value>The email address is not valid.</value></data>
+  <data name="PasswordTooWeak" xml:space="preserve"><value>Password must be at least 10 characters and include upper case, lower case and a digit.</value></data>
+  <data name="InvalidCredentials" xml:space="preserve"><value>Invalid credentials.</value></data>
+  <data name="InvalidToken" xml:space="preserve"><value>The session is not valid. Please sign in again.</value></data>
+  <data name="Unauthorized" xml:space="preserve"><value>Authentication is required.</value></data>
+  <data name="TenantInactive" xml:space="preserve"><value>This organization is not active.</value></data>
+  <data name="RoleNotFound" xml:space="preserve"><value>The role was not found.</value></data>
+  <data name="RoleNameDuplicated" xml:space="preserve"><value>A role with this name already exists.</value></data>
+  <data name="SystemRoleLocked" xml:space="preserve"><value>This system role can't be changed or deleted.</value></data>
+  <data name="InvalidPermission" xml:space="preserve"><value>One or more permissions are not valid.</value></data>
+  <data name="StaffNotFound" xml:space="preserve"><value>The staff member was not found.</value></data>
+  <data name="StaffAlreadyExists" xml:space="preserve"><value>This person is already a member of this organization.</value></data>
+  <data name="EmployeeLimitReached" xml:space="preserve"><value>The employee limit of your plan has been reached.</value></data>
+  <data name="CannotSuspendSelf" xml:space="preserve"><value>You can't suspend your own account.</value></data>
+  <data name="BranchNotFound" xml:space="preserve"><value>One or more branches were not found.</value></data>
+  <data name="TenantNotFound" xml:space="preserve"><value>The organization was not found.</value></data>
+  <data name="TenantSlugDuplicated" xml:space="preserve"><value>This organization short name is already used.</value></data>
+  <data name="InvalidSlug" xml:space="preserve"><value>The short name may contain only lower case letters, digits and hyphens.</value></data>
+  <data name="PlanNotFound" xml:space="preserve"><value>The plan was not found.</value></data>
+  <data name="PlanCodeDuplicated" xml:space="preserve"><value>A plan with this code already exists.</value></data>
+  <data name="TooManyRequests" xml:space="preserve"><value>Too many requests. Please try again later.</value></data>
 </root>
