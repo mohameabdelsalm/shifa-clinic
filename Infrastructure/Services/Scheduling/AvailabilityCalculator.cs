@@ -36,6 +36,8 @@ public static class AvailabilityCalculator
             var length = TimeSpan.FromMinutes(slotsNeeded * window.SlotMinutes);
             var windowStart = localDate.ToDateTime(window.StartTime);
             var windowEnd = localDate.ToDateTime(window.EndTime);
+            // The visit must also end inside the window in real time: across a DST gap, wall-clock and elapsed time differ.
+            var windowEndUtc = ToUtc(SkipGap(windowEnd, timeZone), timeZone);
 
             for (var localStart = windowStart; localStart + length <= windowEnd; localStart = localStart.AddMinutes(window.SlotMinutes))
             {
@@ -45,6 +47,8 @@ public static class AvailabilityCalculator
                 var startUtc = ToUtc(localStart, timeZone);
                 var endUtc = startUtc + length;
 
+                if (endUtc > windowEndUtc)
+                    continue;
                 if (startUtc < notBefore || startUtc > notAfter)
                     continue;
                 if (busy.Any(b => b.From < endUtc && startUtc < b.To))

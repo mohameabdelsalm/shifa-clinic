@@ -13,5 +13,6 @@ public class PortalBookAppointmentValidator : AbstractValidator<PortalBookAppoin
         RuleFor(x => x.DoctorId).GreaterThan(0).WithMessage(_ => l["Required"]);
         RuleFor(x => x.ServiceId).GreaterThan(0).WithMessage(_ => l["Required"]);
         RuleFor(x => x.StartAt).NotEqual(default(DateTimeOffset)).WithMessage(_ => l["Required"]);
+        RuleFor(x => x.StartAt).Must(SchedulingDateRules.IsSaneInstant).When(x => x.StartAt != default).WithMessage(_ => l["InvalidDateRange"]);
     }
 }

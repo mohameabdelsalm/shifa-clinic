@@ -8,7 +8,7 @@ public class SearchAppointmentsValidator : AbstractValidator<SearchAppointmentsM
 {
     public SearchAppointmentsValidator(IStringLocalizer<LanguageResource> l)
     {
-        RuleFor(x => x).Must(x => x.FromDate != default && x.ToDate >= x.FromDate && x.ToDate.DayNumber - x.FromDate.DayNumber <= 62)
+        RuleFor(x => x).Must(x => x.FromDate != default && SchedulingDateRules.IsSaneDate(x.FromDate) && SchedulingDateRules.IsSaneDate(x.ToDate) && x.ToDate >= x.FromDate && x.ToDate.DayNumber - x.FromDate.DayNumber <= 62)
             .WithMessage(_ => l["InvalidDateRange"]);
     }
 }

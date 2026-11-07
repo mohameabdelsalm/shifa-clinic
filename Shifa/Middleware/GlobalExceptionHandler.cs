@@ -2,6 +2,7 @@ using System.Net;
 using Core;
 using Core.Common;
 using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 
@@ -46,6 +47,13 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
             _logger.LogInformation("Optimistic concurrency conflict");
             response = new Response(_localizer["ConcurrentChange"].Value, HttpStatusCode.Conflict, isSuccess: false);
         }
+        else if (IsDeadlock(exception) || exception is TimeoutException)
+        {
+            // SQL Server picked this request as a deadlock victim, or an application lock (DatabaseLocks) timed out:
+            // nothing was saved, and trying again is safe.
+            _logger.LogWarning("Concurrent request conflict ({Kind})", exception is TimeoutException ? "lock timeout" : "deadlock");
+            response = new Response(_localizer["ConcurrentChange"].Value, HttpStatusCode.Conflict, isSuccess: false);
+        }
         else
         {
             _logger.LogError(exception, "Unhandled exception");
@@ -56,4 +64,8 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
         await httpContext.Response.WriteAsJsonAsync(response, cancellationToken);
         return true;
     }
+
+    /// <summary>SQL Server error 1205, thrown directly or wrapped by EF.</summary>
+    private static bool IsDeadlock(Exception exception) =>
+        (exception as SqlException ?? exception.InnerException as SqlException)?.Number == 1205;
 }

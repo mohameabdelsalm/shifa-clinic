@@ -11,13 +11,37 @@ _Last updated: 2026-11-07_
 | 2 — Identity, Tenancy, Platform Admin | ✅ Done, security-reviewed (opus / high) and fixed |
 | 3 — Clinic setup | ✅ Done |
 | 4 — Patients | ✅ Done |
-| 5 — Scheduling | ✅ Implemented (ADR-008); review (step 8, opus / high) pending |
+| 5 — Scheduling | ✅ Done, reviewed (opus / high) and fixed |
 | HRM layout | ✅ Restructured like Trio HRM (ADR-009) |
 | 6–10 | Not started (see `implementation-roadmap.md`) |
 
 ## Current phase
 
-**Restructure done (ADR-009):** the solution now has HRM's shape — `Core/`, `Infrastructure/`, `Shifa/` (API) at the repository root, one class per file, AutoMapper profiles in `Core/Profiles/<Module>`. Next: the Phase 5 step 8 review on **opus / high**, then Phase 6.
+**Phase 5 review done.** The solution has HRM's shape (ADR-009). Next: Phase 6 per `implementation-roadmap.md`.
+
+## Phase 5 review (2026-11-07, opus / high)
+
+Scope: booking transaction, availability calculator, lifecycle, idempotency, branch scope, portal rules. My own read plus an independent reviewer that didn't see my conclusions. Both found **no way to double-book a doctor**: every appointment claims 5-minute UTC ticks, and the unique index `(TenantId, DoctorId, SlotStart) WHERE IsDeleted = 0` covers every branch.
+
+| # | Severity | Finding | Fix |
+|---|---|---|---|
+| S1 | Medium | A reschedule to the same start, racing a cancel, could leave a cancelled appointment holding live ticks: EF sent no UPDATE, so the rowversion was never checked | Reschedule always updates the appointment row (`IsModified`), so the rowversion is checked → 409 |
+| S2 | Medium | The portal list returned the staff `AppointmentDto` (booking source, staff-written cancel reason, timestamps) | New `PortalAppointmentDto` |
+| S3 | Low-Med | No-show kept its ticks while availability treated the time as free → offered slots failed with 409 | No-show releases the ticks in the same save |
+| S4 | Low-Med | Idempotency keys were shared by every caller in a tenant: one caller's key could block another for 24 h, or replay an identical request | Keys scoped to the caller: `BookAppointment:m:{membershipId}` / `BookAppointment:p:{hash of phone}` |
+| S5 | Low | Check-in was refused when the 2-hour window crossed midnight (visit at 00:30, arrival at 23:45) | Window = from start − 2 h until the end of the appointment's local day |
+| S6 | Low | Repeated check-in returned no queue number; a double-click race returned 409 | Repeat returns the same number; the race loser reloads and returns it |
+| S7 | Low | Extreme dates (e.g. `9999-12-31`) overflowed time-zone math → 500 | Validators bound dates to 2000–2100 (400) |
+| S8 | Low | Across a mid-window DST gap, a visit could end after the shift (wall-clock vs elapsed time). Cairo isn't affected (midnight transitions) | Calculator also checks the end in UTC against the window end |
+| S9 | Low | SQL deadlock victims and app-lock timeouts became 500 | Mapped to 409 `ConcurrentChange` (nothing saved, safe to retry) |
+| S10 | Low | `Patient.NoShowCount` was never updated (Scheduling owns no-show counts), so the patient view always showed 0 | Removed from `PatientDto` |
+
+Verification: build clean; the API starts in Development (DI validated on build), `/health/ready` 200, Swagger 200, anonymous portal call → 401 in the `Response` shape. **Not test-verified:** the tests are paused (ADR-009), so S1–S9 were checked by reading and building only. Re-check them when the tests come back.
+
+Left open:
+- The `patients.Patients.NoShowCount` column is still in the database (always 0). Dropping it needs a migration; ask before running it.
+- A Pending online booking can't be marked no-show (Pending → NoShow isn't an allowed transition), so it keeps its time until it is confirmed or cancelled. This is a business decision.
+- The portal list shows ids, not doctor/branch/service names (names need `IClinicApi` lookups).
 
 ## HRM layout restructure (2026-11-07)
 
