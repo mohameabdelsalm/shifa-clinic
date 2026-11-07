@@ -57,5 +57,6 @@
   <data name="InvalidSlug" xml:space="preserve"><value>The short name may contain only lower case letters, digits and hyphens.</value></data>
   <data name="PlanNotFound" xml:space="preserve"><value>The plan was not found.</value></data>
   <data name="PlanCodeDuplicated" xml:space="preserve"><value>A plan with this code already exists.</value></data>
+  <data name="LastTenantAdmin" xml:space="preserve"><value>The organization must keep at least one active administrator.</value></data>
   <data name="TooManyRequests" xml:space="preserve"><value>Too many requests. Please try again later.</value></data>
 </root>

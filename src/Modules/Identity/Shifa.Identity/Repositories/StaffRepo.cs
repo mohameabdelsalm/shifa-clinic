@@ -18,6 +18,15 @@ using Shifa.Tenancy.Contracts;
 
 namespace Shifa.Identity.Repositories;
 
+/// <summary>
+/// Staff (memberships) of the current tenant. Power rules:
+/// <list type="bullet">
+/// <item>you can only grant roles whose permissions you hold, and branches inside your own scope;</item>
+/// <item>you can only change or suspend someone whose current permissions and branches you also hold
+/// (a staff manager can't demote or lock out a TenantAdmin);</item>
+/// <item>the last active TenantAdmin can't be suspended or lose the TenantAdmin role.</item>
+/// </list>
+/// </summary>
 public class StaffRepo : IStaffRepo
 {
     private readonly IdentityDbContext _context;
@@ -61,11 +70,7 @@ public class StaffRepo : IStaffRepo
     public async Task<Response> Add(AddStaffModel model, CancellationToken cancellationToken)
     {
         var tenantId = _tenantContext.TenantId ?? throw new InvalidOperationException("No tenant context.");
-
-        var limit = await _tenancy.GetEntitlementAsync(tenantId, EntitlementCodes.MaxEmployees, cancellationToken);
-        if (limit.Limit is int max &&
-            await _context.Memberships.CountAsync(m => m.Status == MembershipStatusEnum.Active, cancellationToken) >= max)
-            throw new BusinessException(_localizer["EmployeeLimitReached"].Value, HttpStatusCode.BadRequest);
+        await EnsureEmployeeCapacityAsync(tenantId, cancellationToken);
 
         var roleIds = model.RoleIds.Distinct().ToList();
         var branchIds = model.AllBranches ? [] : model.BranchIds.Distinct().ToList();
@@ -102,10 +107,15 @@ public class StaffRepo : IStaffRepo
     public async Task<Response> Update(UpdateStaffModel model, CancellationToken cancellationToken)
     {
         var membership = await _context.Memberships.FirstOrDefaultAsync(m => m.Id == model.Id, cancellationToken) ?? throw NotFound();
+        await EnsureCanManageAsync(membership, cancellationToken);
 
         var roleIds = model.RoleIds.Distinct().ToList();
         var branchIds = model.AllBranches ? [] : model.BranchIds.Distinct().ToList();
         await ValidateAssignmentAsync(roleIds, model.AllBranches, branchIds, cancellationToken);
+
+        var (adminRoleId, isLastAdmin) = await GetLastTenantAdminStateAsync(membership.Id, cancellationToken);
+        if (isLastAdmin && !roleIds.Contains(adminRoleId))
+            throw new BusinessException(_localizer["LastTenantAdmin"].Value, HttpStatusCode.BadRequest);
 
         membership.AllBranches = model.AllBranches;
 
@@ -131,22 +141,93 @@ public class StaffRepo : IStaffRepo
         if (id == _access.MembershipId)
             throw new BusinessException(_localizer["CannotSuspendSelf"].Value, HttpStatusCode.BadRequest);
 
-        return await ChangeStatusAsync(id, MembershipStatusEnum.Suspended, "Staff.Suspended", cancellationToken);
+        var membership = await _context.Memberships.FirstOrDefaultAsync(m => m.Id == id, cancellationToken) ?? throw NotFound();
+        await EnsureCanManageAsync(membership, cancellationToken);
+
+        var (_, isLastAdmin) = await GetLastTenantAdminStateAsync(membership.Id, cancellationToken);
+        if (isLastAdmin)
+            throw new BusinessException(_localizer["LastTenantAdmin"].Value, HttpStatusCode.BadRequest);
+
+        return await SaveStatusAsync(membership, MembershipStatusEnum.Suspended, "Staff.Suspended", cancellationToken);
     }
 
-    public Task<Response> Activate(long id, CancellationToken cancellationToken) =>
-        ChangeStatusAsync(id, MembershipStatusEnum.Active, "Staff.Activated", cancellationToken);
-
-    private async Task<Response> ChangeStatusAsync(long id, MembershipStatusEnum status, string auditAction, CancellationToken cancellationToken)
+    public async Task<Response> Activate(long id, CancellationToken cancellationToken)
     {
         var membership = await _context.Memberships.FirstOrDefaultAsync(m => m.Id == id, cancellationToken) ?? throw NotFound();
+        await EnsureCanManageAsync(membership, cancellationToken);
+
+        // Re-activating counts against the plan like adding someone new.
+        if (membership.Status != MembershipStatusEnum.Active)
+            await EnsureEmployeeCapacityAsync(membership.TenantId, cancellationToken);
+
+        return await SaveStatusAsync(membership, MembershipStatusEnum.Active, "Staff.Activated", cancellationToken);
+    }
+
+    private async Task<Response> SaveStatusAsync(Membership membership, MembershipStatusEnum status, string auditAction, CancellationToken cancellationToken)
+    {
         membership.Status = status;
 
         await _context.SaveChangesAsync(cancellationToken);
         _cache.InvalidateTenant(membership.TenantId);
-        await _audit.LogAsync(auditAction, "Membership", id, cancellationToken: cancellationToken);
+        await _audit.LogAsync(auditAction, "Membership", membership.Id, cancellationToken: cancellationToken);
 
         return new Response(_localizer["Updated"].Value, HttpStatusCode.OK);
+    }
+
+    /// <summary>
+    /// The plan's MaxEmployees limit. A limit entitlement that is present but disabled means "none allowed".
+    /// Concurrent additions can briefly exceed the limit by one; the limit is commercial, not a safety rule.
+    /// </summary>
+    private async Task EnsureEmployeeCapacityAsync(long tenantId, CancellationToken cancellationToken)
+    {
+        var limit = await _tenancy.GetEntitlementAsync(tenantId, EntitlementCodes.MaxEmployees, cancellationToken);
+        if (!limit.Enabled)
+            throw new BusinessException(_localizer["EmployeeLimitReached"].Value, HttpStatusCode.BadRequest);
+
+        if (limit.Limit is int max &&
+            await _context.Memberships.CountAsync(m => m.Status == MembershipStatusEnum.Active, cancellationToken) >= max)
+            throw new BusinessException(_localizer["EmployeeLimitReached"].Value, HttpStatusCode.BadRequest);
+    }
+
+    /// <summary>You can only change someone whose current permissions and branches you hold yourself.</summary>
+    private async Task EnsureCanManageAsync(Membership target, CancellationToken cancellationToken)
+    {
+        var targetPermissions = await (
+            from mr in _context.MembershipRoles
+            where mr.MembershipId == target.Id
+            join p in _context.RolePermissions on mr.RoleId equals p.RoleId
+            select p.PermissionCode).Distinct().ToListAsync(cancellationToken);
+
+        if (targetPermissions.Any(code => !_access.HasPermission(code)))
+            throw Forbidden();
+
+        if (_access.HasAllBranches)
+            return;
+
+        if (target.AllBranches)
+            throw Forbidden();
+
+        var targetBranches = await _context.MembershipBranches.Where(b => b.MembershipId == target.Id).Select(b => b.BranchId).ToListAsync(cancellationToken);
+        if (targetBranches.Any(id => !_access.CanAccessBranch(id)))
+            throw Forbidden();
+    }
+
+    /// <summary>Whether <paramref name="membershipId"/> is the only active member holding the TenantAdmin role.</summary>
+    private async Task<(long AdminRoleId, bool IsLastAdmin)> GetLastTenantAdminStateAsync(long membershipId, CancellationToken cancellationToken)
+    {
+        var adminRoleId = await _context.Roles
+            .Where(r => r.IsSystemDefault && r.Name == Permissions.TenantAdminRole)
+            .Select(r => r.Id)
+            .FirstAsync(cancellationToken);
+
+        var activeAdmins = await (
+            from mr in _context.MembershipRoles
+            where mr.RoleId == adminRoleId
+            join m in _context.Memberships on mr.MembershipId equals m.Id
+            where m.Status == MembershipStatusEnum.Active
+            select m.Id).Distinct().ToListAsync(cancellationToken);
+
+        return (adminRoleId, activeAdmins.Count == 1 && activeAdmins[0] == membershipId);
     }
 
     /// <summary>
@@ -158,19 +239,19 @@ public class StaffRepo : IStaffRepo
         if (roleIds.Count == 0 || (!allBranches && branchIds.Count == 0))
             throw new BusinessException(_localizer["Required"].Value, HttpStatusCode.BadRequest);
 
-        var rolePermissions = await _context.RolePermissions.AsNoTracking()
-            .Where(p => roleIds.Contains(p.RoleId)).Select(p => p.PermissionCode).Distinct().ToListAsync(cancellationToken);
         var existingRoles = await _context.Roles.CountAsync(r => roleIds.Contains(r.Id), cancellationToken);
         if (existingRoles != roleIds.Count)
             throw new BusinessException(_localizer["RoleNotFound"].Value, HttpStatusCode.BadRequest);
 
+        var rolePermissions = await _context.RolePermissions.AsNoTracking()
+            .Where(p => roleIds.Contains(p.RoleId)).Select(p => p.PermissionCode).Distinct().ToListAsync(cancellationToken);
         if (rolePermissions.Any(code => !_access.HasPermission(code)))
-            throw new BusinessException(_localizer["Forbidden"].Value, HttpStatusCode.Forbidden);
+            throw Forbidden();
 
         if (allBranches)
         {
             if (!_access.HasAllBranches)
-                throw new BusinessException(_localizer["Forbidden"].Value, HttpStatusCode.Forbidden);
+                throw Forbidden();
             return;
         }
 
@@ -179,7 +260,7 @@ public class StaffRepo : IStaffRepo
             throw new BusinessException(_localizer["BranchNotFound"].Value, HttpStatusCode.BadRequest);
 
         if (branchIds.Any(id => !_access.CanAccessBranch(id)))
-            throw new BusinessException(_localizer["Forbidden"].Value, HttpStatusCode.Forbidden);
+            throw Forbidden();
     }
 
     private void AddAssignments(long membershipId, IEnumerable<long> roleIds, IEnumerable<long> branchIds)
@@ -204,6 +285,8 @@ public class StaffRepo : IStaffRepo
             BranchIds = _context.MembershipBranches.Where(b => b.MembershipId == m.Id).Select(b => b.BranchId).ToList(),
             RoleIds = _context.MembershipRoles.Where(r => r.MembershipId == m.Id).Select(r => r.RoleId).ToList(),
         };
+
+    private BusinessException Forbidden() => new(_localizer["Forbidden"].Value, HttpStatusCode.Forbidden);
 
     private BusinessException NotFound() => new(_localizer["StaffNotFound"].Value, HttpStatusCode.NotFound);
 }

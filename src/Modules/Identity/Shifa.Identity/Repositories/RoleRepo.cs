@@ -79,12 +79,15 @@ public class RoleRepo : IRoleRepo
         var permissions = model.Permissions.Distinct().ToList();
         EnsureCanGrant(permissions);
 
+        // Removing a permission is also a change of power: the caller must hold everything the role holds today.
+        var current = await _context.RolePermissions.Where(p => p.RoleId == role.Id).ToListAsync(cancellationToken);
+        EnsureCanGrant(current.Select(p => p.PermissionCode).ToList());
+
         if (await _context.Roles.AnyAsync(r => r.Name == name && r.Id != role.Id, cancellationToken))
             throw new BusinessException(_localizer["RoleNameDuplicated"].Value, HttpStatusCode.BadRequest);
 
         role.Name = name;
 
-        var current = await _context.RolePermissions.Where(p => p.RoleId == role.Id).ToListAsync(cancellationToken);
         _context.RolePermissions.RemoveRange(current.Where(p => !permissions.Contains(p.PermissionCode)));
         foreach (var code in permissions.Where(code => current.All(p => p.PermissionCode != code)))
             _context.RolePermissions.Add(new RolePermission { RoleId = role.Id, PermissionCode = code });
@@ -102,7 +105,10 @@ public class RoleRepo : IRoleRepo
         if (role.IsSystemDefault)
             throw new BusinessException(_localizer["SystemRoleLocked"].Value, HttpStatusCode.BadRequest);
 
-        _context.RolePermissions.RemoveRange(await _context.RolePermissions.Where(p => p.RoleId == id).ToListAsync(cancellationToken));
+        var permissions = await _context.RolePermissions.Where(p => p.RoleId == id).ToListAsync(cancellationToken);
+        EnsureCanGrant(permissions.Select(p => p.PermissionCode).ToList());
+
+        _context.RolePermissions.RemoveRange(permissions);
         _context.MembershipRoles.RemoveRange(await _context.MembershipRoles.Where(r => r.RoleId == id).ToListAsync(cancellationToken));
         _context.Roles.Remove(role);
 

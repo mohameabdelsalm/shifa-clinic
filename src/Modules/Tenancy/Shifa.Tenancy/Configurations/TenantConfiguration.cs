@@ -13,6 +13,8 @@ public class TenantConfiguration : IEntityTypeConfiguration<Tenant>
         builder.Property(t => t.DefaultTimeZoneId).HasMaxLength(64).IsRequired();
         builder.Property(t => t.CurrencyCode).HasMaxLength(3).IsFixedLength().IsRequired();
 
-        builder.HasIndex(t => t.Slug).IsUnique();
+        // Unique among live tenants. A tenant removed by a failed onboarding (soft delete) must not keep its slug forever;
+        // a new tenant with the same slug gets a new Id, so it never sees the old tenant's rows.
+        builder.HasIndex(t => t.Slug).IsUnique().HasFilter("[IsDeleted] = 0");
     }
 }

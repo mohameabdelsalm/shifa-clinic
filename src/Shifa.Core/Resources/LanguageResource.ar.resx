@@ -57,5 +57,6 @@
   <data name="InvalidSlug" xml:space="preserve"><value>الاسم المختصر يقبل أحرفًا إنجليزية صغيرة وأرقامًا وشرطات فقط.</value></data>
   <data name="PlanNotFound" xml:space="preserve"><value>الباقة غير موجودة.</value></data>
   <data name="PlanCodeDuplicated" xml:space="preserve"><value>يوجد باقة بنفس الكود.</value></data>
+  <data name="LastTenantAdmin" xml:space="preserve"><value>يجب أن يبقى في المؤسسة مسؤول نشط واحد على الأقل.</value></data>
   <data name="TooManyRequests" xml:space="preserve"><value>طلبات كثيرة. من فضلك حاول لاحقًا.</value></data>
 </root>
