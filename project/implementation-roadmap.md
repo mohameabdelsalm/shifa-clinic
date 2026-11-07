@@ -25,3 +25,14 @@ Each phase ends with: build green, relevant tests green, docs updated, `project/
 5. Modules: Tenancy (`Tenant`) and Clinic (`Branch`) with initial migrations, proving platform-owned and tenant-owned entities.
 6. Tests: architecture (references, ownership, composite FKs), integration on SQL Server (isolation, stamping, guards, HiLo, soft delete, health).
 7. `docker-compose.yml` for Redis, Seq, Mailpit, Azurite.
+
+## Phase 5 detail (ADR-008)
+
+1. **Clinic prerequisites:** schedule validator — start/end/slot multiples of 5 minutes; `IClinicApi.GetBookingInputsAsync(branchId, doctorId, serviceId)` and `GetDoctorTimeOffAsync(doctorId, fromUtc, toUtc)`.
+2. **Scheduling module:** `Appointment`, `AppointmentSlot` (5-minute ticks), `AppointmentStatusHistory`, `IdempotencyRecord`; `Shifa.Scheduling.Contracts` with the event records.
+3. **`AvailabilityCalculator`** (pure, unit-tested incl. a DST transition and multi-slot services) + availability endpoints (staff and portal).
+4. **Booking:** `POST api/appointments` and `api/portal/appointments` with `Idempotency-Key`; one `SaveChanges`; unique violations → 409 / idempotent replay.
+5. **Lifecycle:** confirm, check-in (+ queue number), cancel (portal 3 h rule), no-show, reschedule (release then claim in one transaction); `rowversion` → 409.
+6. **Lists/views:** search by date range, branch (scope), doctor, patient, status; portal list of linked patients' appointments.
+7. **Tests:** N parallel bookings of one slot → exactly one wins; overlapping multi-slot and cross-branch bookings; idempotent replay and key reuse; cancel frees ticks; reschedule onto own ticks; status-change race; branch scope and tenant isolation; portal `CanBook`.
+8. **Review:** opus / high on the booking transaction, the calculator and the tests.

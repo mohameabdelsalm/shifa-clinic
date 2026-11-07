@@ -261,9 +261,11 @@ erDiagram
 
 ## Scheduling (`scheduling`)
 
+Design: ADR-008. Every appointment claims one `AppointmentSlot` row per 5-minute UTC tick it covers; the filtered unique key `(TenantId, DoctorId, SlotStart)` makes overlapping bookings of a doctor impossible, at any branch.
+
 ```mermaid
 erDiagram
-  Appointment ||--|{ AppointmentSlot : occupies
+  Appointment ||--|{ AppointmentSlot : "claims ticks"
   Appointment ||--o{ AppointmentStatusHistory : tracks
   Appointment {
     bigint TenantId
@@ -271,18 +273,21 @@ erDiagram
     bigint DoctorId "→ clinic"
     bigint ServiceId "→ clinic"
     bigint PatientId "→ patients"
-    datetimeoffset StartAt
-    datetimeoffset EndAt
-    nvarchar Status
+    datetimeoffset StartAt "UTC"
+    datetimeoffset EndAt "UTC"
+    date LocalDate "branch-local day"
+    nvarchar Status "Pending, Confirmed, CheckedIn, InProgress, Completed, Cancelled, NoShow"
     nvarchar Source "Online, Reception, Phone"
-    int QueueNumber
+    int QueueNumber "unique per branch + doctor + LocalDate"
     datetimeoffset CheckedInAt
+    datetimeoffset CancelledAt
+    nvarchar CancelReason
     rowversion RowVersion "RV"
   }
   AppointmentSlot {
     bigint TenantId
-    bigint DoctorId "unique with TenantId + SlotStart"
-    datetimeoffset SlotStart
+    bigint DoctorId "unique with TenantId + SlotStart (live rows)"
+    datetimeoffset SlotStart "5-minute UTC tick"
     bigint AppointmentId FK
   }
   AppointmentStatusHistory {
@@ -294,15 +299,15 @@ erDiagram
   }
   IdempotencyRecord {
     bigint TenantId
-    nvarchar Key "unique with TenantId + Operation"
-    nvarchar Operation
-    nvarchar RequestHash
-    nvarchar ResponseJson
-    datetimeoffset ExpiresAt
+    nvarchar Operation "unique with TenantId + Key"
+    nvarchar Key
+    nvarchar RequestHash "SHA-256 of the canonical request"
+    bigint ResultId "appointment id"
+    datetimeoffset ExpiresAt "24 hours"
   }
 ```
 
-Slots are per doctor (not per branch) so a doctor can never be booked in two branches at the same time.
+Extra unique keys: `(TenantId, PatientId, DoctorId, LocalDate) WHERE Status <> 'Cancelled'` (one visit per patient, doctor and day) and `(TenantId, BranchId, DoctorId, LocalDate, QueueNumber) WHERE QueueNumber IS NOT NULL`.
 
 ## Clinical (`clinical`)
 
@@ -513,7 +518,7 @@ erDiagram
 | Table | Constraint | Why |
 |---|---|---|
 | All tenant-owned | Unique `(TenantId, Id)`; composite FKs | Cross-tenant references are impossible in the database |
-| `scheduling.AppointmentSlots` | Unique `(TenantId, DoctorId, SlotStart)` | Final protection against double booking under concurrency |
+| `scheduling.AppointmentSlots` | Unique `(TenantId, DoctorId, SlotStart) WHERE IsDeleted = 0` on 5-minute ticks | Final protection against double booking under concurrency, across branches and slot lengths (ADR-008) |
 | `scheduling.IdempotencyRecords` | Unique `(TenantId, Operation, Key)` | Retried booking requests return the first result |
 | `billing.Payments` | Unique `(TenantId, IdempotencyKey)` | No duplicate payments |
 | `clinical.Visits` | Unique `(TenantId, AppointmentId)` | One visit per appointment |

@@ -85,6 +85,13 @@ tests/
 - Never log medical data, national IDs, passwords, OTPs or tokens.
 - No destructive database operations (drop/recreate) without explicit approval. Migrations are applied explicitly, never at app startup.
 
+## Booking rules (ADR-008)
+
+- The final guard against double booking is the unique key on `scheduling.AppointmentSlots` (5-minute ticks per doctor, any branch). Never replace it with code checks, locks or Redis; map its violation to 409.
+- Appointment + ticks + history + idempotency record are saved in one `SaveChanges`. Rescheduling: release old ticks, then claim new ones, in one explicit transaction.
+- Availability is computed by `AvailabilityCalculator` from schedules (branch-local, IANA time zone), time off and existing appointments; booking re-validates against it.
+- Booking endpoints require an `Idempotency-Key` header.
+
 ## Patient portal rules (ADR-007)
 
 - Portal endpoints (`api/portal/...`) use `[PortalUser]`; the phone number comes from `IAccessContext.PortalPhoneNumber` (the token), never from the request.

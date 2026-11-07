@@ -51,3 +51,12 @@ Safe defaults used until the product owner or a legal/business reviewer decides 
 | A18 | Duplicate patients | Detected by identical national ID or passport (same type) within a tenant; no fuzzy name matching yet | Product |
 
 Legal items L1 and L2 (consent wording, guardians of minors) now matter: the system records *that* a consent was given and when, but the text shown to the patient and who may consent for a minor still need legal review.
+
+## Added in Phase 5 (design)
+
+| # | Assumption | Default | Owner to confirm |
+|---|---|---|---|
+| A19 | Booking horizon and check-in window | Bookable up to 90 days ahead; check-in from 2 hours before the start until the end of that local day | Product |
+| A20 | Schedule grid | Schedule times and slot lengths are multiples of 5 minutes (ADR-008) | Product |
+| A21 | Service longer than a slot | Rounded up to whole slots; it must fit inside one schedule window (no booking across a break) | Product |
+| A22 | DST | Local times that don't exist are not offered; ambiguous local times use the first occurrence | Product |
