@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The only part of the Identity module other modules may reference: IIdentityApi and Events/. -->
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Shifa.Core\Shifa.Core.csproj" />
+  </ItemGroup>
+
+</Project>

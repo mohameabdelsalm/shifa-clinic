@@ -42,8 +42,12 @@ flowchart TD
   Reporting --> SC
   Reporting --> BC
   Identity --> TC
+  Identity --> CC
   Clinic --> TC
+  Tenancy --> IC
 ```
+
+`Tenancy → Identity.Contracts` exists because onboarding provisions the tenant's default roles and first admin (`IIdentityApi.ProvisionTenantAsync`); `Identity → Tenancy.Contracts` exists for tenant status and plan limits. Both are Contracts-only, so there is no project cycle. `Identity → Clinic.Contracts` validates branch ids stored on memberships.
 
 Arrows are allowed references to **Contracts** only. Reverse arrows are not allowed; if a module needs to react to a downstream change, it subscribes to an event.
 

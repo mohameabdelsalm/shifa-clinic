@@ -36,4 +36,26 @@
   <data name="Deleted" xml:space="preserve">
     <value>تم الحذف بنجاح.</value>
   </data>
+  <data name="Required" xml:space="preserve"><value>حقل مطلوب غير مُدخل.</value></data>
+  <data name="InvalidEmail" xml:space="preserve"><value>البريد الإلكتروني غير صحيح.</value></data>
+  <data name="PasswordTooWeak" xml:space="preserve"><value>كلمة المرور يجب ألا تقل عن 10 أحرف وتحتوي على حرف كبير وحرف صغير ورقم.</value></data>
+  <data name="InvalidCredentials" xml:space="preserve"><value>بيانات الدخول غير صحيحة.</value></data>
+  <data name="InvalidToken" xml:space="preserve"><value>الجلسة غير صالحة. من فضلك سجّل الدخول مرة أخرى.</value></data>
+  <data name="Unauthorized" xml:space="preserve"><value>يجب تسجيل الدخول أولًا.</value></data>
+  <data name="TenantInactive" xml:space="preserve"><value>هذه المؤسسة غير نشطة.</value></data>
+  <data name="RoleNotFound" xml:space="preserve"><value>الدور غير موجود.</value></data>
+  <data name="RoleNameDuplicated" xml:space="preserve"><value>يوجد دور بنفس الاسم.</value></data>
+  <data name="SystemRoleLocked" xml:space="preserve"><value>لا يمكن تعديل أو حذف هذا الدور الأساسي.</value></data>
+  <data name="InvalidPermission" xml:space="preserve"><value>صلاحية واحدة أو أكثر غير صحيحة.</value></data>
+  <data name="StaffNotFound" xml:space="preserve"><value>الموظف غير موجود.</value></data>
+  <data name="StaffAlreadyExists" xml:space="preserve"><value>هذا الشخص عضو بالفعل في المؤسسة.</value></data>
+  <data name="EmployeeLimitReached" xml:space="preserve"><value>تم الوصول للحد الأقصى للموظفين في باقتك.</value></data>
+  <data name="CannotSuspendSelf" xml:space="preserve"><value>لا يمكنك إيقاف حسابك.</value></data>
+  <data name="BranchNotFound" xml:space="preserve"><value>فرع واحد أو أكثر غير موجود.</value></data>
+  <data name="TenantNotFound" xml:space="preserve"><value>المؤسسة غير موجودة.</value></data>
+  <data name="TenantSlugDuplicated" xml:space="preserve"><value>الاسم المختصر مستخدم بالفعل.</value></data>
+  <data name="InvalidSlug" xml:space="preserve"><value>الاسم المختصر يقبل أحرفًا إنجليزية صغيرة وأرقامًا وشرطات فقط.</value></data>
+  <data name="PlanNotFound" xml:space="preserve"><value>الباقة غير موجودة.</value></data>
+  <data name="PlanCodeDuplicated" xml:space="preserve"><value>يوجد باقة بنفس الكود.</value></data>
+  <data name="TooManyRequests" xml:space="preserve"><value>طلبات كثيرة. من فضلك حاول لاحقًا.</value></data>
 </root>

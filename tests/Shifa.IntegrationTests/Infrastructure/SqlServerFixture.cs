@@ -2,6 +2,7 @@ using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Respawn;
 using Shifa.Clinic.Data;
+using Shifa.Identity.Data;
 using Shifa.Core.Interfaces.Common;
 using Shifa.Infrastructure.Common.TenantManager;
 using Shifa.Infrastructure.Data;
@@ -20,7 +21,7 @@ public sealed class SqlServerFixture : IAsyncLifetime
     public const string DefaultConnectionString =
         "Server=.;Database=Shifa_Tests;Trusted_Connection=True;TrustServerCertificate=True";
 
-    private static readonly string[] ModuleSchemas = [TenancyDbContext.SchemaName, ClinicDbContext.SchemaName];
+    private static readonly string[] ModuleSchemas = [TenancyDbContext.SchemaName, ClinicDbContext.SchemaName, IdentityDbContext.SchemaName];
 
     private Respawner? _respawner;
 
@@ -34,6 +35,9 @@ public sealed class SqlServerFixture : IAsyncLifetime
 
         await using (var clinic = CreateClinicContext(tenantId: null))
             await clinic.Database.MigrateAsync();
+
+        await using (var identity = CreateIdentityContext())
+            await identity.Database.MigrateAsync();
 
         await using var connection = new SqlConnection(ConnectionString);
         await connection.OpenAsync();
@@ -56,6 +60,9 @@ public sealed class SqlServerFixture : IAsyncLifetime
     /// <summary>A ClinicDbContext acting for <paramref name="tenantId"/> (null = no tenant context).</summary>
     public ClinicDbContext CreateClinicContext(long? tenantId) =>
         new(BuildOptions<ClinicDbContext>(ClinicDbContext.SchemaName, CreateTenantContext(tenantId), out var tenantContext), tenantContext);
+
+    public IdentityDbContext CreateIdentityContext() =>
+        new(BuildOptions<IdentityDbContext>(IdentityDbContext.SchemaName, new TenantContext(), out var tenantContext), tenantContext);
 
     public TenancyDbContext CreateTenancyContext() =>
         new(BuildOptions<TenancyDbContext>(TenancyDbContext.SchemaName, new TenantContext(), out var tenantContext), tenantContext);

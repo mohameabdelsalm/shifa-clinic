@@ -1,6 +1,8 @@
 using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
+using Shifa.Clinic.Contracts;
 using Shifa.Clinic.Data;
+using Shifa.Clinic.Services;
 using Shifa.Infrastructure.Data;
 
 namespace Shifa.Clinic;
@@ -17,6 +19,8 @@ public static class ClinicModule
         services.AddControllers().AddApplicationPart(typeof(ClinicModule).Assembly);
         services.AddModuleDbContext<ClinicDbContext>(ClinicDbContext.SchemaName);
         services.AddValidatorsFromAssembly(typeof(ClinicModule).Assembly, includeInternalTypes: true);
+
+        services.AddScoped<IClinicApi, ClinicApi>();
 
         // Repos are registered here as the module grows.
         return services;
