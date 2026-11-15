@@ -14,11 +14,12 @@ _Last updated: 2026-11-07_
 | 5 — Scheduling | ✅ Done, reviewed (opus / high) and fixed |
 | HRM layout | ✅ Restructured like Trio HRM (ADR-009) |
 | 6 — Clinical / EMR | ✅ Done, reviewed (opus / high) and fixed |
-| 7–10 | Not started (see `implementation-roadmap.md`) |
+| 7 — Billing | 🟡 Design done (ADR-011); implementation next |
+| 8–10 | Not started (see `implementation-roadmap.md`) |
 
 ## Current phase
 
-**Phase 6 done and reviewed.** Next: Phase 7 (Billing): **opus / high design** first (ADR), then implementation.
+**Phase 7 — Billing: design done** (ADR-011, decisions by the product owner on 2026-11-16: pay on arrival — the invoice is issued at check-in; no discounts for now; cash, card and wallet recorded manually; cashier shifts mandatory). Next: implement the 8 steps in "Phase 7 detail" of `implementation-roadmap.md`, explaining each step in chat while implementing.
 
 ## Phase 6 review (2026-11-07, opus / high)
 

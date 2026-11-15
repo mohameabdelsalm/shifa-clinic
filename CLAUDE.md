@@ -96,6 +96,14 @@ One class per file. Namespaces follow folders without a `Shifa.` prefix: `Core.E
 - A doctor's account link and active status can't change while the doctor has open visits (`IClinicalApi.HasOpenVisitsAsync`).
 - Files go through `IFileStorage` with server-built paths `tenants/{tenantId}/...`; check type, size and file signature.
 
+## Billing rules (ADR-011)
+
+- Prices come only from the branch price list (snapshot at check-in or invoice creation); no price typing, no discounts for now.
+- Invoices are never edited after creation; corrections are credit notes; void only when nothing was paid or credited.
+- Every money change (payment, refund, credit, void) goes through the `Invoice` entity methods in the same save, guarded by the invoice rowversion. Invariant: `PaidAmount + CreditedAmount ≤ Total`, never negative.
+- Payments and refunds need an `Idempotency-Key` (scoped to the caller) and the caller's open cashier shift at the invoice's branch. Card and Wallet need a reference.
+- Document numbers (`INV-`, `RCT-`, `RFD-`, `CN-`) use `DatabaseLocks` + a unique index.
+
 ## Patient portal rules (ADR-007)
 
 - Portal endpoints (`api/portal/...`) use `[PortalUser]`; the phone number comes from `IAccessContext.PortalPhoneNumber` (the token), never from the request.

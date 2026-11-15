@@ -397,7 +397,7 @@ erDiagram
 
 A completed visit is read-only; changes are `ClinicalAddendum` rows with author, time and reason.
 
-## Billing (`billing`)
+## Billing (`billing`) — ADR-011
 
 ```mermaid
 erDiagram
@@ -406,18 +406,23 @@ erDiagram
   Payment ||--o{ Refund : "refunded by"
   Invoice ||--o{ CreditNote : "corrected by"
   CashierShift ||--o{ Payment : collects
+  CashierShift ||--o{ Refund : "pays out"
   Invoice {
     bigint TenantId
     bigint BranchId "→ clinic"
     bigint PatientId "→ patients"
-    bigint AppointmentId "→ scheduling"
-    nvarchar Number "unique per tenant"
-    nvarchar Status "Draft, Issued, PartiallyPaid, Paid, Void"
+    bigint AppointmentId "→ scheduling, nullable"
+    nvarchar Kind "Visit (one per appointment), Extra"
+    nvarchar Number "INV-yyyy-000001, unique per tenant"
+    nvarchar Status "Open, PartiallyPaid, Paid, Void"
+    nvarchar CurrencyCode "snapshot of the tenant currency"
     decimal Subtotal
-    decimal Discount
-    decimal Tax
+    decimal Discount "0 for now"
+    decimal Tax "0 until L6"
     decimal Total
-    decimal PaidAmount
+    decimal PaidAmount "payments - refunds"
+    decimal CreditedAmount
+    nvarchar VoidReason
     rowversion RowVersion "RV"
   }
   InvoiceItem {
@@ -425,7 +430,7 @@ erDiagram
     bigint InvoiceId FK
     bigint ServiceId "→ clinic"
     nvarchar Description
-    decimal Quantity
+    int Quantity
     decimal UnitPrice "price snapshot"
     decimal LineTotal
   }
@@ -433,20 +438,26 @@ erDiagram
     bigint TenantId
     bigint InvoiceId FK
     bigint CashierShiftId FK
+    nvarchar Number "RCT-yyyy-000001"
     decimal Amount
+    decimal RefundedAmount
     nvarchar Method "Cash, Card, Wallet"
-    nvarchar IdempotencyKey "unique per tenant"
+    nvarchar Reference "required for Card and Wallet"
+    datetimeoffset PaidAt
   }
   Refund {
     bigint TenantId
     bigint PaymentId FK
+    bigint CashierShiftId FK
+    nvarchar Number "RFD-yyyy-000001"
     decimal Amount
+    nvarchar Method "same as the payment"
     nvarchar Reason
   }
   CreditNote {
     bigint TenantId
     bigint InvoiceId FK
-    nvarchar Number "unique per tenant"
+    nvarchar Number "CN-yyyy-000001"
     decimal Amount
     nvarchar Reason
   }
@@ -454,14 +465,17 @@ erDiagram
     bigint TenantId
     bigint BranchId "→ clinic"
     bigint CashierUserId
+    nvarchar Status "Open, Closed"
     datetimeoffset OpenedAt
     datetimeoffset ClosedAt
     decimal OpeningCash
-    decimal ClosingCash
+    decimal ExpectedCash "opening + cash in - cash out"
+    decimal CountedCash
+    decimal Variance
   }
 ```
 
-Issued invoices are never edited; corrections are credit notes. Revenue (invoiced) and collections (payments − refunds) are reported separately.
+Invoices are never edited after creation; corrections are credit notes, and an invoice with no money on it can be voided. Invariant: `PaidAmount + CreditedAmount ≤ Total`, guarded by the invoice rowversion. Revenue (invoiced − credited) and collections (payments − refunds) are reported separately. Billing also has its own `IdempotencyRecords` (payments and refunds).
 
 ## Notifications (`notifications`) and Reporting (`reporting`)
 
