@@ -1,4 +1,5 @@
 using Core.Common;
+using Core.DTO.Tenancy;
 using Core.Interfaces.Scheduling;
 using Core.Models.Scheduling;
 using Infrastructure.Auth;
@@ -9,6 +10,7 @@ namespace Shifa.Controllers.Scheduling;
 /// <summary>Booking for patients and guardians signed in with a phone OTP.</summary>
 [ApiController]
 [PortalUser]
+[RequireFeature(FeatureCodes.PatientPortal)]
 [Route("api/portal/appointments")]
 public class PortalAppointmentController : ControllerBase
 {

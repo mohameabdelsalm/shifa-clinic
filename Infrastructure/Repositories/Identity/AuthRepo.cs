@@ -2,6 +2,7 @@ using System.Net;
 using Core;
 using Core.Common;
 using Core.DTO.Identity;
+using Core.DTO.Tenancy;
 using Core.Entities.Identity;
 using Core.Enums.Common;
 using Core.Enums.Identity;
@@ -227,7 +228,8 @@ public class AuthRepo : IAuthRepo
         var now = _time.GetUtcNow();
 
         var tenant = await _tenancy.GetTenantBySlugAsync(model.TenantSlug.Trim().ToLowerInvariant(), cancellationToken);
-        if (tenant is null || !tenant.IsActive)
+        // A clinic without the patient portal feature answers like an unknown clinic (no enumeration, no SMS).
+        if (tenant is null || !tenant.IsActive || !await _tenancy.IsFeatureEnabledAsync(tenant.Id, FeatureCodes.PatientPortal, cancellationToken))
             return generic;
 
         var known = await _scopes.RunAsync(tenant.Id, sp => sp.GetRequiredService<IPatientsApi>().HasPortalAccessAsync(phone, cancellationToken));
@@ -266,7 +268,7 @@ public class AuthRepo : IAuthRepo
         var phone = PhoneNumbers.Normalize(model.PhoneNumber)!;
 
         var tenant = await _tenancy.GetTenantBySlugAsync(model.TenantSlug.Trim().ToLowerInvariant(), cancellationToken);
-        if (tenant is null || !tenant.IsActive)
+        if (tenant is null || !tenant.IsActive || !await _tenancy.IsFeatureEnabledAsync(tenant.Id, FeatureCodes.PatientPortal, cancellationToken))
             throw InvalidOtp();
 
         var challenge = await _context.OtpChallenges

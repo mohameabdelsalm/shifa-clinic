@@ -1,4 +1,5 @@
 using Core.Common;
+using Core.DTO.Tenancy;
 using Core.Interfaces.Dashboard;
 using Core.Models.Dashboard;
 using Infrastructure.Auth;
@@ -8,6 +9,7 @@ namespace Shifa.Controllers.Dashboard;
 
 /// <summary>Clinic statistics for a period (Trio HRM dashboard pattern): appointments, patients, revenue and collections.</summary>
 [ApiController]
+[RequireFeature(FeatureCodes.Dashboard)]
 [Route("api/dashboard")]
 public class DashboardController : ControllerBase
 {

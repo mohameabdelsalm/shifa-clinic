@@ -53,6 +53,7 @@ builder.Services.AddValidatorsFromAssembly(typeof(LanguageResource).Assembly, in
 builder.Services.AddScoped<ITenancyApi, TenancyApi>();
 builder.Services.AddScoped<IPlanRepo, PlanRepo>();
 builder.Services.AddScoped<ITenantRepo, TenantRepo>();
+builder.Services.AddScoped<IFeatureRepo, FeatureRepo>();
 
 // Identity
 builder.Services.AddSingleton<IPasswordHasher<User>, PasswordHasher<User>>();

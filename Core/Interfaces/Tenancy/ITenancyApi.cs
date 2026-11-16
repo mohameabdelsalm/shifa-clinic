@@ -14,4 +14,12 @@ public interface ITenancyApi
     /// Enabled = false for features, and no limit for limits (null) is treated as "not configured, unlimited".
     /// </summary>
     Task<EntitlementValue> GetEntitlementAsync(long tenantId, string code, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Every feature of <see cref="FeatureCodes"/> for the tenant: the tenant override, else the plan's entitlement, else the
+    /// default. Cached briefly (30 s), so a change applies within that time on every instance.
+    /// </summary>
+    Task<IReadOnlyList<TenantFeatureDto>> GetFeaturesAsync(long tenantId, CancellationToken cancellationToken = default);
+
+    Task<bool> IsFeatureEnabledAsync(long tenantId, string code, CancellationToken cancellationToken = default);
 }

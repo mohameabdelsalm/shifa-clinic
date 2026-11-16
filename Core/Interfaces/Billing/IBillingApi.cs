@@ -9,7 +9,8 @@ public interface IBillingApi
     /// Creates the visit invoice of a checked-in appointment with the current price, or returns the existing one
     /// (idempotent: safe to call again after a crash or a repeated check-in). Returns the invoice id.
     /// </summary>
-    Task<long> EnsureVisitInvoiceAsync(VisitInvoiceRequest request, CancellationToken cancellationToken = default);
+    /// <remarks>Returns null (and creates nothing) when the Billing feature is off for the tenant.</remarks>
+    Task<long?> EnsureVisitInvoiceAsync(VisitInvoiceRequest request, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Money of [fromUtc, toUtc) for statistics: invoiced (non-void), credited, paid and refunded, per UTC day and branch.

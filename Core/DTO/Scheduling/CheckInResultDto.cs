@@ -4,5 +4,6 @@ namespace Core.DTO.Scheduling;
 public class CheckInResultDto
 {
     public int? QueueNumber { get; set; }
-    public long InvoiceId { get; set; }
+    /// <summary>Null when the clinic doesn't use the Billing feature.</summary>
+    public long? InvoiceId { get; set; }
 }

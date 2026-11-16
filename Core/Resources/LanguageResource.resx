@@ -122,4 +122,5 @@
   <data name="ServiceHasNoPrice" xml:space="preserve"><value>This service has no price at this branch.</value></data>
   <data name="AppointmentNotCheckedIn" xml:space="preserve"><value>The visit invoice is created when the patient checks in.</value></data>
   <data name="OnlinePaymentsNotConfigured" xml:space="preserve"><value>Online payments are not set up for this clinic.</value></data>
+  <data name="FeatureNotEnabled" xml:space="preserve"><value>This feature is not enabled for your clinic.</value></data>
 </root>

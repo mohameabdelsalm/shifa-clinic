@@ -122,4 +122,5 @@
   <data name="ServiceHasNoPrice" xml:space="preserve"><value>هذه الخدمة ليس لها سعر في هذا الفرع.</value></data>
   <data name="AppointmentNotCheckedIn" xml:space="preserve"><value>فاتورة الزيارة تُنشأ عند تسجيل حضور المريض.</value></data>
   <data name="OnlinePaymentsNotConfigured" xml:space="preserve"><value>الدفع الأونلاين غير مُفعّل لهذه العيادة.</value></data>
+  <data name="FeatureNotEnabled" xml:space="preserve"><value>هذه الميزة غير مُفعّلة لعيادتك.</value></data>
 </root>

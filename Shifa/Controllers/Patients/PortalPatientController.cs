@@ -1,4 +1,5 @@
 using Core.Common;
+using Core.DTO.Tenancy;
 using Core.Interfaces.Patients;
 using Infrastructure.Auth;
 using Microsoft.AspNetCore.Mvc;
@@ -8,6 +9,7 @@ namespace Shifa.Controllers.Patients;
 /// <summary>Endpoints for patients and guardians signed in with a phone OTP.</summary>
 [ApiController]
 [PortalUser]
+[RequireFeature(FeatureCodes.PatientPortal)]
 [Route("api/portal/patients")]
 public class PortalPatientController : ControllerBase
 {

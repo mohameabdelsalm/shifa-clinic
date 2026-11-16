@@ -38,4 +38,12 @@ public class TenantsController : ControllerBase
 
     [HttpPost("payments")]
     public async Task<Response> RecordPayment(RecordPaymentModel model, CancellationToken cancellationToken) => await _tenantRepo.RecordPayment(model, cancellationToken);
+
+    /// <summary>The tenant's features and where each value comes from (override, plan or default).</summary>
+    [HttpGet("{id}/features")]
+    public async Task<Response> GetFeatures(long id, CancellationToken cancellationToken) => await _tenantRepo.GetFeatures(id, cancellationToken);
+
+    /// <summary>Switches a feature on/off for this tenant (Enabled null = back to the plan). No code change needed.</summary>
+    [HttpPut("features")]
+    public async Task<Response> SetFeature(SetTenantFeatureModel model, CancellationToken cancellationToken) => await _tenantRepo.SetFeature(model, cancellationToken);
 }

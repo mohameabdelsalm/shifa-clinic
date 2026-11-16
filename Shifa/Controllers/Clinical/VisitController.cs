@@ -1,4 +1,5 @@
 using Core.Common;
+using Core.DTO.Tenancy;
 using Core.Interfaces.Clinical;
 using Core.Models.Clinical;
 using Infrastructure.Auth;
@@ -7,6 +8,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace Shifa.Controllers.Clinical;
 
 [ApiController]
+[RequireFeature(FeatureCodes.Clinical)]
 [Route("api/visits")]
 public class VisitController : ControllerBase
 {
