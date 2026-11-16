@@ -20,6 +20,12 @@ public interface IClinicApi
     /// <summary>The IANA time zone of an existing branch (active or not), or null.</summary>
     Task<string?> GetBranchTimeZoneAsync(long branchId, CancellationToken cancellationToken = default);
 
+    /// <summary>Display names of branches (by id), for statistics and lists.</summary>
+    Task<IReadOnlyDictionary<long, string>> GetBranchNamesAsync(IReadOnlyCollection<long> branchIds, CancellationToken cancellationToken = default);
+
+    /// <summary>English display names of doctors (by id), for statistics and lists.</summary>
+    Task<IReadOnlyDictionary<long, string>> GetDoctorNamesAsync(IReadOnlyCollection<long> doctorIds, CancellationToken cancellationToken = default);
+
     /// <summary>The doctor linked to this staff membership (null when the member isn't a doctor).</summary>
     Task<long?> GetDoctorIdForMembershipAsync(long membershipId, CancellationToken cancellationToken = default);
 

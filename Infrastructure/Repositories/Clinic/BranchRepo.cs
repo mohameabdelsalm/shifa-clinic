@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using System.Net;
 using AutoMapper;
 using AutoMapper.QueryableExtensions;
@@ -53,16 +54,27 @@ public class BranchRepo : IBranchRepo
 
     public async Task<Response> Search(SearchBranchesModel model, CancellationToken cancellationToken)
     {
-        var query = InScope(_context.Branches.AsNoTracking());
-        if (!string.IsNullOrWhiteSpace(model.Text))
-        {
-            var text = model.Text.Trim();
-            query = query.Where(b => b.Name.Contains(text) || b.Code.Contains(text));
-        }
+        var query = InScope(_context.Branches.AsNoTracking()).Where(FilterBranches(model));
+        query = SortBranches(query, model);
 
-        var paged = await ProjectBranches(query).OrderBy(b => b.Name).ToPagedListAsync(model, cancellationToken);
+        var paged = await ProjectBranches(query).ToPagedListAsync(model, cancellationToken);
         return new Response(_localizer["Retrieved"].Value, HttpStatusCode.OK, data: paged);
     }
+
+    private static Expression<Func<Branch, bool>> FilterBranches(SearchBranchesModel model)
+    {
+        var text = model.SearchText;
+        return b => (text == null || b.Name.Contains(text) || b.Code.Contains(text))
+                    && (model.Status == null || b.Status == model.Status);
+    }
+
+    private static IQueryable<Branch> SortBranches(IQueryable<Branch> query, SearchBranchesModel model) => model.SortBy switch
+    {
+        "name" => query.OrderBy(model.SortType, b => b.Name).ThenBy(b => b.Id),
+        "code" => query.OrderBy(model.SortType, b => b.Code).ThenBy(b => b.Id),
+        "status" => query.OrderBy(model.SortType, b => b.Status).ThenBy(b => b.Id),
+        _ => query.OrderBy(model.SortType, b => b.CreationDate).ThenBy(b => b.Id),
+    };
 
     public async Task<Response> View(long id, CancellationToken cancellationToken)
     {

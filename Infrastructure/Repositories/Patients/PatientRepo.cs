@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using System.Net;
 using AutoMapper;
 using AutoMapper.QueryableExtensions;
@@ -41,20 +42,9 @@ public class PatientRepo : IPatientRepo
 
     public async Task<Response> Search(SearchPatientsModel model, CancellationToken cancellationToken)
     {
-        var query = _context.Patients.AsNoTracking();
+        var query = SortPatients(_context.Patients.AsNoTracking().Where(FilterPatients(model)), model);
 
-        if (!string.IsNullOrWhiteSpace(model.Text))
-        {
-            var text = model.Text.Trim();
-            var phone = PhoneNumbers.Normalize(text);
-            query = query.Where(p =>
-                p.FullName.Contains(text) ||
-                p.Mrn.Contains(text) ||
-                (phone != null && p.PhoneNumber == phone) ||
-                _context.PatientIdentifiers.Any(i => i.PatientId == p.Id && i.Value == text));
-        }
-
-        var paged = await query.OrderBy(p => p.FullName).ThenBy(p => p.Id)
+        var paged = await query
             .ProjectTo<SearchPatientsDto>(_mapper.ConfigurationProvider)
             .ToPagedListAsync(model, cancellationToken);
 
@@ -309,6 +299,27 @@ public class PatientRepo : IPatientRepo
         dto.PortalAccess = _mapper.Map<List<PatientPortalAccessDto>>(access);
         return dto;
     }
+
+    /// <summary>Search text matches name, MRN, the normalized phone or an exact identifier (national ID / passport).</summary>
+    private Expression<Func<Patient, bool>> FilterPatients(SearchPatientsModel model)
+    {
+        var text = model.SearchText;
+        var phone = text is null ? null : PhoneNumbers.Normalize(text);
+        return p => (text == null
+                     || p.FullName.Contains(text)
+                     || p.Mrn.Contains(text)
+                     || (phone != null && p.PhoneNumber == phone)
+                     || _context.PatientIdentifiers.Any(i => i.PatientId == p.Id && i.Value == text))
+                    && (model.Gender == null || p.Gender == model.Gender);
+    }
+
+    private static IQueryable<Patient> SortPatients(IQueryable<Patient> query, SearchPatientsModel model) => model.SortBy switch
+    {
+        "fullName" => query.OrderBy(model.SortType, p => p.FullName).ThenBy(p => p.Id),
+        "mrn" => query.OrderBy(model.SortType, p => p.Number).ThenBy(p => p.Id),
+        "dateOfBirth" => query.OrderBy(model.SortType, p => p.DateOfBirth).ThenBy(p => p.Id),
+        _ => query.OrderBy(model.SortType, p => p.CreationDate).ThenBy(p => p.Id),
+    };
 
     private BusinessException NotFound() => new(_localizer["PatientNotFound"].Value, HttpStatusCode.NotFound);
 }

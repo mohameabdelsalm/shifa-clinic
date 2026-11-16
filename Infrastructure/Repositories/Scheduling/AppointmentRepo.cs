@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using System.Net;
 using AutoMapper;
 using AutoMapper.QueryableExtensions;
@@ -68,20 +69,28 @@ public class AppointmentRepo : IAppointmentRepo
 
     public async Task<Response> Search(SearchAppointmentsModel model, CancellationToken cancellationToken)
     {
-        var query = InScope(_context.Appointments.AsNoTracking())
-            .Where(a => a.LocalDate >= model.FromDate && a.LocalDate <= model.ToDate);
-        if (model.BranchId is not null)
-            query = query.Where(a => a.BranchId == model.BranchId);
-        if (model.DoctorId is not null)
-            query = query.Where(a => a.DoctorId == model.DoctorId);
-        if (model.PatientId is not null)
-            query = query.Where(a => a.PatientId == model.PatientId);
-        if (model.Status is not null)
-            query = query.Where(a => a.Status == model.Status);
+        var query = SortAppointments(InScope(_context.Appointments.AsNoTracking()).Where(FilterAppointments(model)), model);
 
-        var paged = await query.OrderBy(a => a.StartAt).ThenBy(a => a.Id).ProjectTo<AppointmentDto>(_mapper.ConfigurationProvider).ToPagedListAsync(model, cancellationToken);
+        var paged = await query.ProjectTo<AppointmentDto>(_mapper.ConfigurationProvider).ToPagedListAsync(model, cancellationToken);
         return new Response(_localizer["Retrieved"].Value, HttpStatusCode.OK, data: paged);
     }
+
+    private static Expression<Func<Appointment, bool>> FilterAppointments(SearchAppointmentsModel model) =>
+        a => a.LocalDate >= model.FromDate && a.LocalDate <= model.ToDate
+             && (model.BranchId == null || a.BranchId == model.BranchId)
+             && (model.DoctorId == null || a.DoctorId == model.DoctorId)
+             && (model.PatientId == null || a.PatientId == model.PatientId)
+             && (model.Status == null || a.Status == model.Status);
+
+    private static IQueryable<Appointment> SortAppointments(IQueryable<Appointment> query, SearchAppointmentsModel model) => model.SortBy switch
+    {
+        "status" => query.OrderBy(model.SortType, a => a.Status).ThenBy(a => a.StartAt).ThenBy(a => a.Id),
+        "branch" => query.OrderBy(model.SortType, a => a.BranchId).ThenBy(a => a.StartAt).ThenBy(a => a.Id),
+        "doctor" => query.OrderBy(model.SortType, a => a.DoctorId).ThenBy(a => a.StartAt).ThenBy(a => a.Id),
+        "queueNumber" => query.OrderBy(model.SortType, a => a.QueueNumber).ThenBy(a => a.Id),
+        "date" => query.OrderBy(model.SortType, a => a.CreationDate).ThenBy(a => a.Id),
+        _ => query.OrderBy(model.SortType, a => a.StartAt).ThenBy(a => a.Id),
+    };
 
     public async Task<Response> View(long id, CancellationToken cancellationToken)
     {

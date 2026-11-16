@@ -21,6 +21,13 @@ public sealed class PatientsApi : IPatientsApi
     public Task<bool> HasPortalAccessAsync(string normalizedPhoneNumber, CancellationToken cancellationToken = default) =>
         _context.PatientAccountAccesses.AnyAsync(a => a.PhoneNumber == normalizedPhoneNumber, cancellationToken);
 
+    public async Task<IReadOnlyList<DateTimeOffset>> GetRegistrationTimesAsync(DateTimeOffset fromUtc, DateTimeOffset toUtc,
+        CancellationToken cancellationToken = default) =>
+        await _context.Patients.AsNoTracking()
+            .Where(p => p.CreationDate >= fromUtc && p.CreationDate < toUtc)
+            .Select(p => p.CreationDate)
+            .ToListAsync(cancellationToken);
+
     public async Task<IReadOnlyList<PortalPatientAccess>> GetPortalPatientsAsync(string normalizedPhoneNumber, CancellationToken cancellationToken = default)
     {
         var rows = await _context.PatientAccountAccesses.AsNoTracking()

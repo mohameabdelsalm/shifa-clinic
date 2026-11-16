@@ -21,6 +21,14 @@ _Last updated: 2026-11-07_
 
 **Phase 7 — Billing: design done** (ADR-011, decisions by the product owner on 2026-11-16: pay on arrival — the invoice is issued at check-in; no discounts for now; cash, card and wallet recorded manually; cashier shifts mandatory). Next: implement the 8 steps in "Phase 7 detail" of `implementation-roadmap.md`, explaining each step in chat while implementing.
 
+## HRM search and dashboard (2026-11-16, requested by the developer)
+
+- **All 8 searches** (branches, doctors, services, staff, patients, platform tenants, appointments, visits) now follow Trio HRM: `PaginationParameters` has `SortBy`, `SortType` (Ascending/Descending, default Descending) and `Search`; each repo has `Filter…`/`Sort…` (whitelisted `SortBy` names, unknown → default order). `Text` was replaced by `Search`. New filters: `Status` (branches, doctors, services, staff, tenants), `RoleId` (staff), `Gender` (patients).
+- **Dashboard** (`Reports.Read`, branch scope): `POST api/dashboard/statistics` (appointments, completed visits, cancellations, no-show rate, new patients; vs the same period last year with change % like HRM), `timeline` (daily ≤ 31 days, else monthly), `branches`, `doctors`. Data comes from `ISchedulingApi.CountAppointmentsAsync` (grouped in SQL), `IPatientsApi.GetRegistrationTimesAsync`, `IClinicApi.GetBranchNamesAsync/GetDoctorNamesAsync`.
+- **Payment statistics** (`POST api/dashboard/payments`, Revenue/Collections KPIs) are part of Phase 7 (ADR-011, roadmap step 6).
+- AutoMapper: two new advisories of the same class (GHSA-6vhm-j9h7-f9gh, GHSA-gpwp-5797-mjff, published 2026-11-13) suppressed by name with the reason; the product owner chose this over Mapster or a commercial license.
+- Verification: build clean; smoke run on `Shifa_Smoke` with 21 new checks: sorting both directions, the default direction, the free-text filter, paging, an unknown sort name, every search, dashboard numbers, the timeline, the breakdowns with names, an invalid range (400) and the permission (403). **0 failed.**
+
 ## Phase 6 review (2026-11-07, opus / high)
 
 My own read plus an independent reviewer that didn't see my conclusions. **No High findings**: visit authorization (only the appointment's linked doctor), branch scope, tenant isolation, completed-visit immutability (rowversion on every content write), portal isolation and upload path safety were confirmed.

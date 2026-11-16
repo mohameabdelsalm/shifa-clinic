@@ -34,6 +34,26 @@ public sealed class SchedulingApi : ISchedulingApi
     public Task CompleteVisitAsync(long appointmentId, CancellationToken cancellationToken = default) =>
         MoveAsync(appointmentId, AppointmentStatusEnum.Completed, "Visit completed", cancellationToken);
 
+    public async Task<IReadOnlyList<AppointmentCountRow>> CountAppointmentsAsync(DateOnly fromLocalDate, DateOnly toLocalDate,
+        IReadOnlyCollection<long>? branchIds, long? doctorId, CancellationToken cancellationToken = default)
+    {
+        var query = _context.Appointments.AsNoTracking().Where(a => a.LocalDate >= fromLocalDate && a.LocalDate <= toLocalDate);
+        if (branchIds is not null)
+        {
+            var ids = branchIds.ToList();
+            query = query.Where(a => ids.Contains(a.BranchId));
+        }
+        if (doctorId is not null)
+            query = query.Where(a => a.DoctorId == doctorId);
+
+        // Grouped in SQL: one row per day × branch × doctor × status, never one row per appointment.
+        var rows = await query
+            .GroupBy(a => new { a.LocalDate, a.BranchId, a.DoctorId, a.Status })
+            .Select(g => new { g.Key.LocalDate, g.Key.BranchId, g.Key.DoctorId, g.Key.Status, Count = g.Count() })
+            .ToListAsync(cancellationToken);
+        return rows.Select(r => new AppointmentCountRow(r.LocalDate, r.BranchId, r.DoctorId, r.Status, r.Count)).ToList();
+    }
+
     /// <summary>One status change with its history row; the appointment's rowversion makes a concurrent change fail (409).</summary>
     private async Task MoveAsync(long appointmentId, AppointmentStatusEnum target, string reason, CancellationToken cancellationToken)
     {

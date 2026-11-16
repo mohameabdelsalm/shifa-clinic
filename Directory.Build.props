@@ -12,5 +12,11 @@
          Shifa maps flat models/DTOs only (no self-referencing graphs), so the risk doesn't apply.
          Review again before mapping any recursive type, or move to a patched version. -->
     <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-rvv3-g6hj-g44x" />
+    <!-- 2026-11-13, same class (MaxDepth bypass): recursion through constructor parameters, polymorphic maps
+         (Include/IncludeBase), object/interface-typed members. Shifa has none of these: destinations are classes built by
+         property setters, no Include, no object/interface members, no self-referencing types. Product owner chose to
+         suppress (2026-11-16); revisit if any map starts using those features. -->
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-6vhm-j9h7-f9gh" />
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-gpwp-5797-mjff" />
   </ItemGroup>
 </Project>

@@ -6,12 +6,14 @@ using Core.Interfaces.Patients;
 using Core.Interfaces.Scheduling;
 using Core.Interfaces.Tenancy;
 using Core.Interfaces.Common;
+using Core.Interfaces.Dashboard;
 using Core.Entities.Identity;
 using FluentValidation;
 using Infrastructure;
 using Infrastructure.Data;
 using Infrastructure.Repositories.Clinic;
 using Infrastructure.Repositories.Clinical;
+using Infrastructure.Repositories.Dashboard;
 using Infrastructure.Repositories.Identity;
 using Infrastructure.Repositories.Patients;
 using Infrastructure.Repositories.Scheduling;
@@ -76,6 +78,10 @@ builder.Services.AddScoped<AppointmentRepo>();
 builder.Services.AddScoped<IAppointmentRepo>(sp => sp.GetRequiredService<AppointmentRepo>());
 builder.Services.AddScoped<IPortalAppointmentRepo, PortalAppointmentRepo>();
 builder.Services.AddScoped<ISchedulingApi, SchedulingApi>();
+
+// Clinical
+// Dashboard
+builder.Services.AddScoped<IDashboardRepo, DashboardRepo>();
 
 // Clinical
 builder.Services.AddScoped<IClinicalApi, ClinicalApi>();

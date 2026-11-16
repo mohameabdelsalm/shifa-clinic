@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using System.Net;
 using AutoMapper;
 using Core;
@@ -42,9 +43,26 @@ public class TenantRepo : ITenantRepo
 
     public async Task<Response> Search(SearchTenantsModel model, CancellationToken cancellationToken)
     {
-        var paged = await ProjectTenants(_context.Tenants.AsNoTracking()).OrderBy(t => t.Name).ToPagedListAsync(model, cancellationToken);
+        var tenants = _context.Tenants.AsNoTracking().Where(FilterTenants(model));
+        var paged = await SortTenants(ProjectTenants(tenants), model).ToPagedListAsync(model, cancellationToken);
         return new Response(_localizer["Retrieved"].Value, HttpStatusCode.OK, data: paged);
     }
+
+    private static Expression<Func<Tenant, bool>> FilterTenants(SearchTenantsModel model)
+    {
+        var text = model.SearchText;
+        return t => (text == null || t.Name.Contains(text) || t.Slug.Contains(text))
+                    && (model.Status == null || t.Status == model.Status);
+    }
+
+    /// <summary>"date" uses the tenant id (HiLo, creation order).</summary>
+    private static IQueryable<TenantDto> SortTenants(IQueryable<TenantDto> query, SearchTenantsModel model) => model.SortBy switch
+    {
+        "name" => query.OrderBy(model.SortType, t => t.Name).ThenBy(t => t.Id),
+        "slug" => query.OrderBy(model.SortType, t => t.Slug).ThenBy(t => t.Id),
+        "status" => query.OrderBy(model.SortType, t => t.Status).ThenBy(t => t.Id),
+        _ => query.OrderBy(model.SortType, t => t.Id),
+    };
 
     public async Task<Response> View(long id, CancellationToken cancellationToken)
     {

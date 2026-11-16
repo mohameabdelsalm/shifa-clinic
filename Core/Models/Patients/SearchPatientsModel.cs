@@ -1,9 +1,12 @@
+using System.Text.Json.Serialization;
 using Core.Common;
+using Core.Enums.Patients;
 
 namespace Core.Models.Patients;
 
+/// <summary>Search: name, MRN, phone or an exact identifier. SortBy: fullName, mrn, dateOfBirth, date (default).</summary>
 public class SearchPatientsModel : PaginationParameters
 {
-    /// <summary>Name, MRN, phone number, or an exact national ID / passport number.</summary>
-    public string? Text { get; set; }
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public GenderEnum? Gender { get; set; }
 }
