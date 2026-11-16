@@ -11,6 +11,7 @@ namespace Shifa.Controllers.Dashboard;
 [ApiController]
 [RequireFeature(FeatureCodes.Dashboard)]
 [Route("api/dashboard")]
+[ReadOperation]
 public class DashboardController : ControllerBase
 {
     private readonly IDashboardRepo _repo;

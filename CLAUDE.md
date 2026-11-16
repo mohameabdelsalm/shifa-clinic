@@ -111,6 +111,14 @@ One class per file. Namespaces follow folders without a `Shifa.` prefix: `Core.E
 - Payments and refunds need an `Idempotency-Key` (scoped to the caller) and the caller's open cashier shift at the invoice's branch. Card and Wallet need a reference.
 - Document numbers (`INV-`, `RCT-`, `RFD-`, `CN-`) use `DatabaseLocks` + a unique index.
 
+## Account and subscription rules (ADR-014)
+
+- Password tokens (reset 30 min, invitation 72 h) are stored hashed, work once, and the newest replaces older ones. Setting or changing a password revokes all of the user's refresh tokens.
+- "Forgot password" and similar endpoints answer the same whether the account exists. Never log tokens, links or passwords.
+- E-mail goes through `IEmailSender` (fake only in Development, `GET /dev/email`).
+- Staff endpoints follow branch scope: a branch-limited caller only reaches staff who share a branch (or work in all branches); others are 404.
+- When a subscription has ended (A6), the clinic is read-only for 30 days. A new POST/PUT that changes nothing must carry `[ReadOperation]` (routes ending in `/search` are reads by convention), or it will be refused in read-only mode.
+
 ## Online payment rules (ADR-013)
 
 - Each clinic uses its own Paymob account. Secret key and HMAC secret are encrypted with Data Protection (`PaymentGatewaySecrets`), never returned, never logged. Managed with `Billing.Settings`; needs `Feature.OnlinePayments`.

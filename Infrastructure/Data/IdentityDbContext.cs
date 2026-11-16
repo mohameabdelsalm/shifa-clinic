@@ -26,4 +26,5 @@ public class IdentityDbContext : ModuleDbContext
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<OtpChallenge> OtpChallenges => Set<OtpChallenge>();
+    public DbSet<PasswordToken> PasswordTokens => Set<PasswordToken>();
 }

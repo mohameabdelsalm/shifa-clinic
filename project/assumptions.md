@@ -11,7 +11,7 @@ Safe defaults used until the product owner or a legal/business reviewer decides 
 | A3 | Patient portal tenant selection | The patient picks the clinic (tenant slug); the token is issued for that tenant | Product |
 | A4 | Currency | One currency per tenant, default EGP; no multi-currency invoices | Product |
 | A5 | Plan pricing | Stored as data on `Plan`; no hardcoded prices; subscription payments recorded manually (no gateway chosen) | Product |
-| A6 | Subscription expiry | Expired/suspended tenant: staff can sign in read-only for 30 days, no new bookings | Product |
+| A6 | Subscription expiry | Expired/suspended tenant: staff can sign in read-only for 30 days, no new bookings. Implemented for expiry in ADR-014 (suspension still blocks at once) | Product |
 | A7 | Default roles on onboarding | TenantAdmin, BranchManager, Doctor, Receptionist, Cashier, Nurse | Product |
 | A8 | Draft invoice timing | Created at check-in, finalized when the visit is completed | Product |
 | A9 | Cancellation window | Patients can cancel online up to 3 hours before start (tenant setting) | Product |

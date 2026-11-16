@@ -130,4 +130,24 @@
   <data name="OnlinePaymentNotRefundable" xml:space="preserve"><value>Only an online payment that could not be applied to its invoice can be returned here.</value></data>
   <data name="Received" xml:space="preserve"><value>Received.</value></data>
   <data name="InvalidSignature" xml:space="preserve"><value>Invalid signature.</value></data>
+  <data name="PasswordResetRequested" xml:space="preserve"><value>If this e-mail belongs to an account, a link to reset the password has been sent.</value></data>
+  <data name="PasswordResetEmailSubject" xml:space="preserve"><value>Reset your Shifa password</value></data>
+  <data name="PasswordResetEmailBody" xml:space="preserve"><value>Hello {0},
+
+Use this link within 30 minutes to choose a new password:
+{1}
+
+If you didn't ask for this, ignore this e-mail; your password stays the same.</value></data>
+  <data name="InvalidPasswordToken" xml:space="preserve"><value>This link is invalid or has expired. Request a new one.</value></data>
+  <data name="PasswordChanged" xml:space="preserve"><value>Password changed. Please sign in again.</value></data>
+  <data name="CurrentPasswordWrong" xml:space="preserve"><value>The current password is not correct.</value></data>
+  <data name="PasswordMustChange" xml:space="preserve"><value>The new password must be different from the current one.</value></data>
+  <data name="InvitationNotPending" xml:space="preserve"><value>This staff member has no pending invitation.</value></data>
+  <data name="InvitationSent" xml:space="preserve"><value>Invitation sent.</value></data>
+  <data name="InvitationEmailSubject" xml:space="preserve"><value>You're invited to {0} on Shifa</value></data>
+  <data name="InvitationEmailBody" xml:space="preserve"><value>Hello {0},
+
+You have been added to {1} on Shifa. Use this link within 72 hours to set your password:
+{2}</value></data>
+  <data name="SubscriptionReadOnly" xml:space="preserve"><value>The clinic's subscription has ended, so the system is read-only. Contact the clinic administrator to renew.</value></data>
 </root>

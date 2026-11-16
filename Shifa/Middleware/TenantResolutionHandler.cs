@@ -5,6 +5,7 @@ using Core.Common;
 using Core.Interfaces.Common;
 using Core.Interfaces.Identity;
 using Core.Interfaces.Tenancy;
+using Infrastructure.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Localization;
 
@@ -42,6 +43,7 @@ public sealed class TenantResolutionHandler
         var cancellationToken = context.RequestAborted;
         var userId = ReadId(context.User, ShifaClaimTypes.UserId);
         var isAuthorized = false;
+        var readOnly = false;
 
         if (userId is not null)
         {
@@ -68,6 +70,7 @@ public sealed class TenantResolutionHandler
                         tenantContext.SetTenant(tenantId.Value);
                         accessContext.SetPortalUser(phone);
                         isAuthorized = true;
+                        readOnly = tenant.IsReadOnly;
                     }
                 }
             }
@@ -88,6 +91,7 @@ public sealed class TenantResolutionHandler
                         tenantContext.SetTenant(tenantId.Value);
                         accessContext.SetMembership(access.MembershipId, access.AllBranches, access.BranchIds, access.Permissions);
                         isAuthorized = true;
+                        readOnly = tenant!.IsReadOnly;
                     }
                 }
             }
@@ -101,7 +105,27 @@ public sealed class TenantResolutionHandler
             return;
         }
 
+        // A6: the subscription ended, so the clinic is read-only for 30 days: reads pass, changes are refused.
+        if (readOnly && IsChange(context))
+        {
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            await context.Response.WriteAsJsonAsync(
+                new Response(localizer["SubscriptionReadOnly"].Value, HttpStatusCode.Forbidden, isSuccess: false), cancellationToken);
+            return;
+        }
+
         await _next(context);
+    }
+
+    private static bool IsChange(HttpContext context)
+    {
+        if (HttpMethods.IsGet(context.Request.Method) || HttpMethods.IsHead(context.Request.Method) || HttpMethods.IsOptions(context.Request.Method))
+            return false;
+
+        var endpoint = context.GetEndpoint();
+        if (endpoint?.Metadata.GetMetadata<ReadOperationAttribute>() is not null)
+            return false;
+        return !(endpoint is RouteEndpoint route && route.RoutePattern.RawText?.EndsWith("/search", StringComparison.OrdinalIgnoreCase) == true);
     }
 
     private static long? ReadId(ClaimsPrincipal user, string claimType) =>

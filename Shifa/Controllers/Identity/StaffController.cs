@@ -58,4 +58,12 @@ public class StaffController : ControllerBase
     {
         return await _staffRepo.Activate(id, cancellationToken);
     }
+
+    /// <summary>Sends a new invitation link to a staff member who hasn't set a password yet.</summary>
+    [HttpPost("{id}/resend-invitation")]
+    [Permission(Permissions.StaffManage)]
+    public async Task<Response> ResendInvitation(long id, CancellationToken cancellationToken)
+    {
+        return await _staffRepo.ResendInvitation(id, cancellationToken);
+    }
 }

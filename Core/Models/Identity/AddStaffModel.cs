@@ -5,7 +5,10 @@ public class AddStaffModel
     public string FullName { get; set; } = "";
     public string Email { get; set; } = "";
 
-    /// <summary>Required for a new person. Ignored when the email already belongs to a user: that account is linked to this organization.</summary>
+    /// <summary>
+    /// Optional. Without it a new person gets a 72-hour invitation e-mail to set their own password (ADR-014). Ignored when
+    /// the email already belongs to a user: that account is linked to this organization.
+    /// </summary>
     public string? Password { get; set; }
 
     public List<long> RoleIds { get; set; } = [];

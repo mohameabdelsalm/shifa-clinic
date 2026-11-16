@@ -13,7 +13,7 @@ Built as a **multi-tenant monolith** on ASP.NET Core .NET 10 and SQL Server, org
 | [project/assumptions.md](project/assumptions.md) | Business defaults and items needing legal review |
 | [docs/vision.md](docs/vision.md) | Product, users, scope, business rules |
 | [docs/architecture/](docs/architecture/) | System, module boundaries, tenancy, database (ERD), security |
-| [docs/decisions/](docs/decisions/) | ADR-001..013 |
+| [docs/decisions/](docs/decisions/) | ADR-001..014 |
 | [CLAUDE.md](CLAUDE.md) | Rules and conventions for developers and Claude Code |
 
 ## Running locally

@@ -1,3 +1,4 @@
+using Core.Common;
 using Core.DTO.Tenancy;
 using Core.Entities.Tenancy;
 using Core.Enums.Tenancy;
@@ -15,11 +16,13 @@ public sealed class TenancyApi : ITenancyApi
 
     private readonly TenancyDbContext _context;
     private readonly IMemoryCache _cache;
+    private readonly TimeProvider _time;
 
-    public TenancyApi(TenancyDbContext context, IMemoryCache cache)
+    public TenancyApi(TenancyDbContext context, IMemoryCache cache, TimeProvider time)
     {
         _context = context;
         _cache = cache;
+        _time = time;
     }
 
     public static string InfoCacheKey(long tenantId) => $"t:{tenantId}:info";
@@ -33,7 +36,7 @@ public sealed class TenancyApi : ITenancyApi
         if (tenant is null)
             return null;
 
-        var info = ToInfo(tenant);
+        var info = await ToInfoAsync(tenant, cancellationToken);
         _cache.Set(InfoCacheKey(tenantId), info, Ttl);
         return info;
     }
@@ -41,7 +44,7 @@ public sealed class TenancyApi : ITenancyApi
     public async Task<TenantInfo?> GetTenantBySlugAsync(string slug, CancellationToken cancellationToken = default)
     {
         var tenant = await _context.Tenants.AsNoTracking().FirstOrDefaultAsync(t => t.Slug == slug, cancellationToken);
-        return tenant is null ? null : ToInfo(tenant);
+        return tenant is null ? null : await ToInfoAsync(tenant, cancellationToken);
     }
 
     public static string FeaturesCacheKey(long tenantId) => $"t:{tenantId}:features";
@@ -99,6 +102,15 @@ public sealed class TenancyApi : ITenancyApi
         return new EntitlementValue(entitlement.Enabled, entitlement.LimitValue);
     }
 
-    private static TenantInfo ToInfo(Tenant tenant) =>
-        new(tenant.Id, tenant.Slug, tenant.Name, tenant.Status.ToString(), tenant.IsUsable, tenant.CurrencyCode);
+    /// <summary>The latest subscription; on a plan change the cancelled and the new one start at the same moment, so the id breaks the tie.</summary>
+    public static IQueryable<TenantSubscription> LatestSubscription(TenancyDbContext context, long tenantId) =>
+        context.TenantSubscriptions.Where(s => s.TenantId == tenantId).OrderByDescending(s => s.StartsAt).ThenByDescending(s => s.Id);
+
+    private async Task<TenantInfo> ToInfoAsync(Tenant tenant, CancellationToken cancellationToken)
+    {
+        var latest = await LatestSubscription(_context, tenant.Id).AsNoTracking().FirstOrDefaultAsync(cancellationToken);
+        var (readOnly, blocked) = SubscriptionAccess.Evaluate(latest, _time.GetUtcNow());
+        return new TenantInfo(tenant.Id, tenant.Slug, tenant.Name, tenant.Status.ToString(), tenant.IsUsable && !blocked, tenant.CurrencyCode,
+            tenant.IsUsable && readOnly);
+    }
 }
