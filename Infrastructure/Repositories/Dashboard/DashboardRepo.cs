@@ -2,9 +2,12 @@ using System.Globalization;
 using System.Net;
 using Core;
 using Core.Common;
+using Core.DTO.Billing;
 using Core.DTO.Dashboard;
 using Core.DTO.Scheduling;
+using Core.Enums.Billing;
 using Core.Enums.Scheduling;
+using Core.Interfaces.Billing;
 using Core.Interfaces.Clinic;
 using Core.Interfaces.Common;
 using Core.Interfaces.Dashboard;
@@ -28,16 +31,18 @@ public class DashboardRepo : IDashboardRepo
     private readonly ISchedulingApi _scheduling;
     private readonly IPatientsApi _patients;
     private readonly IClinicApi _clinic;
+    private readonly IBillingApi _billing;
     private readonly IAccessContext _access;
     private readonly TimeProvider _time;
     private readonly IStringLocalizer<LanguageResource> _localizer;
 
-    public DashboardRepo(ISchedulingApi scheduling, IPatientsApi patients, IClinicApi clinic, IAccessContext access,
+    public DashboardRepo(ISchedulingApi scheduling, IPatientsApi patients, IClinicApi clinic, IBillingApi billing, IAccessContext access,
         TimeProvider time, IStringLocalizer<LanguageResource> localizer)
     {
         _scheduling = scheduling;
         _patients = patients;
         _clinic = clinic;
+        _billing = billing;
         _access = access;
         _time = time;
         _localizer = localizer;
@@ -53,6 +58,8 @@ public class DashboardRepo : IDashboardRepo
         var previous = Summarize(await _scheduling.CountAppointmentsAsync(prevFrom, prevTo, branches, model.DoctorId, cancellationToken));
         var newPatients = (await _patients.GetRegistrationTimesAsync(StartUtc(from), StartUtc(to.AddDays(1)), cancellationToken)).Count;
         var previousNewPatients = (await _patients.GetRegistrationTimesAsync(StartUtc(prevFrom), StartUtc(prevTo.AddDays(1)), cancellationToken)).Count;
+        var money = await _billing.GetMoneyFlowsAsync(StartUtc(from), StartUtc(to.AddDays(1)), branches, null, cancellationToken);
+        var previousMoney = await _billing.GetMoneyFlowsAsync(StartUtc(prevFrom), StartUtc(prevTo.AddDays(1)), branches, null, cancellationToken);
 
         var vsPeriod = PeriodLabel(prevFrom, prevTo);
         var statistics = new DashboardStatisticsDto
@@ -64,9 +71,62 @@ public class DashboardRepo : IDashboardRepo
             Cancellations = Kpi(current.Cancelled, previous.Cancelled, vsPeriod, lowerIsBetter: true),
             NoShowRate = Kpi(current.NoShowRate, previous.NoShowRate, vsPeriod, lowerIsBetter: true),
             NewPatients = Kpi(newPatients, previousNewPatients, vsPeriod),
+            Revenue = Kpi(Revenue(money), Revenue(previousMoney), vsPeriod),
+            Collections = Kpi(Collections(money), Collections(previousMoney), vsPeriod),
         };
         return new Response(_localizer["Retrieved"].Value, HttpStatusCode.OK, data: statistics);
     }
+
+    /// <summary>Collections of the period per payment method, with a daily (≤ 31 days) or monthly timeline.</summary>
+    public async Task<Response> Payments(PaymentsDashboardModel model, CancellationToken cancellationToken)
+    {
+        var (from, to) = Period(model);
+        var money = await _billing.GetMoneyFlowsAsync(StartUtc(from), StartUtc(to.AddDays(1)), BranchesInScope(model), model.CashierUserId,
+            cancellationToken);
+
+        var daily = to.DayNumber - from.DayNumber + 1 <= DailyTimelineMaxDays;
+        var timeline = new List<MoneyPointDto>();
+        for (var bucketStart = daily ? from : new DateOnly(from.Year, from.Month, 1); bucketStart <= to;
+             bucketStart = daily ? bucketStart.AddDays(1) : bucketStart.AddMonths(1))
+        {
+            var bucketFrom = bucketStart < from ? from : bucketStart;
+            var bucketEnd = daily ? bucketStart : bucketStart.AddMonths(1).AddDays(-1);
+            var bucketTo = bucketEnd > to ? to : bucketEnd;
+            var point = MoneyPoint(money, bucketFrom, bucketTo);
+            point.Period = daily ? Format(bucketStart) : bucketStart.ToString("yyyy-MM", CultureInfo.InvariantCulture);
+            point.Label = bucketStart.ToString(daily ? "dd MMM" : "MMM yyyy", CultureInfo.InvariantCulture);
+            timeline.Add(point);
+        }
+
+        var totals = MoneyPoint(money, from, to);
+        totals.Period = $"{Format(from)}..{Format(to)}";
+        totals.Label = PeriodLabel(from, to);
+        return new Response(_localizer["Retrieved"].Value, HttpStatusCode.OK, data: new PaymentsDashboardDto { Totals = totals, Timeline = timeline });
+    }
+
+    private static MoneyPointDto MoneyPoint(MoneyFlows money, DateOnly from, DateOnly to)
+    {
+        var payments = money.Payments.Where(r => r.Date >= from && r.Date <= to).ToList();
+        decimal ByMethod(PaymentMethodEnum method) => payments.Where(p => p.Method == method).Sum(p => p.Amount);
+
+        var collected = payments.Sum(p => p.Amount);
+        var refunded = money.Refunds.Where(r => r.Date >= from && r.Date <= to).Sum(r => r.Amount);
+        return new MoneyPointDto
+        {
+            Cash = ByMethod(PaymentMethodEnum.Cash),
+            Card = ByMethod(PaymentMethodEnum.Card),
+            Wallet = ByMethod(PaymentMethodEnum.Wallet),
+            Online = ByMethod(PaymentMethodEnum.Online),
+            Collected = collected,
+            Refunded = refunded,
+            Net = collected - refunded,
+            PaymentsCount = payments.Count,
+        };
+    }
+
+    private static decimal Revenue(MoneyFlows money) => money.Invoiced.Sum(r => r.Amount) - money.Credited.Sum(r => r.Amount);
+
+    private static decimal Collections(MoneyFlows money) => money.Payments.Sum(r => r.Amount) - money.Refunds.Sum(r => r.Amount);
 
     public async Task<Response> Timeline(DashboardModel model, CancellationToken cancellationToken)
     {

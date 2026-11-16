@@ -48,9 +48,9 @@ public static class Permissions
     {
         [TenantAdminRole] = All,
         ["BranchManager"] = [StaffRead, BranchesRead, DoctorsRead, ServicesRead, PatientsRead, PatientsCreate, PatientsUpdate,
-            AppointmentsRead, AppointmentsCreate, AppointmentsCancel, AppointmentsCheckIn, BillingRead, ReportsRead],
+            AppointmentsRead, AppointmentsCreate, AppointmentsCancel, AppointmentsCheckIn, BillingRead, BillingRefund, ReportsRead],
         ["Doctor"] = [PatientsRead, AppointmentsRead, ClinicalRead, ClinicalWrite, ClinicalVitals],
-        ["Receptionist"] = [PatientsRead, PatientsCreate, PatientsUpdate, AppointmentsRead, AppointmentsCreate,
+        ["Receptionist"] = [PatientsRead, PatientsCreate, PatientsUpdate, AppointmentsRead, AppointmentsCreate, BillingRead, BillingCollect,
             AppointmentsCancel, AppointmentsCheckIn, DoctorsRead, ServicesRead],
         ["Cashier"] = [PatientsRead, AppointmentsRead, BillingRead, BillingCollect],
         ["Nurse"] = [PatientsRead, AppointmentsRead, ClinicalRead, ClinicalVitals],

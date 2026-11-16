@@ -9,4 +9,5 @@ public interface IDashboardRepo
     Task<Response> Timeline(DashboardModel model, CancellationToken cancellationToken);
     Task<Response> Branches(DashboardModel model, CancellationToken cancellationToken);
     Task<Response> Doctors(DashboardModel model, CancellationToken cancellationToken);
+    Task<Response> Payments(PaymentsDashboardModel model, CancellationToken cancellationToken);
 }

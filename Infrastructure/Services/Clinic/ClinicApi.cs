@@ -47,6 +47,10 @@ public sealed class ClinicApi : IClinicApi
             !await _context.DoctorSpecialties.AnyAsync(s => s.DoctorId == doctorId && s.SpecialtyId == service.SpecialtyId, cancellationToken))
             return null;
 
+        // The visit is invoiced at check-in (ADR-011), so the service must have a price at this branch.
+        if (!await _context.ServicePrices.AnyAsync(p => p.ServiceId == serviceId && p.BranchId == branchId && p.EffectiveTo == null, cancellationToken))
+            return null;
+
         var schedule = await _context.DoctorSchedules.AsNoTracking()
             .Where(s => s.DoctorBranchId == doctorBranchId)
             .Select(s => new ScheduleWindow(s.DayOfWeek, s.StartTime, s.EndTime, s.SlotMinutes))
@@ -57,6 +61,13 @@ public sealed class ClinicApi : IClinicApi
 
     public Task<string?> GetBranchTimeZoneAsync(long branchId, CancellationToken cancellationToken = default) =>
         _context.Branches.Where(b => b.Id == branchId).Select(b => (string?)b.TimeZoneId).FirstOrDefaultAsync(cancellationToken);
+
+    public async Task<ServicePriceSnapshot?> GetCurrentPriceAsync(long serviceId, long branchId, CancellationToken cancellationToken = default) =>
+        await (from p in _context.ServicePrices.AsNoTracking()
+               join s in _context.Services.AsNoTracking() on p.ServiceId equals s.Id
+               where p.ServiceId == serviceId && p.BranchId == branchId && p.EffectiveTo == null && s.Status == StatusEnum.Active
+               select new ServicePriceSnapshot(s.Id, s.NameEn, s.NameAr, p.Price))
+            .FirstOrDefaultAsync(cancellationToken);
 
     public async Task<IReadOnlyDictionary<long, string>> GetBranchNamesAsync(IReadOnlyCollection<long> branchIds, CancellationToken cancellationToken = default)
     {

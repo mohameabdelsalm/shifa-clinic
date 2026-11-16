@@ -4,9 +4,11 @@ using AutoMapper;
 using AutoMapper.QueryableExtensions;
 using Core;
 using Core.Common;
+using Core.DTO.Billing;
 using Core.DTO.Scheduling;
 using Core.Entities.Scheduling;
 using Core.Enums.Scheduling;
+using Core.Interfaces.Billing;
 using Core.Interfaces.Common;
 using Core.Interfaces.Patients;
 using Core.Interfaces.Scheduling;
@@ -29,18 +31,20 @@ public class AppointmentRepo : IAppointmentRepo
     private readonly BookingService _booking;
     private readonly IPatientsApi _patients;
     private readonly IAccessContext _access;
+    private readonly IBillingApi _billing;
     private readonly IAuditService _audit;
     private readonly TimeProvider _time;
     private readonly IStringLocalizer<LanguageResource> _localizer;
 
     public AppointmentRepo(SchedulingDbContext context, IMapper mapper, BookingService booking, IPatientsApi patients, IAccessContext access,
-        IAuditService audit, TimeProvider time, IStringLocalizer<LanguageResource> localizer)
+        IBillingApi billing, IAuditService audit, TimeProvider time, IStringLocalizer<LanguageResource> localizer)
     {
         _context = context;
         _mapper = mapper;
         _booking = booking;
         _patients = patients;
         _access = access;
+        _billing = billing;
         _audit = audit;
         _time = time;
         _localizer = localizer;
@@ -109,7 +113,7 @@ public class AppointmentRepo : IAppointmentRepo
     {
         var appointment = await LoadAsync(id, cancellationToken);
         if (appointment.Status == AppointmentStatusEnum.CheckedIn)
-            return CheckedIn(appointment.QueueNumber);   // repeat = no-op, same queue number
+            return await CheckedInAsync(appointment, appointment.QueueNumber, cancellationToken);   // repeat = no-op (also repairs a missing invoice)
 
         // Open from 2 hours before the start (that may be the evening before a visit just after midnight)
         // until the end of the appointment's local day.
@@ -146,14 +150,23 @@ public class AppointmentRepo : IAppointmentRepo
             var current = await _context.Appointments.AsNoTracking().FirstAsync(a => a.Id == id, cancellationToken);
             if (current.Status != AppointmentStatusEnum.CheckedIn)
                 throw;
-            return CheckedIn(current.QueueNumber);
+            return await CheckedInAsync(current, current.QueueNumber, cancellationToken);
         }
 
         await _audit.LogAsync("Appointments.CheckedIn", "Appointment", appointment.Id, cancellationToken: cancellationToken);
-        return CheckedIn(appointment.QueueNumber);
+        return await CheckedInAsync(appointment, appointment.QueueNumber, cancellationToken);
     }
 
-    private Response CheckedIn(int? queueNumber) => new(_localizer["Updated"].Value, HttpStatusCode.OK, data: queueNumber);
+    /// <summary>
+    /// Ensures the visit invoice (ADR-011: issued at check-in) and returns the queue number with it. Idempotent, so a
+    /// repeated check-in repairs an invoice that a crash after the check-in left missing.
+    /// </summary>
+    private async Task<Response> CheckedInAsync(Appointment appointment, int? queueNumber, CancellationToken cancellationToken)
+    {
+        var invoiceId = await _billing.EnsureVisitInvoiceAsync(
+            new VisitInvoiceRequest(appointment.Id, appointment.PatientId, appointment.BranchId, appointment.ServiceId), cancellationToken);
+        return new Response(_localizer["Updated"].Value, HttpStatusCode.OK, data: new CheckInResultDto { QueueNumber = queueNumber, InvoiceId = invoiceId });
+    }
 
     public async Task<Response> Cancel(long id, CancelAppointmentModel model, CancellationToken cancellationToken)
     {

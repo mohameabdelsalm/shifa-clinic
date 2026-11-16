@@ -107,4 +107,19 @@
   <data name="OnePrimaryDiagnosis" xml:space="preserve"><value>يمكن أن يكون تشخيص واحد فقط أساسيًا.</value></data>
   <data name="VitalsRequired" xml:space="preserve"><value>أدخل قياسًا واحدًا على الأقل، في حدود القيم الطبيعية للإنسان.</value></data>
   <data name="DoctorHasOpenVisits" xml:space="preserve"><value>هذا الطبيب لديه زيارات ما زالت مفتوحة. أكملها أولًا.</value></data>
+  <data name="InvalidAmount" xml:space="preserve"><value>أدخل مبلغًا صحيحًا (أكبر من صفر، وبحد أقصى رقمين عشريين).</value></data>
+  <data name="PaymentReferenceRequired" xml:space="preserve"><value>الدفع بالكارت أو المحفظة يحتاج الرقم المرجعي.</value></data>
+  <data name="InvoiceNotFound" xml:space="preserve"><value>الفاتورة غير موجودة.</value></data>
+  <data name="PaymentNotFound" xml:space="preserve"><value>الدفعة غير موجودة.</value></data>
+  <data name="ShiftNotFound" xml:space="preserve"><value>وردية الكاشير غير موجودة.</value></data>
+  <data name="NoOpenShift" xml:space="preserve"><value>افتح وردية كاشير في هذا الفرع أولًا.</value></data>
+  <data name="ShiftAlreadyOpen" xml:space="preserve"><value>لديك بالفعل وردية مفتوحة في هذا الفرع.</value></data>
+  <data name="ShiftClosed" xml:space="preserve"><value>هذه الوردية مقفولة بالفعل.</value></data>
+  <data name="AmountExceedsBalance" xml:space="preserve"><value>المبلغ أكبر من المتبقي على الفاتورة.</value></data>
+  <data name="AmountExceedsRefundable" xml:space="preserve"><value>المبلغ أكبر من المتاح استرداده من هذه الدفعة.</value></data>
+  <data name="InvoiceVoid" xml:space="preserve"><value>هذه الفاتورة ملغاة.</value></data>
+  <data name="InvoiceCantBeVoided" xml:space="preserve"><value>لا يمكن إلغاء فاتورة عليها مدفوعات أو إشعارات دائنة.</value></data>
+  <data name="ServiceHasNoPrice" xml:space="preserve"><value>هذه الخدمة ليس لها سعر في هذا الفرع.</value></data>
+  <data name="AppointmentNotCheckedIn" xml:space="preserve"><value>فاتورة الزيارة تُنشأ عند تسجيل حضور المريض.</value></data>
+  <data name="OnlinePaymentsNotConfigured" xml:space="preserve"><value>الدفع الأونلاين غير مُفعّل لهذه العيادة.</value></data>
 </root>

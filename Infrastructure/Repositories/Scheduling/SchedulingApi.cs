@@ -25,7 +25,7 @@ public sealed class SchedulingApi : ISchedulingApi
     public Task<AppointmentForVisit?> GetAppointmentForVisitAsync(long appointmentId, CancellationToken cancellationToken = default) =>
         _context.Appointments.AsNoTracking()
             .Where(a => a.Id == appointmentId)
-            .Select(a => new AppointmentForVisit(a.Id, a.PatientId, a.DoctorId, a.BranchId, a.Status))
+            .Select(a => new AppointmentForVisit(a.Id, a.PatientId, a.DoctorId, a.BranchId, a.Status, a.ServiceId))
             .FirstOrDefaultAsync(cancellationToken);
 
     public Task StartVisitAsync(long appointmentId, CancellationToken cancellationToken = default) =>

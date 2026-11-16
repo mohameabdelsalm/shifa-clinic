@@ -107,4 +107,19 @@
   <data name="OnePrimaryDiagnosis" xml:space="preserve"><value>Only one diagnosis can be primary.</value></data>
   <data name="VitalsRequired" xml:space="preserve"><value>Enter at least one measurement, within normal human ranges.</value></data>
   <data name="DoctorHasOpenVisits" xml:space="preserve"><value>This doctor has visits that are still open. Complete them first.</value></data>
+  <data name="InvalidAmount" xml:space="preserve"><value>Enter a valid amount (more than 0, at most 2 decimals).</value></data>
+  <data name="PaymentReferenceRequired" xml:space="preserve"><value>Card and wallet payments need the reference number.</value></data>
+  <data name="InvoiceNotFound" xml:space="preserve"><value>The invoice was not found.</value></data>
+  <data name="PaymentNotFound" xml:space="preserve"><value>The payment was not found.</value></data>
+  <data name="ShiftNotFound" xml:space="preserve"><value>The cashier shift was not found.</value></data>
+  <data name="NoOpenShift" xml:space="preserve"><value>Open a cashier shift at this branch first.</value></data>
+  <data name="ShiftAlreadyOpen" xml:space="preserve"><value>You already have an open shift at this branch.</value></data>
+  <data name="ShiftClosed" xml:space="preserve"><value>This shift is already closed.</value></data>
+  <data name="AmountExceedsBalance" xml:space="preserve"><value>The amount is more than what is still owed on the invoice.</value></data>
+  <data name="AmountExceedsRefundable" xml:space="preserve"><value>The amount is more than what can still be refunded from this payment.</value></data>
+  <data name="InvoiceVoid" xml:space="preserve"><value>This invoice is void.</value></data>
+  <data name="InvoiceCantBeVoided" xml:space="preserve"><value>Only an invoice with no payments or credit notes can be voided.</value></data>
+  <data name="ServiceHasNoPrice" xml:space="preserve"><value>This service has no price at this branch.</value></data>
+  <data name="AppointmentNotCheckedIn" xml:space="preserve"><value>The visit invoice is created when the patient checks in.</value></data>
+  <data name="OnlinePaymentsNotConfigured" xml:space="preserve"><value>Online payments are not set up for this clinic.</value></data>
 </root>
