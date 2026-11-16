@@ -20,6 +20,9 @@ public interface IClinicApi
     /// <summary>The IANA time zone of an existing branch (active or not), or null.</summary>
     Task<string?> GetBranchTimeZoneAsync(long branchId, CancellationToken cancellationToken = default);
 
+    /// <summary>The service's current price at the branch (null when the service is inactive or has no open price there).</summary>
+    Task<ServicePriceSnapshot?> GetCurrentPriceAsync(long serviceId, long branchId, CancellationToken cancellationToken = default);
+
     /// <summary>Display names of branches (by id), for statistics and lists.</summary>
     Task<IReadOnlyDictionary<long, string>> GetBranchNamesAsync(IReadOnlyCollection<long> branchIds, CancellationToken cancellationToken = default);
 

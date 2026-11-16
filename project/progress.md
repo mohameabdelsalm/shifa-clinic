@@ -14,12 +14,21 @@ _Last updated: 2026-11-07_
 | 5 — Scheduling | ✅ Done, reviewed (opus / high) and fixed |
 | HRM layout | ✅ Restructured like Trio HRM (ADR-009) |
 | 6 — Clinical / EMR | ✅ Done, reviewed (opus / high) and fixed |
-| 7 — Billing | 🟡 Design done (ADR-011); implementation next |
+| 7 — Billing | ✅ Implemented (ADR-011); review pending |
 | 8–10 | Not started (see `implementation-roadmap.md`) |
 
 ## Current phase
 
-**Phase 7 — Billing: design done** (ADR-011, decisions by the product owner on 2026-11-16: pay on arrival — the invoice is issued at check-in; no discounts for now; cash, card and wallet recorded manually; cashier shifts mandatory). Next: implement the 8 steps in "Phase 7 detail" of `implementation-roadmap.md`, explaining each step in chat while implementing.
+**Phase 7 — Billing implemented** (ADR-011; decisions by the product owner on 2026-11-16: pay on arrival, no discounts, cash/card/wallet, mandatory shifts). Next, as asked on 2026-11-16 ("finish the whole project"): dynamic features per plan/tenant, Paymob online payments, identity gaps, Phase 8–10. The Billing review (opus / high) is still to do.
+
+## Done in Phase 7 (2026-11-16)
+
+- **Billing module** (`billing` schema, 7 tables): `Invoice` (rowversion; `TryApplyPayment/Refund/Credit`, `TryVoid` keep `PaidAmount + CreditedAmount ≤ Total`), `InvoiceItem`, `Payment`, `Refund`, `CreditNote`, `CashierShift` (rowversion), `IdempotencyRecords`. Numbers `INV-/RCT-/RFD-/CN-yyyy-000001` via `BillingNumbers` (`DatabaseLocks`).
+- **Check-in issues the visit invoice:** `AppointmentRepo.CheckIn` → `IBillingApi.EnsureVisitInvoiceAsync` (idempotent, unique visit invoice per appointment); check-in returns `{ queueNumber, invoiceId }`; repair `POST api/invoices/visit/{appointmentId}`. Booking now needs a current price at the branch (`IClinicApi.GetCurrentPriceAsync`).
+- **APIs:** `api/cashier-shifts` (open, current, close with expected cash and variance, view, search), `api/invoices` (search HRM-style, view with items/payments/refunds/credit notes, extra invoice from the price list, void, credit notes), `api/payments` (pay, refunds — both need `Idempotency-Key`, scoped to the caller, and the caller's open shift), `api/portal/invoices`, `POST api/dashboard/payments` and Revenue/Collections in `api/dashboard/statistics`.
+- **Roles:** Receptionist gets `Billing.Read`/`Billing.Collect`; BranchManager gets `Billing.Refund` (new tenants).
+- **Online refunds** go through `IOnlineRefunds`; until Paymob is configured they are refused with a clear message.
+- Verification (HTTP smoke on `Shifa_Smoke`): a service without a price can't be booked; check-in creates one 300 invoice; repair returns the same invoice; payments without shift or key refused; overpayment, card without reference and 3 decimals refused; replay and key reuse (422); **5 parallel payments never overpay**; refund, credit note, void rules; extra invoice priced from the list; shift close with expected 560 and variance −5; payments dashboard and revenue/collections; portal invoices. All passed except one check that expected a re-check-in after the visit was already completed (correctly refused; the check was fixed).
 
 ## HRM search and dashboard (2026-11-16, requested by the developer)
 

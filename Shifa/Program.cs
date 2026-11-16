@@ -1,4 +1,5 @@
 using Core;
+using Core.Interfaces.Billing;
 using Core.Interfaces.Clinic;
 using Core.Interfaces.Clinical;
 using Core.Interfaces.Identity;
@@ -11,6 +12,7 @@ using Core.Entities.Identity;
 using FluentValidation;
 using Infrastructure;
 using Infrastructure.Data;
+using Infrastructure.Repositories.Billing;
 using Infrastructure.Repositories.Clinic;
 using Infrastructure.Repositories.Clinical;
 using Infrastructure.Repositories.Dashboard;
@@ -19,6 +21,7 @@ using Infrastructure.Repositories.Patients;
 using Infrastructure.Repositories.Scheduling;
 using Infrastructure.Repositories.Tenancy;
 using Infrastructure.Services;
+using Infrastructure.Services.Billing;
 using Infrastructure.Services.Clinic;
 using Infrastructure.Services.Identity;
 using Infrastructure.Services.Scheduling;
@@ -40,6 +43,7 @@ builder.Services.AddModuleDbContext<ClinicDbContext>(ClinicDbContext.SchemaName)
 builder.Services.AddModuleDbContext<PatientsDbContext>(PatientsDbContext.SchemaName);
 builder.Services.AddModuleDbContext<SchedulingDbContext>(SchedulingDbContext.SchemaName);
 builder.Services.AddModuleDbContext<ClinicalDbContext>(ClinicalDbContext.SchemaName);
+builder.Services.AddModuleDbContext<BillingDbContext>(BillingDbContext.SchemaName);
 
 // AutoMapper profiles and FluentValidation validators live in Core.
 builder.Services.AddAutoMapper(typeof(LanguageResource).Assembly);
@@ -80,6 +84,16 @@ builder.Services.AddScoped<IPortalAppointmentRepo, PortalAppointmentRepo>();
 builder.Services.AddScoped<ISchedulingApi, SchedulingApi>();
 
 // Clinical
+// Billing
+builder.Services.AddScoped<BillingNumbers>();
+builder.Services.AddScoped<InvoiceIssuer>();
+builder.Services.AddScoped<IOnlineRefunds, UnavailableOnlineRefunds>();
+builder.Services.AddScoped<IBillingApi, BillingApi>();
+builder.Services.AddScoped<ICashierShiftRepo, CashierShiftRepo>();
+builder.Services.AddScoped<IInvoiceRepo, InvoiceRepo>();
+builder.Services.AddScoped<IPaymentRepo, PaymentRepo>();
+builder.Services.AddScoped<IPortalInvoiceRepo, PortalInvoiceRepo>();
+
 // Dashboard
 builder.Services.AddScoped<IDashboardRepo, DashboardRepo>();
 

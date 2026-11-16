@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Shifa.Controllers.Dashboard;
 
-/// <summary>Clinic statistics for a period (Trio HRM dashboard pattern). Payments and revenue come with Billing.</summary>
+/// <summary>Clinic statistics for a period (Trio HRM dashboard pattern): appointments, patients, revenue and collections.</summary>
 [ApiController]
 [Route("api/dashboard")]
 public class DashboardController : ControllerBase
@@ -37,4 +37,9 @@ public class DashboardController : ControllerBase
     [HttpPost("doctors")]
     [Permission(Permissions.ReportsRead)]
     public async Task<Response> Doctors(DashboardModel model, CancellationToken ct) => await _repo.Doctors(model, ct);
+
+    /// <summary>Collections per payment method (cash, card, wallet, online), refunds and net, per day or month.</summary>
+    [HttpPost("payments")]
+    [Permission(Permissions.ReportsRead)]
+    public async Task<Response> Payments(PaymentsDashboardModel model, CancellationToken ct) => await _repo.Payments(model, ct);
 }

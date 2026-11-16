@@ -64,5 +64,5 @@ public sealed class TenancyApi : ITenancyApi
     }
 
     private static TenantInfo ToInfo(Tenant tenant) =>
-        new(tenant.Id, tenant.Slug, tenant.Name, tenant.Status.ToString(), tenant.IsUsable);
+        new(tenant.Id, tenant.Slug, tenant.Name, tenant.Status.ToString(), tenant.IsUsable, tenant.CurrencyCode);
 }
