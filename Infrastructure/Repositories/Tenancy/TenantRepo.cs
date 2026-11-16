@@ -26,10 +26,11 @@ public class TenantRepo : ITenantRepo
     private readonly IIdentityApi _identity;
     private readonly IAuditService _audit;
     private readonly IMemoryCache _cache;
+    private readonly ITenancyApi _tenancyApi;
     private readonly TimeProvider _time;
     private readonly IStringLocalizer<LanguageResource> _localizer;
 
-    public TenantRepo(TenancyDbContext context, IMapper mapper, IIdentityApi identity, IAuditService audit, IMemoryCache cache,
+    public TenantRepo(TenancyDbContext context, IMapper mapper, IIdentityApi identity, IAuditService audit, IMemoryCache cache, ITenancyApi tenancyApi,
         TimeProvider time, IStringLocalizer<LanguageResource> localizer)
     {
         _context = context;
@@ -37,6 +38,7 @@ public class TenantRepo : ITenantRepo
         _identity = identity;
         _audit = audit;
         _cache = cache;
+        _tenancyApi = tenancyApi;
         _time = time;
         _localizer = localizer;
     }
@@ -208,6 +210,39 @@ public class TenantRepo : ITenantRepo
             TrialEndsAt = x.Subscription == null ? null : x.Subscription.TrialEndsAt,
             SubscriptionEndsAt = x.Subscription == null ? null : x.Subscription.EndsAt,
         });
+
+    public async Task<Response> GetFeatures(long tenantId, CancellationToken cancellationToken)
+    {
+        if (!await _context.Tenants.AnyAsync(t => t.Id == tenantId, cancellationToken))
+            throw NotFound();
+        var features = await _tenancyApi.GetFeaturesAsync(tenantId, cancellationToken);
+        return new Response(_localizer["Retrieved"].Value, HttpStatusCode.OK, data: features);
+    }
+
+    /// <summary>Sets (true/false) or removes (null) a feature override for one tenant; applies within the 30-second cache.</summary>
+    public async Task<Response> SetFeature(SetTenantFeatureModel model, CancellationToken cancellationToken)
+    {
+        if (!await _context.Tenants.AnyAsync(t => t.Id == model.TenantId, cancellationToken))
+            throw NotFound();
+
+        var existing = await _context.TenantFeatureOverrides.FirstOrDefaultAsync(o => o.TenantId == model.TenantId && o.Code == model.Code, cancellationToken);
+        if (model.Enabled is null)
+        {
+            if (existing is not null)
+                _context.TenantFeatureOverrides.Remove(existing);
+        }
+        else if (existing is null)
+            _context.TenantFeatureOverrides.Add(new TenantFeatureOverride { TenantId = model.TenantId, Code = model.Code, Enabled = model.Enabled.Value });
+        else
+            existing.Enabled = model.Enabled.Value;
+
+        await _context.SaveChangesAsync(cancellationToken);
+        _cache.Remove(TenancyApi.FeaturesCacheKey(model.TenantId));
+        await _audit.LogAsync("Platform.TenantFeatureSet", "Tenant", model.TenantId, targetTenantId: model.TenantId,
+            detail: $"{model.Code}={model.Enabled?.ToString() ?? "plan"}", cancellationToken: CancellationToken.None);
+
+        return new Response(_localizer["Updated"].Value, HttpStatusCode.OK, data: await _tenancyApi.GetFeaturesAsync(model.TenantId, cancellationToken));
+    }
 
     private BusinessException NotFound() => new(_localizer["TenantNotFound"].Value, HttpStatusCode.NotFound);
 }

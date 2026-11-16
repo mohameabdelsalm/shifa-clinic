@@ -98,6 +98,11 @@ One class per file. Namespaces follow folders without a `Shifa.` prefix: `Core.E
 - A doctor's account link and active status can't change while the doctor has open visits (`IClinicalApi.HasOpenVisitsAsync`).
 - Files go through `IFileStorage` with server-built paths `tenants/{tenantId}/...`; check type, size and file signature.
 
+## Feature rules (ADR-012)
+
+- Whole features are data, not code: plan entitlement (`Feature.*`) → tenant override → default (`FeatureCodes.Defaults`). Guard every controller of a feature with `[RequireFeature(FeatureCodes.X)]` (several attributes = all required). A new feature = a code + default in `FeatureCodes` + the attribute.
+- Background work and cross-module calls for a feature check `ITenancyApi.IsFeatureEnabledAsync` (e.g. no visit invoice when Billing is off).
+
 ## Billing rules (ADR-011)
 
 - Prices come only from the branch price list (snapshot at check-in or invoice creation); no price typing, no discounts for now.

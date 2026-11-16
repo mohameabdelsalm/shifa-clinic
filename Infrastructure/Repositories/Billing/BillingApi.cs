@@ -2,10 +2,12 @@ using System.Net;
 using Core;
 using Core.Common;
 using Core.DTO.Billing;
+using Core.DTO.Tenancy;
 using Core.Enums.Billing;
 using Core.Interfaces.Billing;
 using Core.Interfaces.Clinic;
 using Core.Interfaces.Common;
+using Core.Interfaces.Tenancy;
 using Infrastructure.Configurations.Billing;
 using Infrastructure.Data;
 using Infrastructure.Services.Billing;
@@ -19,21 +21,29 @@ public sealed class BillingApi : IBillingApi
     private readonly BillingDbContext _context;
     private readonly InvoiceIssuer _issuer;
     private readonly IClinicApi _clinic;
+    private readonly ITenantContext _tenant;
+    private readonly ITenancyApi _tenancy;
     private readonly IAuditService _audit;
     private readonly IStringLocalizer<LanguageResource> _localizer;
 
-    public BillingApi(BillingDbContext context, InvoiceIssuer issuer, IClinicApi clinic, IAuditService audit,
-        IStringLocalizer<LanguageResource> localizer)
+    public BillingApi(BillingDbContext context, InvoiceIssuer issuer, IClinicApi clinic, ITenantContext tenant, ITenancyApi tenancy,
+        IAuditService audit, IStringLocalizer<LanguageResource> localizer)
     {
         _context = context;
         _issuer = issuer;
         _clinic = clinic;
+        _tenant = tenant;
+        _tenancy = tenancy;
         _audit = audit;
         _localizer = localizer;
     }
 
-    public async Task<long> EnsureVisitInvoiceAsync(VisitInvoiceRequest request, CancellationToken cancellationToken = default)
+    public async Task<long?> EnsureVisitInvoiceAsync(VisitInvoiceRequest request, CancellationToken cancellationToken = default)
     {
+        // A clinic without the Billing feature checks patients in without invoices.
+        if (_tenant.TenantId is not long tenantId || !await _tenancy.IsFeatureEnabledAsync(tenantId, FeatureCodes.Billing, cancellationToken))
+            return null;
+
         var existing = await ExistingVisitInvoiceAsync(request.AppointmentId, cancellationToken);
         if (existing is not null)
             return existing.Value;

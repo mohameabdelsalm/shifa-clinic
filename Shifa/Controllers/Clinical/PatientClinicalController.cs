@@ -1,4 +1,5 @@
 using Core.Common;
+using Core.DTO.Tenancy;
 using Core.Interfaces.Clinical;
 using Core.Models.Clinical;
 using Infrastructure.Auth;
@@ -8,6 +9,7 @@ namespace Shifa.Controllers.Clinical;
 
 /// <summary>Patient-level clinical data: allergies, chronic conditions and the clinical summary.</summary>
 [ApiController]
+[RequireFeature(FeatureCodes.Clinical)]
 [Route("api/patient-clinical")]
 public class PatientClinicalController : ControllerBase
 {

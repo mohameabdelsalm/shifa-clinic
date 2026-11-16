@@ -21,6 +21,13 @@ _Last updated: 2026-11-07_
 
 **Phase 7 — Billing implemented** (ADR-011; decisions by the product owner on 2026-11-16: pay on arrival, no discounts, cash/card/wallet, mandatory shifts). Next, as asked on 2026-11-16 ("finish the whole project"): dynamic features per plan/tenant, Paymob online payments, identity gaps, Phase 8–10. The Billing review (opus / high) is still to do.
 
+## Dynamic features (2026-11-16, ADR-012)
+
+- `FeatureCodes` (Clinical, Billing, PatientPortal, Dashboard, OnlinePayments) with defaults; effective value = tenant override → plan entitlement → default (`ITenancyApi.GetFeaturesAsync`, 30 s cache). New table `tenancy.TenantFeatureOverrides` (migration `AddTenantFeatureOverrides`, applied to `Shifa` and `Shifa_Smoke`).
+- `[RequireFeature]` on Clinical, Billing, portal and dashboard controllers (403 "not enabled"); portal OTP silent when the portal is off; no visit invoice when Billing is off.
+- `GET api/platform/tenants/{id}/features`, `PUT api/platform/tenants/features` (Platform Admin, audited), `GET api/features` (the clinic's own list). Plans accept `Feature.*` entitlements.
+- Verification: smoke run, 15/15 passed (defaults, override off/on, clear 403, other features untouched, portal OTP silent, unknown code 400, tenant admin can't change features, plan without dashboard + per-tenant override).
+
 ## Done in Phase 7 (2026-11-16)
 
 - **Billing module** (`billing` schema, 7 tables): `Invoice` (rowversion; `TryApplyPayment/Refund/Credit`, `TryVoid` keep `PaidAmount + CreditedAmount ≤ Total`), `InvoiceItem`, `Payment`, `Refund`, `CreditNote`, `CashierShift` (rowversion), `IdempotencyRecords`. Numbers `INV-/RCT-/RFD-/CN-yyyy-000001` via `BillingNumbers` (`DatabaseLocks`).

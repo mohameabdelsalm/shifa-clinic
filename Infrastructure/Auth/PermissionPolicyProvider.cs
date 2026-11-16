@@ -28,6 +28,14 @@ public sealed class PermissionPolicyProvider : DefaultAuthorizationPolicyProvide
                 .Build();
         }
 
+        if (policyName.StartsWith(RequireFeatureAttribute.PolicyPrefix, StringComparison.Ordinal))
+        {
+            return new AuthorizationPolicyBuilder()
+                .RequireAuthenticatedUser()
+                .AddRequirements(new FeatureRequirement(policyName[RequireFeatureAttribute.PolicyPrefix.Length..]))
+                .Build();
+        }
+
         if (policyName.StartsWith(PermissionAttribute.PolicyPrefix, StringComparison.Ordinal))
         {
             return new AuthorizationPolicyBuilder()

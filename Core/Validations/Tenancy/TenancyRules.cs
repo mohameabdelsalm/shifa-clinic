@@ -10,6 +10,7 @@ internal static partial class TenancyRules
 
     public static bool IsValidEntitlementCode(string code) =>
         code is EntitlementCodes.MaxBranches or EntitlementCodes.MaxDoctors or EntitlementCodes.MaxEmployees
+        || FeatureCodes.IsKnown(code)
         || (code.StartsWith(EntitlementCodes.ModulePrefix, StringComparison.Ordinal) && code.Length > EntitlementCodes.ModulePrefix.Length && code.Length <= 100);
 
     public static bool IsValidTimeZone(string? id)

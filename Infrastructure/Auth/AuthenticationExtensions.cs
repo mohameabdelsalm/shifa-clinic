@@ -57,7 +57,8 @@ public static class AuthenticationExtensions
                         context.HandleResponse();
                         await WriteAsync(context.HttpContext, HttpStatusCode.Unauthorized, "Unauthorized");
                     },
-                    OnForbidden = context => WriteAsync(context.HttpContext, HttpStatusCode.Forbidden, "Forbidden"),
+                    OnForbidden = context => WriteAsync(context.HttpContext, HttpStatusCode.Forbidden,
+                        context.HttpContext.Items[FeatureRequirementHandler.ForbiddenMessageItemKey] as string ?? "Forbidden"),
                 };
             });
 
@@ -75,6 +76,7 @@ public static class AuthenticationExtensions
         });
         services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
         services.AddScoped<IAuthorizationHandler, AccessRequirementHandler>();
+        services.AddScoped<IAuthorizationHandler, FeatureRequirementHandler>();
 
         return services;
     }

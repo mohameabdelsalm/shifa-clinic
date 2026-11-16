@@ -12,4 +12,6 @@ public interface ITenantRepo
     Task<Response> Activate(long id, CancellationToken cancellationToken);
     Task<Response> ChangePlan(ChangePlanModel model, CancellationToken cancellationToken);
     Task<Response> RecordPayment(RecordPaymentModel model, CancellationToken cancellationToken);
+    Task<Response> GetFeatures(long tenantId, CancellationToken cancellationToken);
+    Task<Response> SetFeature(SetTenantFeatureModel model, CancellationToken cancellationToken);
 }
