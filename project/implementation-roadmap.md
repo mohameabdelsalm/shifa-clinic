@@ -44,6 +44,6 @@ Each phase ends with: build green, relevant tests green, docs updated, `project/
 3. **Shifts:** open (one per user and branch), current shift, close with counted cash (expected cash and variance), list/view per branch and day.
 4. **Invoices:** `IBillingApi.EnsureVisitInvoiceAsync` called by check-in (first and repeated); `POST api/invoices/visit/{appointmentId}` repair; extra invoices from the price list; search/view in branch scope; void.
 5. **Money:** payments (`Idempotency-Key`, ≤ balance, open shift, reference for Card/Wallet), refunds, credit notes; all through the invoice rowversion.
-6. **Portal:** `GET api/portal/invoices`.
+6. **Portal and statistics:** `GET api/portal/invoices`; `POST api/dashboard/payments` (collections by day/month and method, refunds, net) and Revenue/Collections KPIs in `api/dashboard/statistics`.
 7. **Verification:** HTTP smoke on `Shifa_Smoke`: check-in creates one invoice; parallel duplicate payments with one key → one payment; parallel different payments can't overpay; refund/credit/void rules; shift totals and variance; branch scope; portal isolation.
 8. **Review:** opus / high on the money paths and concurrency.

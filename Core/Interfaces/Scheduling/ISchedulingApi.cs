@@ -13,4 +13,11 @@ public interface ISchedulingApi
 
     /// <summary>InProgress → Completed when the visit is completed. Already Completed = no-op; any other state = 400.</summary>
     Task CompleteVisitAsync(long appointmentId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Appointment counts grouped by local day, branch, doctor and status, for statistics.
+    /// <paramref name="branchIds"/> null = all branches; empty = none.
+    /// </summary>
+    Task<IReadOnlyList<AppointmentCountRow>> CountAppointmentsAsync(DateOnly fromLocalDate, DateOnly toLocalDate,
+        IReadOnlyCollection<long>? branchIds, long? doctorId, CancellationToken cancellationToken = default);
 }

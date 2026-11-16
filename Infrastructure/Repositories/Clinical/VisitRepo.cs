@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using System.Net;
 using AutoMapper;
 using AutoMapper.QueryableExtensions;
@@ -118,27 +119,9 @@ public class VisitRepo : IVisitRepo
 
     public async Task<Response> Search(SearchVisitsModel model, CancellationToken cancellationToken)
     {
-        var query = InScope(_context.Visits.AsNoTracking());
-        if (model.PatientId is not null)
-            query = query.Where(v => v.PatientId == model.PatientId);
-        if (model.DoctorId is not null)
-            query = query.Where(v => v.DoctorId == model.DoctorId);
-        if (model.BranchId is not null)
-            query = query.Where(v => v.BranchId == model.BranchId);
-        if (model.Status is not null)
-            query = query.Where(v => v.Status == model.Status);
-        if (model.FromDate is DateOnly from)
-        {
-            var fromUtc = new DateTimeOffset(from.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
-            query = query.Where(v => v.OpenedAt >= fromUtc);
-        }
-        if (model.ToDate is DateOnly to)
-        {
-            var toUtc = new DateTimeOffset(to.AddDays(1).ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
-            query = query.Where(v => v.OpenedAt < toUtc);
-        }
+        var query = SortVisits(InScope(_context.Visits.AsNoTracking()).Where(FilterVisits(model)), model);
 
-        var paged = await query.OrderByDescending(v => v.OpenedAt).ThenByDescending(v => v.Id)
+        var paged = await query
             .ProjectTo<VisitListDto>(_mapper.ConfigurationProvider)
             .ToPagedListAsync(model, cancellationToken);
 
@@ -362,6 +345,28 @@ public class VisitRepo : IVisitRepo
         await AuditAsync("Clinical.AddendumAdded", "Visit", visit.Id);
         return Created(addendum.Id);
     }
+
+    /// <summary>Dates are UTC calendar days on OpenedAt (inclusive).</summary>
+    private static Expression<Func<Visit, bool>> FilterVisits(SearchVisitsModel model)
+    {
+        DateTimeOffset? fromUtc = model.FromDate is DateOnly from ? new DateTimeOffset(from.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero) : null;
+        DateTimeOffset? toUtc = model.ToDate is DateOnly to ? new DateTimeOffset(to.AddDays(1).ToDateTime(TimeOnly.MinValue), TimeSpan.Zero) : null;
+        return v => (model.PatientId == null || v.PatientId == model.PatientId)
+                    && (model.DoctorId == null || v.DoctorId == model.DoctorId)
+                    && (model.BranchId == null || v.BranchId == model.BranchId)
+                    && (model.Status == null || v.Status == model.Status)
+                    && (fromUtc == null || v.OpenedAt >= fromUtc)
+                    && (toUtc == null || v.OpenedAt < toUtc);
+    }
+
+    private static IQueryable<Visit> SortVisits(IQueryable<Visit> query, SearchVisitsModel model) => model.SortBy switch
+    {
+        "completedAt" => query.OrderBy(model.SortType, v => v.CompletedAt).ThenBy(v => v.Id),
+        "status" => query.OrderBy(model.SortType, v => v.Status).ThenBy(v => v.Id),
+        "doctor" => query.OrderBy(model.SortType, v => v.DoctorId).ThenBy(v => v.Id),
+        "branch" => query.OrderBy(model.SortType, v => v.BranchId).ThenBy(v => v.Id),
+        _ => query.OrderBy(model.SortType, v => v.OpenedAt).ThenBy(v => v.Id),
+    };
 
     /// <summary>Saves a change to an open visit's content and writes its audit row.</summary>
     private async Task SaveVisitChangeAsync(Visit visit, string auditAction, CancellationToken cancellationToken)

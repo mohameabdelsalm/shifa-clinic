@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using System.Net;
 using AutoMapper;
 using Core;
@@ -45,13 +46,9 @@ public class ServiceRepo : IServiceRepo
         var query = _context.Services.AsNoTracking();
         if (model.SpecialtyId is not null)
             query = query.Where(s => s.SpecialtyId == model.SpecialtyId);
-        if (!string.IsNullOrWhiteSpace(model.Text))
-        {
-            var text = model.Text.Trim();
-            query = query.Where(s => s.NameEn.Contains(text) || s.NameAr.Contains(text));
-        }
+        query = SortServices(query.Where(FilterServices(model)), model);
 
-        var page = await query.OrderBy(s => s.NameEn).ToPagedListAsync(model, cancellationToken);
+        var page = await query.ToPagedListAsync(model, cancellationToken);
         var dtos = await ToDtosAsync(page.Items, cancellationToken);
         return new Response(_localizer["Retrieved"].Value, HttpStatusCode.OK,
             data: new PagedList<ServiceDto>(dtos, page.TotalCount, page.PageNumber, page.PageSize));
@@ -166,6 +163,22 @@ public class ServiceRepo : IServiceRepo
             return dto;
         }).ToList();
     }
+
+    private static Expression<Func<Service, bool>> FilterServices(SearchServicesModel model)
+    {
+        var text = model.SearchText;
+        return s => (text == null || s.NameEn.Contains(text) || s.NameAr.Contains(text))
+                    && (model.Status == null || s.Status == model.Status);
+    }
+
+    private static IQueryable<Service> SortServices(IQueryable<Service> query, SearchServicesModel model) => model.SortBy switch
+    {
+        "nameEn" => query.OrderBy(model.SortType, s => s.NameEn).ThenBy(s => s.Id),
+        "nameAr" => query.OrderBy(model.SortType, s => s.NameAr).ThenBy(s => s.Id),
+        "duration" => query.OrderBy(model.SortType, s => s.DurationMinutes).ThenBy(s => s.Id),
+        "status" => query.OrderBy(model.SortType, s => s.Status).ThenBy(s => s.Id),
+        _ => query.OrderBy(model.SortType, s => s.CreationDate).ThenBy(s => s.Id),
+    };
 
     private BusinessException NotFound() => new(_localizer["ServiceNotFound"].Value, HttpStatusCode.NotFound);
 }

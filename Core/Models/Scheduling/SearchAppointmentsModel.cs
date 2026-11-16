@@ -4,6 +4,7 @@ using Core.Enums.Scheduling;
 
 namespace Core.Models.Scheduling;
 
+/// <summary>SortBy: startAt (default), status, branch, doctor, queueNumber, date. Search isn't used (no text columns).</summary>
 public class SearchAppointmentsModel : PaginationParameters
 {
     /// <summary>Branch-local dates, inclusive; at most 62 days apart.</summary>

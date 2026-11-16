@@ -4,6 +4,7 @@ using Core.Enums.Clinical;
 
 namespace Core.Models.Clinical;
 
+/// <summary>SortBy: openedAt (default), completedAt, status, doctor, branch. Search isn't used (no text columns).</summary>
 public class SearchVisitsModel : PaginationParameters
 {
     public long? PatientId { get; set; }

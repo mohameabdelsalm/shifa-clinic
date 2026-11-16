@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using System.Net;
 using Core;
 using Core.Common;
@@ -56,9 +57,27 @@ public class StaffRepo : IStaffRepo
 
     public async Task<Response> Search(SearchStaffModel model, CancellationToken cancellationToken)
     {
-        var paged = await ProjectStaff(_context.Memberships.AsNoTracking()).OrderBy(s => s.FullName).ToPagedListAsync(model, cancellationToken);
+        var memberships = _context.Memberships.AsNoTracking().Where(FilterStaff(model));
+        var paged = await SortStaff(ProjectStaff(memberships), model).ToPagedListAsync(model, cancellationToken);
         return new Response(_localizer["Retrieved"].Value, HttpStatusCode.OK, data: paged);
     }
+
+    private Expression<Func<Membership, bool>> FilterStaff(SearchStaffModel model)
+    {
+        var text = model.SearchText;
+        return m => (model.Status == null || m.Status == model.Status)
+                    && (model.RoleId == null || _context.MembershipRoles.Any(r => r.MembershipId == m.Id && r.RoleId == model.RoleId))
+                    && (text == null || _context.Users.Any(u => u.Id == m.UserId && (u.FullName.Contains(text) || (u.Email != null && u.Email.Contains(text)))));
+    }
+
+    /// <summary>Sorted on the projected rows (name and email live on the user); "date" uses the membership id (HiLo, creation order).</summary>
+    private static IQueryable<StaffDto> SortStaff(IQueryable<StaffDto> query, SearchStaffModel model) => model.SortBy switch
+    {
+        "fullName" => query.OrderBy(model.SortType, s => s.FullName).ThenBy(s => s.Id),
+        "email" => query.OrderBy(model.SortType, s => s.Email).ThenBy(s => s.Id),
+        "status" => query.OrderBy(model.SortType, s => s.Status).ThenBy(s => s.Id),
+        _ => query.OrderBy(model.SortType, s => s.Id),
+    };
 
     public async Task<Response> View(long id, CancellationToken cancellationToken)
     {

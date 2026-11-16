@@ -58,6 +58,18 @@ public sealed class ClinicApi : IClinicApi
     public Task<string?> GetBranchTimeZoneAsync(long branchId, CancellationToken cancellationToken = default) =>
         _context.Branches.Where(b => b.Id == branchId).Select(b => (string?)b.TimeZoneId).FirstOrDefaultAsync(cancellationToken);
 
+    public async Task<IReadOnlyDictionary<long, string>> GetBranchNamesAsync(IReadOnlyCollection<long> branchIds, CancellationToken cancellationToken = default)
+    {
+        var ids = branchIds.ToList();
+        return await _context.Branches.AsNoTracking().Where(b => ids.Contains(b.Id)).ToDictionaryAsync(b => b.Id, b => b.Name, cancellationToken);
+    }
+
+    public async Task<IReadOnlyDictionary<long, string>> GetDoctorNamesAsync(IReadOnlyCollection<long> doctorIds, CancellationToken cancellationToken = default)
+    {
+        var ids = doctorIds.ToList();
+        return await _context.Doctors.AsNoTracking().Where(d => ids.Contains(d.Id)).ToDictionaryAsync(d => d.Id, d => d.FullNameEn, cancellationToken);
+    }
+
     public Task<long?> GetDoctorIdForMembershipAsync(long membershipId, CancellationToken cancellationToken = default) =>
         _context.Doctors.Where(d => d.MembershipId == membershipId && d.Status == StatusEnum.Active)
             .Select(d => (long?)d.Id).FirstOrDefaultAsync(cancellationToken);

@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using System.Net;
 using AutoMapper;
 using Core;
@@ -67,13 +68,9 @@ public class DoctorRepo : IDoctorRepo
                 ? query.Where(d => _context.DoctorBranches.Any(b => b.DoctorId == d.Id && b.BranchId == branchId))
                 : query.Where(_ => false);
         }
-        if (!string.IsNullOrWhiteSpace(model.Text))
-        {
-            var text = model.Text.Trim();
-            query = query.Where(d => d.FullNameEn.Contains(text) || d.FullNameAr.Contains(text));
-        }
+        query = SortDoctors(query.Where(FilterDoctors(model)), model);
 
-        var page = await query.OrderBy(d => d.FullNameEn).ToPagedListAsync(model, cancellationToken);
+        var page = await query.ToPagedListAsync(model, cancellationToken);
         var dtos = await ToDtosAsync(page.Items, cancellationToken);
         return new Response(_localizer["Retrieved"].Value, HttpStatusCode.OK,
             data: new PagedList<DoctorDto>(dtos, page.TotalCount, page.PageNumber, page.PageSize));
@@ -343,6 +340,21 @@ public class DoctorRepo : IDoctorRepo
             cancellationToken: cancellationToken);
         return new Response(_localizer["Updated"].Value, HttpStatusCode.OK);
     }
+
+    private static Expression<Func<Doctor, bool>> FilterDoctors(SearchDoctorsModel model)
+    {
+        var text = model.SearchText;
+        return d => (text == null || d.FullNameEn.Contains(text) || d.FullNameAr.Contains(text))
+                    && (model.Status == null || d.Status == model.Status);
+    }
+
+    private static IQueryable<Doctor> SortDoctors(IQueryable<Doctor> query, SearchDoctorsModel model) => model.SortBy switch
+    {
+        "nameEn" => query.OrderBy(model.SortType, d => d.FullNameEn).ThenBy(d => d.Id),
+        "nameAr" => query.OrderBy(model.SortType, d => d.FullNameAr).ThenBy(d => d.Id),
+        "status" => query.OrderBy(model.SortType, d => d.Status).ThenBy(d => d.Id),
+        _ => query.OrderBy(model.SortType, d => d.CreationDate).ThenBy(d => d.Id),
+    };
 
     private async Task EnsureNoOpenVisitsAsync(long doctorId, CancellationToken cancellationToken)
     {

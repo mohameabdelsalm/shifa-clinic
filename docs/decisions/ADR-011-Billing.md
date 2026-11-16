@@ -53,6 +53,11 @@ Phase 7 turns visits into money: an invoice per visit, partial payments, refunds
 
 **Portal.** `GET api/portal/invoices`: invoices of the patients linked to the signed-in phone (number, date, items, totals, paid, balance, status) in a portal DTO. Online payment is out of scope.
 
+**Payment statistics** (requested by the product owner, 2026-11-16; same HRM dashboard pattern as `api/dashboard`, `Reports.Read`, branch scope):
+- `POST api/dashboard/payments` with `DashboardModel` (+ optional `CashierUserId`): collections per day (≤ 31 days) or month, split by method (Cash, Card, Wallet), refunds, net collected; totals for the period.
+- `POST api/dashboard/statistics` gains `Revenue` (invoiced − credited) and `Collections` (payments − refunds) KPIs, compared with the same period last year.
+- Billing exposes compact grouped counts/sums through `IBillingApi` (grouped in SQL by day, branch and method), like `ISchedulingApi.CountAppointmentsAsync`.
+
 **Tax.** `Tax` is stored as 0 until L6 (Egyptian tax / e-receipt rules) is confirmed. Then a tax rate per tenant and the e-receipt integration are added.
 
 ## Consequences
