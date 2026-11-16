@@ -11,4 +11,5 @@ public interface IStaffRepo
     Task<Response> Update(UpdateStaffModel model, CancellationToken cancellationToken);
     Task<Response> Suspend(long id, CancellationToken cancellationToken);
     Task<Response> Activate(long id, CancellationToken cancellationToken);
+    Task<Response> ResendInvitation(long id, CancellationToken cancellationToken);
 }

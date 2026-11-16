@@ -20,6 +20,7 @@ public class AppointmentController : ControllerBase
     }
 
     [HttpPost("availability")]
+    [ReadOperation]
     [Permission(Permissions.AppointmentsRead)]
     public async Task<Response> Availability(AvailabilityModel model, CancellationToken ct) => await _repo.GetAvailability(model, ct);
 

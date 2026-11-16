@@ -11,4 +11,7 @@ public class StaffDto
     public bool AllBranches { get; set; }
     public List<long> BranchIds { get; set; } = [];
     public List<long> RoleIds { get; set; } = [];
+
+    /// <summary>Invited but hasn't set a password yet.</summary>
+    public bool InvitationPending { get; set; }
 }

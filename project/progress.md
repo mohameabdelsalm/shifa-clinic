@@ -21,6 +21,30 @@ _Last updated: 2026-11-07_
 
 **Phase 7 — Billing implemented** (ADR-011; decisions by the product owner on 2026-11-16: pay on arrival, no discounts, cash/card/wallet, mandatory shifts). Next, as asked on 2026-11-16 ("finish the whole project"): dynamic features per plan/tenant, Paymob online payments, identity gaps, Phase 8–10. The Billing review (opus / high) is still to do.
 
+## Identity gaps (2026-11-16, ADR-014)
+
+- **Passwords:**
+  - `POST api/auth/password/forgot` (same answer always; at most 3 links per hour);
+  - `POST api/auth/password/reset` (token works once, revokes all sessions, clears lockout);
+  - `PUT api/auth/password` (current password required, counts toward lockout; portal tokens 403).
+  - New table `identity.PasswordTokens`, stored hashed.
+- **Invitations:** `POST api/staff` without a password e-mails a 72-hour set-password link (`User.InvitationPending`); `POST api/staff/{id}/resend-invitation`; `StaffDto.InvitationPending`.
+- **E-mail:** `IEmailSender`: SMTP (`Email:SmtpHost`…) or the Development-only fake (`GET /dev/email`); startup refuses the fake elsewhere. `App:StaffAppUrl` builds the links.
+- **Staff list follows branch scope:** search, view, update, suspend, activate and resend only reach staff sharing a branch with the caller (or all-branches staff); others 404. Closes the accepted risk from Phase 2.
+- **Subscription expiry (A6):** an ended subscription makes the clinic read-only for 30 days, then sign-in stops. Details:
+  - During read-only: GET, `/search`, dashboard, availability, switch tenant and own password change still work; other changes get 403 with a clear message.
+  - `GET api/subscription` shows the state.
+  - Recording a payment or changing the plan clears the tenant info and feature caches. The plan change previously left stale features for up to 30 s.
+  - "Latest subscription" now breaks the `StartsAt` tie on plan changes by id; the platform tenant list had the same tie.
+- Migration `Identity/AddPasswordTokens` (table + `Users.InvitationPending`, default false), applied to `Shifa` and `Shifa_Smoke`.
+- Verification: identity smoke on `Shifa_Smoke`, **38/38 passed**. Covered:
+  - invitation: e-mail, pending flag, resend invalidates the old link, weak password refused, link works once, sign-in;
+  - forgot/reset: unknown e-mail gets the same answer with no e-mail; reset revokes old sessions; 3-per-hour limit; garbage token 400;
+  - change password: wrong current, same password, sessions revoked;
+  - branch-scoped list, view and suspend;
+  - read-only: reads, search and dashboard work; creates get 403; own password change works; payment restores writes; 31 days after the end, sign-in 401.
+- Regression: clinical 111/111, features 15/15, Paymob 31/31. API log has no tokens or passwords.
+
 ## Paymob online payments (2026-11-16, ADR-013)
 
 - **Settings:** `billing.PaymentGatewaySettings` (one per clinic; secret key + HMAC secret encrypted with Data Protection). `GET/PUT api/payment-gateway` (`Billing.Settings` + `Feature.OnlinePayments`); responses only say whether secrets are set.
@@ -175,7 +199,7 @@ Accepted risks (documented, not fixed now):
 - Membership/tenant status cache is per instance (30 s): with several instances a suspension can take up to 30 s to apply everywhere.
 - Concurrent staff additions can exceed `MaxEmployees` by one (commercial limit, not a safety rule).
 - Onboarding writes two schemas without a shared transaction; failure is compensated by soft-deleting the tenant.
-- Staff listing (`api/staff`) is still tenant-wide, not limited by the caller's branches: a branch-limited member with `Staff.Read` sees every member of the organization. Decide and implement together with branch-aware staff management (Phase 4 or a follow-up).
+- ~~Staff listing (`api/staff`) is still tenant-wide~~ — fixed in ADR-014: staff endpoints follow branch scope.
 - No CORS or security headers yet (Phase 10).
 
 ## Done in Phase 0–1
@@ -245,7 +269,7 @@ Earlier: Phase 4 mutation checks: with portal tokens allowed on staff endpoints,
 
 ## Known gaps / notes
 
-- Password reset/change, subscription-expiry enforcement (assumption A6), JWT key rotation and Platform Admin usage monitoring are deferred (ADR-007).
+- JWT key rotation and Platform Admin usage monitoring are deferred (ADR-007). Password reset/change, invitations and A6 are done (ADR-014).
 - No branch endpoints yet, so branch-scope assignment is only tested for rejection of unknown ids; positive branch-scope tests come with Phase 3.
 - `AuditService` saves through the request's `IdentityDbContext`; an audit failure after a business change surfaces as an error to the caller (change already committed).
 - EF tools 10.0.7 older than runtime 10.0.14 (warning): `dotnet tool update -g dotnet-ef`.

@@ -22,6 +22,7 @@ public class PortalAppointmentController : ControllerBase
     }
 
     [HttpPost("availability")]
+    [ReadOperation]
     public async Task<Response> Availability(AvailabilityModel model, CancellationToken ct) => await _repo.GetAvailability(model, ct);
 
     [HttpPost]

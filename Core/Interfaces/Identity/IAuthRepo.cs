@@ -11,4 +11,7 @@ public interface IAuthRepo
     Task<Response> Logout(RefreshTokenModel model, CancellationToken cancellationToken);
     Task<Response> RequestPortalOtp(RequestOtpModel model, CancellationToken cancellationToken);
     Task<Response> VerifyPortalOtp(VerifyOtpModel model, CancellationToken cancellationToken);
+    Task<Response> ForgotPassword(ForgotPasswordModel model, CancellationToken cancellationToken);
+    Task<Response> ResetPassword(ResetPasswordModel model, CancellationToken cancellationToken);
+    Task<Response> ChangePassword(ChangePasswordModel model, CancellationToken cancellationToken);
 }

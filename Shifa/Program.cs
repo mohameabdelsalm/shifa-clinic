@@ -55,12 +55,15 @@ builder.Services.AddScoped<ITenancyApi, TenancyApi>();
 builder.Services.AddScoped<IPlanRepo, PlanRepo>();
 builder.Services.AddScoped<ITenantRepo, TenantRepo>();
 builder.Services.AddScoped<IFeatureRepo, FeatureRepo>();
+builder.Services.AddScoped<ISubscriptionRepo, SubscriptionRepo>();
 
 // Identity
 builder.Services.AddSingleton<IPasswordHasher<User>, PasswordHasher<User>>();
 builder.Services.AddSingleton<MembershipAccessCache>();
 builder.Services.AddSingleton<ITokenService, TokenService>();
 builder.Services.AddScoped<IAuditService, AuditService>();
+builder.Services.AddShifaEmail(builder.Configuration, builder.Environment);
+builder.Services.AddScoped<PasswordTokens>();
 builder.Services.AddScoped<IIdentityApi, IdentityApi>();
 builder.Services.AddScoped<IAuthRepo, AuthRepo>();
 builder.Services.AddScoped<IRoleRepo, RoleRepo>();
@@ -153,6 +156,8 @@ if (app.Environment.IsDevelopment())
 {
     // Development only: read the SMS messages the fake sender "sent" (OTP codes), since nothing real is sent locally.
     app.MapGet("/dev/sms", (InMemorySmsOutbox outbox) => outbox.Messages).AllowAnonymous();
+    // Development only: e-mails the fake sender "sent" (password reset and invitation links).
+    app.MapGet("/dev/email", (InMemoryEmailOutbox outbox) => outbox.Messages).AllowAnonymous();
 }
 
 app.MapControllers();

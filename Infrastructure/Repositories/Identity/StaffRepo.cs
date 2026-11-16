@@ -39,11 +39,15 @@ public class StaffRepo : IStaffRepo
     private readonly MembershipAccessCache _cache;
     private readonly IAuditService _audit;
     private readonly IStringLocalizer<LanguageResource> _localizer;
+    private readonly PasswordTokens _passwordTokens;
+    private readonly IEmailSender _email;
 
     public StaffRepo(IdentityDbContext context, ITenantContext tenantContext, IAccessContext access,
         IPasswordHasher<User> hasher, ITenancyApi tenancy, IClinicApi clinic, MembershipAccessCache cache,
-        IAuditService audit, IStringLocalizer<LanguageResource> localizer)
+        IAuditService audit, IStringLocalizer<LanguageResource> localizer, PasswordTokens passwordTokens, IEmailSender email)
     {
+        _passwordTokens = passwordTokens;
+        _email = email;
         _context = context;
         _tenantContext = tenantContext;
         _access = access;
@@ -57,7 +61,7 @@ public class StaffRepo : IStaffRepo
 
     public async Task<Response> Search(SearchStaffModel model, CancellationToken cancellationToken)
     {
-        var memberships = _context.Memberships.AsNoTracking().Where(FilterStaff(model));
+        var memberships = InScope(_context.Memberships.AsNoTracking()).Where(FilterStaff(model));
         var paged = await SortStaff(ProjectStaff(memberships), model).ToPagedListAsync(model, cancellationToken);
         return new Response(_localizer["Retrieved"].Value, HttpStatusCode.OK, data: paged);
     }
@@ -81,7 +85,7 @@ public class StaffRepo : IStaffRepo
 
     public async Task<Response> View(long id, CancellationToken cancellationToken)
     {
-        var staff = await ProjectStaff(_context.Memberships.AsNoTracking().Where(m => m.Id == id)).FirstOrDefaultAsync(cancellationToken)
+        var staff = await ProjectStaff(InScope(_context.Memberships.AsNoTracking()).Where(m => m.Id == id)).FirstOrDefaultAsync(cancellationToken)
             ?? throw NotFound();
         return new Response(_localizer["Retrieved"].Value, HttpStatusCode.OK, data: staff);
     }
@@ -98,14 +102,23 @@ public class StaffRepo : IStaffRepo
         var email = model.Email.Trim().ToLowerInvariant();
         var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == email, cancellationToken);
 
+        string? invitation = null;
         if (user is null)
         {
-            if (string.IsNullOrEmpty(model.Password))
-                throw new BusinessException(_localizer["Required"].Value, HttpStatusCode.BadRequest);
-
             user = new User { FullName = model.FullName.Trim(), Email = email };
-            user.PasswordHash = _hasher.HashPassword(user, model.Password);
+            if (string.IsNullOrEmpty(model.Password))
+            {
+                // No password given: the person sets their own through a 72-hour invitation link (ADR-014).
+                user.PasswordHash = _hasher.HashPassword(user, Convert.ToBase64String(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32)));
+                user.InvitationPending = true;
+            }
+            else
+            {
+                user.PasswordHash = _hasher.HashPassword(user, model.Password);
+            }
             _context.Users.Add(user);
+            if (user.InvitationPending)
+                invitation = await _passwordTokens.IssueAsync(user.Id, PasswordTokenPurposeEnum.Invitation, cancellationToken);
         }
         else if (await _context.Memberships.AnyAsync(m => m.UserId == user.Id, cancellationToken))
         {
@@ -119,13 +132,52 @@ public class StaffRepo : IStaffRepo
         await _context.SaveChangesAsync(cancellationToken);
         _cache.InvalidateTenant(tenantId);
         await _audit.LogAsync("Staff.Added", "Membership", membership.Id, cancellationToken: cancellationToken);
+        if (invitation is not null)
+            await SendInvitationAsync(tenantId, user, invitation, cancellationToken);
 
         return new Response(_localizer["Created"].Value, HttpStatusCode.OK, data: membership.Id);
     }
 
+    /// <summary>A new 72-hour invitation link (the previous one stops working), for someone who hasn't set a password yet.</summary>
+    public async Task<Response> ResendInvitation(long id, CancellationToken cancellationToken)
+    {
+        var membership = await InScope(_context.Memberships).FirstOrDefaultAsync(m => m.Id == id, cancellationToken) ?? throw NotFound();
+        await EnsureCanManageAsync(membership, cancellationToken);
+
+        var user = await _context.Users.FirstAsync(u => u.Id == membership.UserId, cancellationToken);
+        if (!user.InvitationPending || membership.Status != MembershipStatusEnum.Active)
+            throw new BusinessException(_localizer["InvitationNotPending"].Value, HttpStatusCode.BadRequest);
+
+        var invitation = await _passwordTokens.IssueAsync(user.Id, PasswordTokenPurposeEnum.Invitation, cancellationToken);
+        await _context.SaveChangesAsync(cancellationToken);
+        await _audit.LogAsync("Staff.InvitationResent", "Membership", membership.Id, cancellationToken: cancellationToken);
+        await SendInvitationAsync(membership.TenantId, user, invitation, cancellationToken);
+
+        return new Response(_localizer["InvitationSent"].Value, HttpStatusCode.OK);
+    }
+
+    private async Task SendInvitationAsync(long tenantId, User user, string rawToken, CancellationToken cancellationToken)
+    {
+        var clinic = (await _tenancy.GetTenantAsync(tenantId, cancellationToken))?.Name ?? "Shifa";
+        await _email.SendAsync(user.Email!, string.Format(_localizer["InvitationEmailSubject"].Value, clinic),
+            string.Format(_localizer["InvitationEmailBody"].Value, user.FullName, clinic, _passwordTokens.Link(rawToken)), cancellationToken);
+    }
+
+    /// <summary>
+    /// A branch-limited caller sees staff who work in at least one of their branches (all-branches staff included,
+    /// since they work everywhere); others are 404.
+    /// </summary>
+    private IQueryable<Membership> InScope(IQueryable<Membership> memberships)
+    {
+        if (_access.HasAllBranches)
+            return memberships;
+        var scope = _access.BranchIds.ToList();
+        return memberships.Where(m => m.AllBranches || _context.MembershipBranches.Any(b => b.MembershipId == m.Id && scope.Contains(b.BranchId)));
+    }
+
     public async Task<Response> Update(UpdateStaffModel model, CancellationToken cancellationToken)
     {
-        var membership = await _context.Memberships.FirstOrDefaultAsync(m => m.Id == model.Id, cancellationToken) ?? throw NotFound();
+        var membership = await InScope(_context.Memberships).FirstOrDefaultAsync(m => m.Id == model.Id, cancellationToken) ?? throw NotFound();
         await EnsureCanManageAsync(membership, cancellationToken);
 
         var roleIds = model.RoleIds.Distinct().ToList();
@@ -160,7 +212,7 @@ public class StaffRepo : IStaffRepo
         if (id == _access.MembershipId)
             throw new BusinessException(_localizer["CannotSuspendSelf"].Value, HttpStatusCode.BadRequest);
 
-        var membership = await _context.Memberships.FirstOrDefaultAsync(m => m.Id == id, cancellationToken) ?? throw NotFound();
+        var membership = await InScope(_context.Memberships).FirstOrDefaultAsync(m => m.Id == id, cancellationToken) ?? throw NotFound();
         await EnsureCanManageAsync(membership, cancellationToken);
 
         var (_, isLastAdmin) = await GetLastTenantAdminStateAsync(membership.Id, cancellationToken);
@@ -172,7 +224,7 @@ public class StaffRepo : IStaffRepo
 
     public async Task<Response> Activate(long id, CancellationToken cancellationToken)
     {
-        var membership = await _context.Memberships.FirstOrDefaultAsync(m => m.Id == id, cancellationToken) ?? throw NotFound();
+        var membership = await InScope(_context.Memberships).FirstOrDefaultAsync(m => m.Id == id, cancellationToken) ?? throw NotFound();
         await EnsureCanManageAsync(membership, cancellationToken);
 
         // Re-activating counts against the plan like adding someone new.
@@ -303,6 +355,7 @@ public class StaffRepo : IStaffRepo
             AllBranches = m.AllBranches,
             BranchIds = _context.MembershipBranches.Where(b => b.MembershipId == m.Id).Select(b => b.BranchId).ToList(),
             RoleIds = _context.MembershipRoles.Where(r => r.MembershipId == m.Id).Select(r => r.RoleId).ToList(),
+            InvitationPending = u.InvitationPending,
         };
 
     private BusinessException Forbidden() => new(_localizer["Forbidden"].Value, HttpStatusCode.Forbidden);

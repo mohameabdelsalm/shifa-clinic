@@ -21,6 +21,9 @@ public class User : BaseModel
     public string PasswordHash { get; set; } = "";
     public bool IsPlatformAdmin { get; set; }
     public StatusEnum Status { get; set; } = StatusEnum.Active;
+
+    /// <summary>Invited staff member who hasn't set a password yet (ADR-014); cleared by any successful password set.</summary>
+    public bool InvitationPending { get; set; }
     public int FailedAccessCount { get; private set; }
     public DateTimeOffset? LockoutEnd { get; private set; }
 

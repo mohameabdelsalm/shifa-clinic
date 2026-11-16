@@ -130,4 +130,24 @@
   <data name="OnlinePaymentNotRefundable" xml:space="preserve"><value>يمكن هنا فقط استرداد دفعة أونلاين لم يمكن تطبيقها على فاتورتها.</value></data>
   <data name="Received" xml:space="preserve"><value>تم الاستلام.</value></data>
   <data name="InvalidSignature" xml:space="preserve"><value>توقيع غير صالح.</value></data>
+  <data name="PasswordResetRequested" xml:space="preserve"><value>إذا كان هذا البريد مسجلاً لحساب، فقد أُرسل رابط لإعادة تعيين كلمة المرور.</value></data>
+  <data name="PasswordResetEmailSubject" xml:space="preserve"><value>إعادة تعيين كلمة مرور شفاء</value></data>
+  <data name="PasswordResetEmailBody" xml:space="preserve"><value>مرحباً {0}،
+
+استخدم هذا الرابط خلال 30 دقيقة لاختيار كلمة مرور جديدة:
+{1}
+
+إذا لم تطلب ذلك فتجاهل هذه الرسالة؛ كلمة مرورك لن تتغير.</value></data>
+  <data name="InvalidPasswordToken" xml:space="preserve"><value>هذا الرابط غير صالح أو انتهت صلاحيته. اطلب رابطاً جديداً.</value></data>
+  <data name="PasswordChanged" xml:space="preserve"><value>تم تغيير كلمة المرور. سجّل الدخول مرة أخرى.</value></data>
+  <data name="CurrentPasswordWrong" xml:space="preserve"><value>كلمة المرور الحالية غير صحيحة.</value></data>
+  <data name="PasswordMustChange" xml:space="preserve"><value>يجب أن تختلف كلمة المرور الجديدة عن الحالية.</value></data>
+  <data name="InvitationNotPending" xml:space="preserve"><value>لا توجد دعوة معلقة لهذا الموظف.</value></data>
+  <data name="InvitationSent" xml:space="preserve"><value>تم إرسال الدعوة.</value></data>
+  <data name="InvitationEmailSubject" xml:space="preserve"><value>دعوة للانضمام إلى {0} على شفاء</value></data>
+  <data name="InvitationEmailBody" xml:space="preserve"><value>مرحباً {0}،
+
+تمت إضافتك إلى {1} على شفاء. استخدم هذا الرابط خلال 72 ساعة لتعيين كلمة المرور:
+{2}</value></data>
+  <data name="SubscriptionReadOnly" xml:space="preserve"><value>انتهى اشتراك العيادة، لذلك النظام للقراءة فقط. تواصل مع مدير العيادة للتجديد.</value></data>
 </root>

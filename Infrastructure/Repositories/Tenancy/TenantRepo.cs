@@ -147,6 +147,7 @@ public class TenantRepo : ITenantRepo
         });
 
         await _context.SaveChangesAsync(cancellationToken);
+        InvalidateTenantCache(tenant.Id);
         await _audit.LogAsync("Platform.TenantPlanChanged", "Tenant", tenant.Id, targetTenantId: tenant.Id, detail: $"plan {plan.Code}", cancellationToken: cancellationToken);
 
         return new Response(_localizer["Updated"].Value, HttpStatusCode.OK);
@@ -157,7 +158,7 @@ public class TenantRepo : ITenantRepo
         var tenant = await _context.Tenants.AsNoTracking().FirstOrDefaultAsync(t => t.Id == model.TenantId, cancellationToken) ?? throw NotFound();
         var subscription = await _context.TenantSubscriptions
             .Where(s => s.TenantId == tenant.Id)
-            .OrderByDescending(s => s.StartsAt)
+            .OrderByDescending(s => s.StartsAt).ThenByDescending(s => s.Id)
             .FirstOrDefaultAsync(cancellationToken) ?? throw NotFound();
 
         var now = _time.GetUtcNow();
@@ -173,6 +174,7 @@ public class TenantRepo : ITenantRepo
             subscription.Status = SubscriptionStatusEnum.Active;
 
         await _context.SaveChangesAsync(cancellationToken);
+        InvalidateTenantCache(tenant.Id);
         await _audit.LogAsync("Platform.PaymentRecorded", "Tenant", tenant.Id, targetTenantId: tenant.Id, cancellationToken: cancellationToken);
 
         return new Response(_localizer["Created"].Value, HttpStatusCode.OK);
@@ -195,7 +197,7 @@ public class TenantRepo : ITenantRepo
         tenants.Select(t => new
         {
             Tenant = t,
-            Subscription = _context.TenantSubscriptions.Where(s => s.TenantId == t.Id).OrderByDescending(s => s.StartsAt).FirstOrDefault(),
+            Subscription = _context.TenantSubscriptions.Where(s => s.TenantId == t.Id).OrderByDescending(s => s.StartsAt).ThenByDescending(s => s.Id).FirstOrDefault(),
         })
         .Select(x => new TenantDto
         {
@@ -242,6 +244,13 @@ public class TenantRepo : ITenantRepo
             detail: $"{model.Code}={model.Enabled?.ToString() ?? "plan"}", cancellationToken: CancellationToken.None);
 
         return new Response(_localizer["Updated"].Value, HttpStatusCode.OK, data: await _tenancyApi.GetFeaturesAsync(model.TenantId, cancellationToken));
+    }
+
+    /// <summary>Subscription changes affect read-only state (A6) and the plan's features: apply them at once on this instance.</summary>
+    private void InvalidateTenantCache(long tenantId)
+    {
+        _cache.Remove(TenancyApi.InfoCacheKey(tenantId));
+        _cache.Remove(TenancyApi.FeaturesCacheKey(tenantId));
     }
 
     private BusinessException NotFound() => new(_localizer["TenantNotFound"].Value, HttpStatusCode.NotFound);

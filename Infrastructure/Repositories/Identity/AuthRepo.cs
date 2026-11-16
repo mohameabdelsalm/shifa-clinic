@@ -40,12 +40,19 @@ public class AuthRepo : IAuthRepo
     private readonly IStringLocalizer<LanguageResource> _localizer;
     private readonly TimeProvider _time;
     private readonly ISmsSender _sms;
+    private readonly IEmailSender _email;
+    private readonly PasswordTokens _passwordTokens;
+    private readonly IAccessContext _access;
 
     public AuthRepo(IdentityDbContext context, IPasswordHasher<User> hasher, ITokenService tokens, ITenancyApi tenancy,
         ITenantScopeFactory scopes, IAuditService audit, ICurrentUser currentUser,
-        IStringLocalizer<LanguageResource> localizer, TimeProvider time, ISmsSender sms)
+        IStringLocalizer<LanguageResource> localizer, TimeProvider time, ISmsSender sms, IEmailSender email, PasswordTokens passwordTokens,
+        IAccessContext access)
     {
         _sms = sms;
+        _email = email;
+        _passwordTokens = passwordTokens;
+        _access = access;
         _context = context;
         _hasher = hasher;
         _tokens = tokens;
@@ -312,6 +319,112 @@ public class AuthRepo : IAuthRepo
         await _audit.LogAsync("Portal.LoginSucceeded", "User", user.Id, targetTenantId: tenant.Id, userId: user.Id, cancellationToken: cancellationToken);
         return Ok(dto);
     }
+
+    /// <summary>
+    /// Always the same answer, so the endpoint can't tell which e-mails have accounts. For an active account with an
+    /// e-mail, at most 3 reset links per hour are sent; each new link replaces the previous one.
+    /// </summary>
+    public async Task<Response> ForgotPassword(ForgotPasswordModel model, CancellationToken cancellationToken)
+    {
+        var generic = new Response(_localizer["PasswordResetRequested"].Value, HttpStatusCode.OK);
+        var email = model.Email.Trim().ToLowerInvariant();
+        var now = _time.GetUtcNow();
+
+        var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == email && u.Status == StatusEnum.Active, cancellationToken);
+        if (user is null)
+            return generic;
+
+        var since = now.AddHours(-1);
+        var recent = await _context.PasswordTokens.CountAsync(
+            t => t.UserId == user.Id && t.Purpose == PasswordTokenPurposeEnum.Reset && t.CreationDate > since, cancellationToken);
+        if (recent >= 3)
+            return generic;
+
+        var raw = await _passwordTokens.IssueAsync(user.Id, PasswordTokenPurposeEnum.Reset, cancellationToken);
+        await _context.SaveChangesAsync(cancellationToken);
+
+        await _email.SendAsync(email, _localizer["PasswordResetEmailSubject"].Value,
+            string.Format(_localizer["PasswordResetEmailBody"].Value, user.FullName, _passwordTokens.Link(raw)), cancellationToken);
+        await _audit.LogAsync("Auth.PasswordResetRequested", "User", user.Id, userId: user.Id, cancellationToken: cancellationToken);
+        return generic;
+    }
+
+    /// <summary>
+    /// Sets the password with a reset or invitation token. The token is claimed atomically (works once); every other
+    /// unused token and every session of the user is revoked, and a lockout is cleared (the e-mail proved ownership).
+    /// </summary>
+    public async Task<Response> ResetPassword(ResetPasswordModel model, CancellationToken cancellationToken)
+    {
+        var now = _time.GetUtcNow();
+        var hash = _passwordTokens.Hash(model.Token);
+        var token = await _context.PasswordTokens.AsNoTracking().FirstOrDefaultAsync(t => t.TokenHash == hash, cancellationToken);
+        if (token is null || token.UsedAt is not null || token.ExpiresAt <= now)
+            throw InvalidPasswordToken();
+
+        var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == token.UserId && u.Status == StatusEnum.Active, cancellationToken)
+            ?? throw InvalidPasswordToken();
+
+        await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
+        var claimed = await _context.PasswordTokens
+            .Where(t => t.Id == token.Id && t.UsedAt == null)
+            .ExecuteUpdateAsync(s => s.SetProperty(t => t.UsedAt, now), cancellationToken);
+        if (claimed == 0)
+            throw InvalidPasswordToken();
+
+        user.PasswordHash = _hasher.HashPassword(user, model.NewPassword);
+        user.InvitationPending = false;
+        user.RegisterSuccessfulSignIn();
+        await _context.SaveChangesAsync(cancellationToken);
+        await SignOutEverywhereAsync(user.Id, now, cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+
+        var action = token.Purpose == PasswordTokenPurposeEnum.Invitation ? "Auth.InvitationAccepted" : "Auth.PasswordReset";
+        await _audit.LogAsync(action, "User", user.Id, userId: user.Id, cancellationToken: CancellationToken.None);
+        return new Response(_localizer["PasswordChanged"].Value, HttpStatusCode.OK);
+    }
+
+    /// <summary>Staff and Platform Admins only (portal accounts have no password). A wrong current password counts toward lockout.</summary>
+    public async Task<Response> ChangePassword(ChangePasswordModel model, CancellationToken cancellationToken)
+    {
+        if (_access.IsPortalUser)
+            throw new BusinessException(_localizer["Forbidden"].Value, HttpStatusCode.Forbidden);
+
+        var now = _time.GetUtcNow();
+        var userId = _currentUser.GetUserId() ?? throw InvalidToken();
+        var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == userId && u.Status == StatusEnum.Active, cancellationToken)
+            ?? throw InvalidToken();
+        if (user.IsLockedOut(now))
+            throw InvalidToken();
+
+        if (_hasher.VerifyHashedPassword(user, user.PasswordHash, model.CurrentPassword) == PasswordVerificationResult.Failed)
+        {
+            user.RegisterFailedSignIn(now);
+            await _context.SaveChangesAsync(cancellationToken);
+            await _audit.LogAsync("Auth.PasswordChangeFailed", "User", user.Id, userId: user.Id, cancellationToken: cancellationToken);
+            throw new BusinessException(_localizer["CurrentPasswordWrong"].Value, HttpStatusCode.BadRequest);
+        }
+
+        await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
+        user.PasswordHash = _hasher.HashPassword(user, model.NewPassword);
+        user.RegisterSuccessfulSignIn();
+        await _context.SaveChangesAsync(cancellationToken);
+        await SignOutEverywhereAsync(user.Id, now, cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+
+        await _audit.LogAsync("Auth.PasswordChanged", "User", user.Id, userId: user.Id, cancellationToken: CancellationToken.None);
+        return new Response(_localizer["PasswordChanged"].Value, HttpStatusCode.OK);
+    }
+
+    /// <summary>Revokes every refresh token and unused password token of the user (access tokens expire on their own, minutes later).</summary>
+    private async Task SignOutEverywhereAsync(long userId, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        await _context.RefreshTokens.Where(t => t.UserId == userId && t.RevokedAt == null)
+            .ExecuteUpdateAsync(s => s.SetProperty(t => t.RevokedAt, now), cancellationToken);
+        await _context.PasswordTokens.Where(t => t.UserId == userId && t.UsedAt == null)
+            .ExecuteUpdateAsync(s => s.SetProperty(t => t.UsedAt, now), cancellationToken);
+    }
+
+    private BusinessException InvalidPasswordToken() => new(_localizer["InvalidPasswordToken"].Value, HttpStatusCode.BadRequest);
 
     private TokenDto CreateTokens(User user, long? tenantId, long? membershipId, Guid? familyId, out RefreshToken refreshToken, bool isPortal = false)
     {
