@@ -54,6 +54,17 @@ public sealed class IdentityApi : IIdentityApi
                 join p in db.RolePermissions on r.Id equals p.RoleId
                 select p.PermissionCode).Distinct().ToListAsync(cancellationToken);
 
+            // The default TenantAdmin role can't be edited and means "everything": it always gets the current list, so
+            // permissions added in later releases reach clinics provisioned before them.
+            var isTenantAdmin = await (
+                from mr in db.MembershipRoles
+                where mr.MembershipId == membershipId
+                join r in db.Roles on mr.RoleId equals r.Id
+                where r.IsSystemDefault && r.Name == Permissions.TenantAdminRole
+                select r.Id).AnyAsync(cancellationToken);
+            if (isTenantAdmin)
+                permissions = Permissions.All.ToList();
+
             var branchIds = await db.MembershipBranches.Where(b => b.MembershipId == membershipId).Select(b => b.BranchId).ToListAsync(cancellationToken);
 
             return new MembershipAccess(tenantId, userId, membershipId, membership.AllBranches, branchIds, permissions);

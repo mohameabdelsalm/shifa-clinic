@@ -123,4 +123,11 @@
   <data name="AppointmentNotCheckedIn" xml:space="preserve"><value>The visit invoice is created when the patient checks in.</value></data>
   <data name="OnlinePaymentsNotConfigured" xml:space="preserve"><value>Online payments are not set up for this clinic.</value></data>
   <data name="FeatureNotEnabled" xml:space="preserve"><value>This feature is not enabled for your clinic.</value></data>
+  <data name="NothingToPay" xml:space="preserve"><value>Nothing is owed on this invoice.</value></data>
+  <data name="PaymentGatewayError" xml:space="preserve"><value>The payment gateway could not be reached. Please try again.</value></data>
+  <data name="OnlineRefundFailed" xml:space="preserve"><value>The payment gateway refused the refund.</value></data>
+  <data name="OnlinePaymentNotFound" xml:space="preserve"><value>Online payment not found.</value></data>
+  <data name="OnlinePaymentNotRefundable" xml:space="preserve"><value>Only an online payment that could not be applied to its invoice can be returned here.</value></data>
+  <data name="Received" xml:space="preserve"><value>Received.</value></data>
+  <data name="InvalidSignature" xml:space="preserve"><value>Invalid signature.</value></data>
 </root>

@@ -15,12 +15,19 @@ namespace Shifa.Controllers.Billing;
 public class PortalInvoiceController : ControllerBase
 {
     private readonly IPortalInvoiceRepo _repo;
+    private readonly IOnlinePaymentRepo _onlinePayments;
 
-    public PortalInvoiceController(IPortalInvoiceRepo repo)
+    public PortalInvoiceController(IPortalInvoiceRepo repo, IOnlinePaymentRepo onlinePayments)
     {
         _repo = repo;
+        _onlinePayments = onlinePayments;
     }
 
     [HttpGet]
     public async Task<Response> GetMine(CancellationToken ct) => await _repo.GetMine(ct);
+
+    /// <summary>Starts paying the invoice balance online (Paymob); open the returned checkout URL. The payment is recorded by the gateway callback.</summary>
+    [HttpPost("{id:long}/pay-online")]
+    [RequireFeature(FeatureCodes.OnlinePayments)]
+    public async Task<Response> PayOnline(long id, CancellationToken ct) => await _onlinePayments.StartPortalPayment(id, ct);
 }

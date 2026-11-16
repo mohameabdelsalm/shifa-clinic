@@ -14,12 +14,31 @@ _Last updated: 2026-11-07_
 | 5 — Scheduling | ✅ Done, reviewed (opus / high) and fixed |
 | HRM layout | ✅ Restructured like Trio HRM (ADR-009) |
 | 6 — Clinical / EMR | ✅ Done, reviewed (opus / high) and fixed |
-| 7 — Billing | ✅ Implemented (ADR-011); review pending |
+| 7 — Billing | ✅ Implemented (ADR-011) + dynamic features (ADR-012) + Paymob online payments (ADR-013); review pending |
 | 8–10 | Not started (see `implementation-roadmap.md`) |
 
 ## Current phase
 
 **Phase 7 — Billing implemented** (ADR-011; decisions by the product owner on 2026-11-16: pay on arrival, no discounts, cash/card/wallet, mandatory shifts). Next, as asked on 2026-11-16 ("finish the whole project"): dynamic features per plan/tenant, Paymob online payments, identity gaps, Phase 8–10. The Billing review (opus / high) is still to do.
+
+## Paymob online payments (2026-11-16, ADR-013)
+
+- **Settings:** `billing.PaymentGatewaySettings` (one per clinic; secret key + HMAC secret encrypted with Data Protection). `GET/PUT api/payment-gateway` (`Billing.Settings` + `Feature.OnlinePayments`); responses only say whether secrets are set.
+- **Paying:** `POST api/portal/invoices/{id}/pay-online` creates an `OnlinePaymentAttempt` (saved first) and a Paymob intention for exactly the balance, then returns the Unified Checkout URL. Billing data is the patient's name/e-mail (`IPatientsApi.GetBillingContactAsync`) and the portal phone.
+- **Callback:** `POST api/webhooks/paymob/{tenantId}` (anonymous, `webhooks` rate limit, 64 KB). HMAC-SHA512 over the 20 documented fields, constant-time. Success records an Online payment (`RCT-` number, no shift) in one save under an app lock on the attempt. Late payments become `NotApplied`; declines become `Failed`, and another card can still succeed. Repeats, pending and refund callbacks are ignored.
+- **Refunds:** `PaymobOnlineRefunds` replaces the placeholder. `PaymentRepo.Refund` for online payments takes an app lock on the payment, re-checks replay, reloads, calls Paymob, then saves; a failed save after Paymob succeeded is audited. `POST api/online-payments/{id}/refund` returns a NotApplied payment; `POST api/online-payments/search` (HRM style).
+- **TenantAdmin:** the default TenantAdmin role now always resolves to `Permissions.All`, so new permissions (like `Billing.Settings`) reach clinics created earlier. Before this, their stored list was frozen at creation and the role can't be edited.
+- **Config:** `Paymob:BaseUrl`, `Paymob:CheckoutUrl`, `Paymob:NotificationBaseUrl` (required to pay online), `Paymob:RedirectionUrl`, `Paymob:UseFake` (Development only); `DataProtection:KeysPath` persists the key ring; `RateLimiting:WebhookPermitLimit`.
+- Migration `Billing/AddOnlinePayments` (2 tables), applied to `Shifa` and `Shifa_Smoke`.
+- Verification: Paymob smoke on `Shifa_Smoke` with the fake client and HMAC-signed callbacks, **31/31 passed**. Covered:
+  - feature and permission gates; secrets not echoed and encrypted at rest;
+  - checkout URL; wrong, missing or other-tenant HMAC, and a tampered amount → 401, nothing recorded;
+  - success → invoice Paid; repeated callback and 5 parallel duplicates → one payment;
+  - desk payment first → NotApplied → returned → Refunded, second return refused;
+  - declined card, then a second card succeeds;
+  - partial online refund; refund callback ignored; another patient's invoice → 404.
+- Regression: clinical smoke 111/111, features 15/15. API log contains no secrets.
+- Not verified against the real Paymob sandbox (needs a merchant account): field names follow the docs read on 2026-11-16.
 
 ## Dynamic features (2026-11-16, ADR-012)
 

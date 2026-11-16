@@ -33,6 +33,9 @@ public static class Permissions
     public const string BillingRead = "Billing.Read";
     public const string BillingCollect = "Billing.Collect";
     public const string BillingRefund = "Billing.Refund";
+
+    /// <summary>Manage the clinic's online payment gateway (Paymob keys).</summary>
+    public const string BillingSettings = "Billing.Settings";
     public const string ReportsRead = "Reports.Read";
 
     public static readonly IReadOnlyList<string> All = typeof(Permissions)

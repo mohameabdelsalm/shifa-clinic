@@ -101,6 +101,12 @@ public static class ApiServiceExtensions
                 httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
                 _ => new FixedWindowRateLimiterOptions { PermitLimit = permitLimit, Window = TimeSpan.FromMinutes(1) }));
 
+            // Gateway callbacks are anonymous: cap them per IP (Paymob sends a few per payment).
+            var webhookLimit = config.GetValue("RateLimiting:WebhookPermitLimit", 120);
+            options.AddPolicy("webhooks", httpContext => RateLimitPartition.GetFixedWindowLimiter(
+                httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                _ => new FixedWindowRateLimiterOptions { PermitLimit = webhookLimit, Window = TimeSpan.FromMinutes(1) }));
+
             options.OnRejected = async (context, cancellationToken) =>
             {
                 var localizer = context.HttpContext.RequestServices.GetRequiredService<IStringLocalizer<LanguageResource>>();

@@ -18,6 +18,12 @@ public sealed class PatientsApi : IPatientsApi
     public Task<bool> PatientExistsAsync(long patientId, CancellationToken cancellationToken = default) =>
         _context.Patients.AnyAsync(p => p.Id == patientId, cancellationToken);
 
+    public Task<PatientBillingContact?> GetBillingContactAsync(long patientId, CancellationToken cancellationToken = default) =>
+        _context.Patients.AsNoTracking()
+            .Where(p => p.Id == patientId)
+            .Select(p => new PatientBillingContact(p.FullName, p.Email))
+            .FirstOrDefaultAsync(cancellationToken);
+
     public Task<bool> HasPortalAccessAsync(string normalizedPhoneNumber, CancellationToken cancellationToken = default) =>
         _context.PatientAccountAccesses.AnyAsync(a => a.PhoneNumber == normalizedPhoneNumber, cancellationToken);
 
