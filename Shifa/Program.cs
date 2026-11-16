@@ -22,6 +22,7 @@ using Infrastructure.Repositories.Scheduling;
 using Infrastructure.Repositories.Tenancy;
 using Infrastructure.Services;
 using Infrastructure.Services.Billing;
+using Infrastructure.Services.Billing.Paymob;
 using Infrastructure.Services.Clinic;
 using Infrastructure.Services.Identity;
 using Infrastructure.Services.Scheduling;
@@ -88,12 +89,18 @@ builder.Services.AddScoped<ISchedulingApi, SchedulingApi>();
 // Billing
 builder.Services.AddScoped<BillingNumbers>();
 builder.Services.AddScoped<InvoiceIssuer>();
-builder.Services.AddScoped<IOnlineRefunds, UnavailableOnlineRefunds>();
 builder.Services.AddScoped<IBillingApi, BillingApi>();
 builder.Services.AddScoped<ICashierShiftRepo, CashierShiftRepo>();
 builder.Services.AddScoped<IInvoiceRepo, InvoiceRepo>();
 builder.Services.AddScoped<IPaymentRepo, PaymentRepo>();
 builder.Services.AddScoped<IPortalInvoiceRepo, PortalInvoiceRepo>();
+
+// Online payments with each clinic's own Paymob account (ADR-013)
+builder.Services.AddPaymob(builder.Configuration, builder.Environment);
+builder.Services.AddScoped<IOnlineRefunds, PaymobOnlineRefunds>();
+builder.Services.AddScoped<IPaymentGatewayRepo, PaymentGatewayRepo>();
+builder.Services.AddScoped<IOnlinePaymentRepo, OnlinePaymentRepo>();
+builder.Services.AddScoped<IPaymobWebhookHandler, PaymobWebhookHandler>();
 
 // Dashboard
 builder.Services.AddScoped<IDashboardRepo, DashboardRepo>();

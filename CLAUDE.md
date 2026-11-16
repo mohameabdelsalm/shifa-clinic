@@ -111,6 +111,15 @@ One class per file. Namespaces follow folders without a `Shifa.` prefix: `Core.E
 - Payments and refunds need an `Idempotency-Key` (scoped to the caller) and the caller's open cashier shift at the invoice's branch. Card and Wallet need a reference.
 - Document numbers (`INV-`, `RCT-`, `RFD-`, `CN-`) use `DatabaseLocks` + a unique index.
 
+## Online payment rules (ADR-013)
+
+- Each clinic uses its own Paymob account. Secret key and HMAC secret are encrypted with Data Protection (`PaymentGatewaySecrets`), never returned, never logged. Managed with `Billing.Settings`; needs `Feature.OnlinePayments`.
+- Starting a payment never records money. Only the gateway callback does, after the HMAC matches that clinic's secret; the tenant id in the callback URL is only a hint.
+- Callbacks and NotApplied refunds of one attempt run under the same app lock (`PaymobWebhookHandler.OnlineAttemptLock`); the unique index on online payment references is the final guard. Repeats, pending and refund callbacks answer 200 and change nothing.
+- A successful payment that no longer fits the invoice becomes `NotApplied` (never an overpayment) and is returned with `POST api/online-payments/{id}/refund`.
+- Refunds through the gateway: money leaves first, so the row is saved without the request's cancellation, and a failed save is audited (`Billing.OnlineRefundNotRecorded`) with the gateway reference.
+- `Paymob:UseFake=true` is allowed only in Development (startup refuses it elsewhere).
+
 ## Patient portal rules (ADR-007)
 
 - Portal endpoints (`api/portal/...`) use `[PortalUser]`; the phone number comes from `IAccessContext.PortalPhoneNumber` (the token), never from the request.

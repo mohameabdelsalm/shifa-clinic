@@ -33,6 +33,18 @@ public class BillingProfile : Profile
 
         CreateMap<InvoiceItem, InvoiceItemDto>();
 
+        // Secrets are never mapped out: only whether they are set.
+        CreateMap<PaymentGatewaySettings, PaymentGatewayDto>()
+            .ForMember(dest => dest.IntegrationIds, opt => opt.MapFrom(src =>
+                src.IntegrationIds.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Select(long.Parse).ToList()))
+            .ForMember(dest => dest.HasSecretKey, opt => opt.MapFrom(src => src.SecretKeyProtected != ""))
+            .ForMember(dest => dest.HasHmacSecret, opt => opt.MapFrom(src => src.HmacSecretProtected != ""))
+            .ForMember(dest => dest.UpdatedAt, opt => opt.MapFrom(src => src.ModificationDate ?? src.CreationDate));
+
+        CreateMap<OnlinePaymentAttempt, OnlinePaymentAttemptDto>()
+            .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.Status.ToString()))
+            .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => src.CreationDate));
+
         CreateMap<Payment, PaymentDto>()
             .ForMember(dest => dest.Method, opt => opt.MapFrom(src => src.Method.ToString()));
 

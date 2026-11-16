@@ -13,6 +13,9 @@ public interface IPatientsApi
     /// <summary>The patients a portal user may act for (self, children, wards), and whether they may book for each.</summary>
     Task<IReadOnlyList<PortalPatientAccess>> GetPortalPatientsAsync(string normalizedPhoneNumber, CancellationToken cancellationToken = default);
 
+    /// <summary>Name and e-mail for a payment gateway's billing data; null when the patient isn't in this tenant.</summary>
+    Task<PatientBillingContact?> GetBillingContactAsync(long patientId, CancellationToken cancellationToken = default);
+
     /// <summary>Registration times of patients created in [fromUtc, toUtc), for statistics (patients belong to the tenant, not a branch).</summary>
     Task<IReadOnlyList<DateTimeOffset>> GetRegistrationTimesAsync(DateTimeOffset fromUtc, DateTimeOffset toUtc, CancellationToken cancellationToken = default);
 }

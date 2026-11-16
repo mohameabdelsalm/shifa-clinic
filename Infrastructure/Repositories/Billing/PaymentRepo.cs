@@ -12,6 +12,7 @@ using Infrastructure.Configurations.Billing;
 using Infrastructure.Data;
 using Infrastructure.Services.Billing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Localization;
 
 namespace Infrastructure.Repositories.Billing;
@@ -126,18 +127,51 @@ public class PaymentRepo : IPaymentRepo
             ?? throw new BusinessException(_localizer["PaymentNotFound"].Value, HttpStatusCode.NotFound);
 
         // Online payments go back to the card through the gateway; cash-desk refunds come out of the refunder's drawer.
-        var shift = payment.Method == PaymentMethodEnum.Online ? null : await OpenShiftAsync(invoice.BranchId, cancellationToken);
-
-        if (!payment.TryRefund(model.Amount) || !invoice.TryApplyRefund(model.Amount))
-            throw new BusinessException(_localizer["AmountExceedsRefundable"].Value, HttpStatusCode.BadRequest);
-
+        var online = payment.Method == PaymentMethodEnum.Online;
+        var shift = online ? null : await OpenShiftAsync(invoice.BranchId, cancellationToken);
         string? externalReference = null;
-        if (payment.Method == PaymentMethodEnum.Online)
-            externalReference = await _onlineRefunds.RefundAsync(payment, model.Amount, cancellationToken);
 
         try
         {
             await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
+            if (online)
+            {
+                // Money leaves before the row is saved, so online refunds of one payment run one at a time on fresh data,
+                // and a parallel retry that already committed is answered instead of refunding twice.
+                await _context.Database.AcquireAsync($"billing:refund:{payment.TenantId}:{payment.Id}", cancellationToken);
+                if (await FindReplayAsync(operation, key, hash, now, cancellationToken) is long committed)
+                    return Created(committed);
+                await _context.Entry(payment).ReloadAsync(cancellationToken);
+                await _context.Entry(invoice).ReloadAsync(cancellationToken);
+            }
+
+            if (!payment.TryRefund(model.Amount) || !invoice.TryApplyRefund(model.Amount))
+                throw new BusinessException(_localizer["AmountExceedsRefundable"].Value, HttpStatusCode.BadRequest);
+
+            if (online)
+                externalReference = await _onlineRefunds.RefundAsync(payment, model.Amount, cancellationToken);
+
+            return await SaveRefundAsync(transaction, payment, invoice, shift, model, externalReference, operation, key, hash, now, cancellationToken);
+        }
+        catch (DbUpdateException ex) when (ex is not DbUpdateConcurrencyException && IsIdempotencyConflict(ex))
+        {
+            _context.ChangeTracker.Clear();
+            return Created(await FindReplayAsync(operation, key, hash, now, cancellationToken)
+                           ?? throw new BusinessException(_localizer["IdempotencyKeyReused"].Value, HttpStatusCode.UnprocessableEntity));
+        }
+    }
+
+    /// <summary>
+    /// Numbers and saves the refund. After a gateway refund the money has already left, so the save no longer follows
+    /// the request's cancellation, and a failure is audited with the gateway reference for reconciliation (ADR-013).
+    /// </summary>
+    private async Task<Response> SaveRefundAsync(IDbContextTransaction transaction, Payment payment, Invoice invoice,
+        CashierShift? shift, AddRefundModel model, string? externalReference, string operation, string key, string hash, DateTimeOffset now,
+        CancellationToken requestCancellation)
+    {
+        var cancellationToken = externalReference is null ? requestCancellation : CancellationToken.None;
+        try
+        {
             var (year, sequence, number) = await _numbers.NextAsync("RFD",
                 y => _context.Refunds.Where(r => r.Year == y).MaxAsync(r => (int?)r.Sequence, cancellationToken), cancellationToken);
 
@@ -165,11 +199,11 @@ public class PaymentRepo : IPaymentRepo
             await Audit("Billing.RefundRecorded", "Refund", refund.Id, $"{number} payment {payment.Number} {model.Amount} {payment.Method}");
             return Created(refund.Id);
         }
-        catch (DbUpdateException ex) when (ex is not DbUpdateConcurrencyException && IsIdempotencyConflict(ex))
+        catch (Exception ex) when (externalReference is not null)
         {
-            _context.ChangeTracker.Clear();
-            return Created(await FindReplayAsync(operation, key, hash, now, cancellationToken)
-                           ?? throw new BusinessException(_localizer["IdempotencyKeyReused"].Value, HttpStatusCode.UnprocessableEntity));
+            await Audit("Billing.OnlineRefundNotRecorded", "Payment", payment.Id,
+                $"payment {payment.Number} {model.Amount} gateway refund {externalReference}: {ex.GetType().Name}");
+            throw;
         }
     }
 

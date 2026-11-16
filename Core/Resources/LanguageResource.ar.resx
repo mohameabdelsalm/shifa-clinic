@@ -123,4 +123,11 @@
   <data name="AppointmentNotCheckedIn" xml:space="preserve"><value>فاتورة الزيارة تُنشأ عند تسجيل حضور المريض.</value></data>
   <data name="OnlinePaymentsNotConfigured" xml:space="preserve"><value>الدفع الأونلاين غير مُفعّل لهذه العيادة.</value></data>
   <data name="FeatureNotEnabled" xml:space="preserve"><value>هذه الميزة غير مُفعّلة لعيادتك.</value></data>
+  <data name="NothingToPay" xml:space="preserve"><value>لا يوجد مبلغ مستحق على هذه الفاتورة.</value></data>
+  <data name="PaymentGatewayError" xml:space="preserve"><value>تعذّر الاتصال ببوابة الدفع. حاول مرة أخرى.</value></data>
+  <data name="OnlineRefundFailed" xml:space="preserve"><value>رفضت بوابة الدفع عملية الاسترداد.</value></data>
+  <data name="OnlinePaymentNotFound" xml:space="preserve"><value>عملية الدفع الأونلاين غير موجودة.</value></data>
+  <data name="OnlinePaymentNotRefundable" xml:space="preserve"><value>يمكن هنا فقط استرداد دفعة أونلاين لم يمكن تطبيقها على فاتورتها.</value></data>
+  <data name="Received" xml:space="preserve"><value>تم الاستلام.</value></data>
+  <data name="InvalidSignature" xml:space="preserve"><value>توقيع غير صالح.</value></data>
 </root>
