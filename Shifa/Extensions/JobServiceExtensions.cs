@@ -11,6 +11,8 @@ namespace Shifa.Extensions;
 /// </summary>
 public static class JobServiceExtensions
 {
+    public const string SchemaName = "hangfire";
+
     private static readonly Dictionary<string, (string Cron, Func<IServiceProvider, CancellationToken, Task<int>> Run)> Jobs = new()
     {
         ["scheduling-no-show"] = ("*/5 * * * *", (sp, ct) => sp.GetRequiredService<NoShowJob>().RunAsync(ct)),
@@ -19,8 +21,11 @@ public static class JobServiceExtensions
         ["messaging-cleanup"] = ("0 3 * * *", (sp, ct) => sp.GetRequiredService<MessagingCleanupJob>().RunAsync(ct)),
     };
 
-    public static IServiceCollection AddShifaJobs(this IServiceCollection services, IConfiguration configuration)
+    public static IServiceCollection AddShifaJobs(this IServiceCollection services, IConfiguration configuration, IHostEnvironment environment)
     {
+        // Development creates Hangfire's tables on first start; elsewhere "--migrate" installs them, so the API's
+        // database login needs no DDL rights.
+        var prepareSchema = environment.IsDevelopment();
         services.AddScoped<NoShowJob>();
         services.AddScoped<NotificationSendJob>();
         services.AddScoped<OnlinePaymentExpiryJob>();
@@ -35,7 +40,7 @@ public static class JobServiceExtensions
             .UseRecommendedSerializerSettings()
             .UseSqlServerStorage(
                 sp.GetRequiredService<IConfiguration>().GetConnectionString(ModuleDbContextExtensions.ConnectionStringName),
-                new SqlServerStorageOptions { SchemaName = "hangfire", PrepareSchemaIfNecessary = true, QueuePollInterval = TimeSpan.FromSeconds(15) }));
+                new SqlServerStorageOptions { SchemaName = SchemaName, PrepareSchemaIfNecessary = prepareSchema, QueuePollInterval = TimeSpan.FromSeconds(15) }));
         services.AddHangfireServer(options => options.WorkerCount = Math.Max(2, Environment.ProcessorCount));
         return services;
     }

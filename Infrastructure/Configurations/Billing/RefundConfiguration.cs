@@ -14,6 +14,8 @@ public class RefundConfiguration : IEntityTypeConfiguration<Refund>
 
         builder.HasIndex(r => new { r.TenantId, r.Number }).IsUnique().HasFilter("[IsDeleted] = 0");
         builder.HasIndex(r => new { r.TenantId, r.Year, r.Sequence }).IsUnique().HasFilter("[IsDeleted] = 0");
+        // Money statistics by date.
+        builder.HasIndex(r => new { r.TenantId, r.CreationDate });
         builder.References<Refund, Payment>(nameof(Refund.PaymentId));
         builder.References<Refund, CashierShift>(nameof(Refund.CashierShiftId));
     }

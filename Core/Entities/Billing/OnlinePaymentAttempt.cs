@@ -15,6 +15,12 @@ public class OnlinePaymentAttempt : TenantOwnedEntity
     public string Reference { get; set; } = "";
     public OnlineAttemptStatusEnum Status { get; set; } = OnlineAttemptStatusEnum.Pending;
     public string? GatewayIntentionId { get; set; }
+
+    /// <summary>Paymob's order id for the intention: a callback must carry it (merchant_order_id alone isn't signed, ADR-017).</summary>
+    public string? GatewayOrderId { get; set; }
+
+    /// <summary>What the gateway actually captured (from the signed amount_cents); a NotApplied refund returns this.</summary>
+    public decimal? CapturedAmount { get; set; }
     public string? GatewayTransactionId { get; set; }
     public long? PaymentId { get; set; }
     public DateTimeOffset? CompletedAt { get; set; }

@@ -6,6 +6,7 @@ namespace Infrastructure.Services.Billing.Paymob;
 public sealed record PaymobTransaction(
     string? TransactionId,
     string? MerchantOrderId,
+    string? OrderId,
     long AmountCents,
     string Currency,
     bool Success,
@@ -21,6 +22,7 @@ public sealed record PaymobTransaction(
         return new PaymobTransaction(
             TransactionId: Text("id") is { Length: > 0 } id ? id : null,
             MerchantOrderId: merchantOrderId.Length > 0 ? merchantOrderId : null,
+            OrderId: Text("order.id") is { Length: > 0 } orderId ? orderId : null,
             AmountCents: long.TryParse(Text("amount_cents"), out var cents) ? cents : -1,
             Currency: Text("currency"),
             Success: Flag("success"),

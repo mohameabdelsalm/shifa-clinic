@@ -29,7 +29,7 @@ public static class AuthenticationExtensions
                 options.TokenValidationParameters = new TokenValidationParameters
                 {
                     ValidateIssuerSigningKey = true,
-                    IssuerSigningKey = keys.Key,
+                    IssuerSigningKeys = keys.ValidationKeys,
                     ValidAlgorithms = [SecurityAlgorithms.HmacSha256],
                     ValidateIssuer = true,
                     ValidIssuer = settings.Value.Issuer,

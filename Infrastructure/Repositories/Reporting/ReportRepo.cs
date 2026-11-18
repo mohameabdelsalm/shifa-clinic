@@ -56,7 +56,7 @@ public class ReportRepo : IReportRepo
     {
         var branches = BranchesInScope(model);
         var counts = await _scheduling.CountAppointmentsAsync(model.DateFrom, model.DateTo, branches, null, cancellationToken);
-        var money = await _billing.GetMoneyFlowsByLocalDayAsync(model.DateFrom, model.DateTo, branches, cancellationToken);
+        var money = await _billing.GetMoneyFlowsByLocalDayAsync(model.DateFrom, model.DateTo, branches, cancellationToken: cancellationToken);
 
         var keys = counts.Select(c => (c.LocalDate, c.BranchId))
             .Concat(AllRows(money).Select(m => (LocalDate: m.Date, m.BranchId)))
@@ -94,7 +94,7 @@ public class ReportRepo : IReportRepo
     /// <summary>One row per local day of the period (days without money included): billed vs collected, payments by method.</summary>
     public async Task<ReportOutput> Revenue(ReportModel model, CancellationToken cancellationToken)
     {
-        var money = await _billing.GetMoneyFlowsByLocalDayAsync(model.DateFrom, model.DateTo, BranchesInScope(model), cancellationToken);
+        var money = await _billing.GetMoneyFlowsByLocalDayAsync(model.DateFrom, model.DateTo, BranchesInScope(model), cancellationToken: cancellationToken);
 
         var rows = new List<RevenueReportRowDto>();
         for (var day = model.DateFrom; day <= model.DateTo; day = day.AddDays(1))

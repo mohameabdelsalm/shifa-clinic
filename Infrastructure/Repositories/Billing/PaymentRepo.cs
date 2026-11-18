@@ -1,40 +1,40 @@
 using System.Net;
-using System.Security.Cryptography;
-using System.Text;
 using Core;
 using Core.Common;
+using Core.DTO.Billing;
 using Core.Entities.Billing;
 using Core.Enums.Billing;
 using Core.Events.Billing;
 using Core.Interfaces.Billing;
 using Core.Interfaces.Common;
 using Core.Models.Billing;
-using Infrastructure.Configurations.Billing;
 using Infrastructure.Data;
 using Infrastructure.Services.Billing;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Localization;
 
 namespace Infrastructure.Repositories.Billing;
 
 /// <summary>
-/// Payments and refunds at the cash desk (ADR-011).
+/// Payments and refunds (ADR-011, ADR-017).
 /// <list type="bullet">
 /// <item>Idempotency-Key required, scoped to the caller: a retry returns the same payment/refund.</item>
 /// <item>The amount is checked by the entities (no overpayment, no refund above what was paid).</item>
-/// <item>The caller's open shift at the invoice's branch receives the money; payment, invoice and shift are updated in
-/// one save, and the invoice and shift rowversions make concurrent operations serialize (409 → retry).</item>
+/// <item>Desk payments/refunds: the caller's open shift at the invoice's branch; payment, invoice and shift in one save, the
+/// rowversions serialize concurrent operations (409 → retry).</item>
+/// <item>Online refunds: reserve (Pending, own commit) → gateway → settle. A retry or a concurrent change can never send
+/// money back twice; an unclear gateway answer stays Pending for a person to check.</item>
 /// </list>
 /// </summary>
 public class PaymentRepo : IPaymentRepo
 {
     private const string PayOperation = "Pay";
     private const string RefundOperation = "Refund";
-    private static readonly TimeSpan IdempotencyLifetime = TimeSpan.FromHours(24);
+    private const int SettleAttempts = 5;
 
     private readonly BillingDbContext _context;
     private readonly BillingNumbers _numbers;
+    private readonly BillingIdempotency _idempotency;
     private readonly IOnlineRefunds _onlineRefunds;
     private readonly IAccessContext _access;
     private readonly ICurrentUser _currentUser;
@@ -42,11 +42,12 @@ public class PaymentRepo : IPaymentRepo
     private readonly TimeProvider _time;
     private readonly IStringLocalizer<LanguageResource> _localizer;
 
-    public PaymentRepo(BillingDbContext context, BillingNumbers numbers, IOnlineRefunds onlineRefunds, IAccessContext access,
-        ICurrentUser currentUser, IAuditService audit, TimeProvider time, IStringLocalizer<LanguageResource> localizer)
+    public PaymentRepo(BillingDbContext context, BillingNumbers numbers, BillingIdempotency idempotency, IOnlineRefunds onlineRefunds,
+        IAccessContext access, ICurrentUser currentUser, IAuditService audit, TimeProvider time, IStringLocalizer<LanguageResource> localizer)
     {
         _context = context;
         _numbers = numbers;
+        _idempotency = idempotency;
         _onlineRefunds = onlineRefunds;
         _access = access;
         _currentUser = currentUser;
@@ -57,12 +58,12 @@ public class PaymentRepo : IPaymentRepo
 
     public async Task<Response> Pay(AddPaymentModel model, string? idempotencyKey, CancellationToken cancellationToken)
     {
-        var key = RequireKey(idempotencyKey);
-        var operation = ScopedOperation(PayOperation);
-        var hash = Hash($"{model.InvoiceId}|{model.Amount}|{model.Method}|{model.Reference?.Trim()}");
+        var key = _idempotency.RequireKey(idempotencyKey);
+        var operation = _idempotency.Operation(PayOperation);
+        var hash = BillingIdempotency.Hash(model.InvoiceId, model.Amount, model.Method, model.Reference?.Trim());
         var now = _time.GetUtcNow();
 
-        if (await FindReplayAsync(operation, key, hash, now, cancellationToken) is long replayed)
+        if (await _idempotency.FindReplayAsync(operation, key, hash, now, cancellationToken) is long replayed)
             return Created(replayed);
 
         var invoice = await InScope(_context.Invoices).FirstOrDefaultAsync(i => i.Id == model.InvoiceId, cancellationToken)
@@ -95,7 +96,7 @@ public class PaymentRepo : IPaymentRepo
             };
             _context.Payments.Add(payment);
             TouchShift(shift);
-            Remember(operation, key, hash, payment.Id, now);
+            _idempotency.Remember(operation, key, hash, payment.Id, now);
             _context.AddEvent(new PaymentRecorded(payment.Id, number, invoice.Id, invoice.Number, invoice.PatientId, invoice.BranchId,
                 payment.Amount, invoice.CurrencyCode, payment.Method.ToString()), now);
 
@@ -105,23 +106,24 @@ public class PaymentRepo : IPaymentRepo
             await Audit("Billing.PaymentRecorded", "Payment", payment.Id, $"{number} invoice {invoice.Number} {model.Amount} {model.Method}");
             return Created(payment.Id);
         }
-        catch (DbUpdateException ex) when (ex is not DbUpdateConcurrencyException && IsIdempotencyConflict(ex))
+        catch (DbUpdateException ex) when (BillingIdempotency.IsConflict(ex))
         {
             // The same retry ran in parallel and committed first: answer with its result.
-            _context.ChangeTracker.Clear();
-            return Created(await FindReplayAsync(operation, key, hash, now, cancellationToken)
-                           ?? throw new BusinessException(_localizer["IdempotencyKeyReused"].Value, HttpStatusCode.UnprocessableEntity));
+            return Created(await _idempotency.ReplayAfterConflictAsync(operation, key, hash, now, cancellationToken));
         }
     }
 
     public async Task<Response> Refund(AddRefundModel model, string? idempotencyKey, CancellationToken cancellationToken)
     {
-        var key = RequireKey(idempotencyKey);
-        var operation = ScopedOperation(RefundOperation);
-        var hash = Hash($"{model.PaymentId}|{model.Amount}|{model.Reason.Trim()}");
-        var now = _time.GetUtcNow();
+        var request = new RefundRequest(
+            _idempotency.RequireKey(idempotencyKey),
+            _idempotency.Operation(RefundOperation),
+            BillingIdempotency.Hash(model.PaymentId, model.Amount, model.Reason.Trim()),
+            _time.GetUtcNow(),
+            model);
 
-        if (await FindReplayAsync(operation, key, hash, now, cancellationToken) is long replayed)
+        // A replay answers with the first result, also when that refund is still Pending.
+        if (await _idempotency.FindReplayAsync(request.Operation, request.Key, request.Hash, request.Now, cancellationToken) is long replayed)
             return Created(replayed);
 
         var payment = await _context.Payments.FirstOrDefaultAsync(p => p.Id == model.PaymentId, cancellationToken)
@@ -129,86 +131,151 @@ public class PaymentRepo : IPaymentRepo
         var invoice = await InScope(_context.Invoices).FirstOrDefaultAsync(i => i.Id == payment.InvoiceId, cancellationToken)
             ?? throw new BusinessException(_localizer["PaymentNotFound"].Value, HttpStatusCode.NotFound);
 
-        // Online payments go back to the card through the gateway; cash-desk refunds come out of the refunder's drawer.
-        var online = payment.Method == PaymentMethodEnum.Online;
-        var shift = online ? null : await OpenShiftAsync(invoice.BranchId, cancellationToken);
-        string? externalReference = null;
+        return payment.Method == PaymentMethodEnum.Online
+            ? await OnlineRefundAsync(request, payment, cancellationToken)
+            : await DeskRefundAsync(request, payment, invoice, cancellationToken);
+    }
+
+    private sealed record RefundRequest(string Key, string Operation, string Hash, DateTimeOffset Now, AddRefundModel Model);
+
+    /// <summary>Cash/card/wallet: out of the refunder's open shift, everything in one save.</summary>
+    private async Task<Response> DeskRefundAsync(RefundRequest request, Payment payment, Invoice invoice, CancellationToken cancellationToken)
+    {
+        var shift = await OpenShiftAsync(invoice.BranchId, cancellationToken);
+        if (!payment.TryRefund(request.Model.Amount) || !invoice.TryApplyRefund(request.Model.Amount))
+            throw new BusinessException(_localizer["AmountExceedsRefundable"].Value, HttpStatusCode.BadRequest);
 
         try
         {
             await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
-            if (online)
-            {
-                // Money leaves before the row is saved, so online refunds of one payment run one at a time on fresh data,
-                // and a parallel retry that already committed is answered instead of refunding twice.
-                await _context.Database.AcquireAsync($"billing:refund:{payment.TenantId}:{payment.Id}", cancellationToken);
-                if (await FindReplayAsync(operation, key, hash, now, cancellationToken) is long committed)
-                    return Created(committed);
-                await _context.Entry(payment).ReloadAsync(cancellationToken);
-                await _context.Entry(invoice).ReloadAsync(cancellationToken);
-            }
+            var refund = await NewRefundAsync(payment, request, shift.Id, RefundStatusEnum.Completed, cancellationToken);
+            TouchShift(shift);
+            await _context.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
 
-            if (!payment.TryRefund(model.Amount) || !invoice.TryApplyRefund(model.Amount))
-                throw new BusinessException(_localizer["AmountExceedsRefundable"].Value, HttpStatusCode.BadRequest);
-
-            if (online)
-                externalReference = await _onlineRefunds.RefundAsync(payment, model.Amount, cancellationToken);
-
-            return await SaveRefundAsync(transaction, payment, invoice, shift, model, externalReference, operation, key, hash, now, cancellationToken);
+            await Audit("Billing.RefundRecorded", "Refund", refund.Id, $"{refund.Number} payment {payment.Number} {refund.Amount} {payment.Method}");
+            return Created(refund.Id);
         }
-        catch (DbUpdateException ex) when (ex is not DbUpdateConcurrencyException && IsIdempotencyConflict(ex))
+        catch (DbUpdateException ex) when (BillingIdempotency.IsConflict(ex))
         {
-            _context.ChangeTracker.Clear();
-            return Created(await FindReplayAsync(operation, key, hash, now, cancellationToken)
-                           ?? throw new BusinessException(_localizer["IdempotencyKeyReused"].Value, HttpStatusCode.UnprocessableEntity));
+            return Created(await _idempotency.ReplayAfterConflictAsync(request.Operation, request.Key, request.Hash, request.Now, cancellationToken));
         }
     }
 
     /// <summary>
-    /// Numbers and saves the refund. After a gateway refund the money has already left, so the save no longer follows
-    /// the request's cancellation, and a failure is audited with the gateway reference for reconciliation (ADR-013).
+    /// Online (ADR-017): 1) reserve the amount on the payment and save a Pending refund with the idempotency record, under
+    /// a lock on the payment; 2) call the gateway, not cancellable by the client; 3) settle: Succeeded → Completed and the
+    /// invoice reopens; Refused → Failed and the reservation is released; Unknown → stays Pending (visible, never resent).
     /// </summary>
-    private async Task<Response> SaveRefundAsync(IDbContextTransaction transaction, Payment payment, Invoice invoice,
-        CashierShift? shift, AddRefundModel model, string? externalReference, string operation, string key, string hash, DateTimeOffset now,
-        CancellationToken requestCancellation)
+    private async Task<Response> OnlineRefundAsync(RefundRequest request, Payment payment, CancellationToken cancellationToken)
     {
-        var cancellationToken = externalReference is null ? requestCancellation : CancellationToken.None;
+        Refund refund;
         try
         {
-            var (year, sequence, number) = await _numbers.NextAsync("RFD",
-                y => _context.Refunds.Where(r => r.Year == y).MaxAsync(r => (int?)r.Sequence, cancellationToken), cancellationToken);
+            await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
+            await _context.Database.AcquireAsync(RefundLock(payment), cancellationToken);
+            if (await _idempotency.FindReplayAsync(request.Operation, request.Key, request.Hash, request.Now, cancellationToken) is long committed)
+                return Created(committed);
+            await _context.Entry(payment).ReloadAsync(cancellationToken);
+            if (!payment.TryRefund(request.Model.Amount))
+                throw new BusinessException(_localizer["AmountExceedsRefundable"].Value, HttpStatusCode.BadRequest);
 
-            var refund = new Refund
-            {
-                PaymentId = payment.Id,
-                CashierShiftId = shift?.Id,
-                Number = number,
-                Year = year,
-                Sequence = sequence,
-                Amount = model.Amount,
-                Method = payment.Method,
-                Reason = model.Reason.Trim(),
-                RefundedByUserId = CurrentUserId(),
-                ExternalReference = externalReference,
-            };
-            _context.Refunds.Add(refund);
-            if (shift is not null)
-                TouchShift(shift);
-            Remember(operation, key, hash, refund.Id, now);
-
+            refund = await NewRefundAsync(payment, request, shiftId: null, RefundStatusEnum.Pending, cancellationToken);
             await _context.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
-
-            await Audit("Billing.RefundRecorded", "Refund", refund.Id, $"{number} payment {payment.Number} {model.Amount} {payment.Method}");
-            return Created(refund.Id);
         }
-        catch (Exception ex) when (externalReference is not null)
+        catch (DbUpdateException ex) when (BillingIdempotency.IsConflict(ex))
         {
-            await Audit("Billing.OnlineRefundNotRecorded", "Payment", payment.Id,
-                $"payment {payment.Number} {model.Amount} gateway refund {externalReference}: {ex.GetType().Name}");
-            throw;
+            return Created(await _idempotency.ReplayAfterConflictAsync(request.Operation, request.Key, request.Hash, request.Now, cancellationToken));
         }
+
+        var result = await _onlineRefunds.RefundAsync(payment, refund.Amount, CancellationToken.None);
+        var settled = await SettleOnlineRefundAsync(refund.Id, payment, result);
+        await Audit("Billing.OnlineRefund", "Refund", refund.Id,
+            $"{refund.Number} payment {payment.Number} {refund.Amount} {result.Outcome} {(settled ? "" : "NOT SETTLED ")}gateway refund {result.Reference}");
+
+        return result.Outcome switch
+        {
+            OnlineRefundOutcomeEnum.Succeeded when settled => Created(refund.Id),
+            OnlineRefundOutcomeEnum.Refused when settled => throw new BusinessException(_localizer["OnlineRefundFailed"].Value, HttpStatusCode.BadRequest),
+            _ => new Response(_localizer["RefundPending"].Value, HttpStatusCode.Accepted, data: refund.Id),
+        };
     }
+
+    /// <summary>
+    /// Records the gateway's answer on the Pending refund. The money has (maybe) moved already, so this doesn't follow the
+    /// request's cancellation and retries on concurrent changes with fresh data instead of failing. If it still can't be
+    /// saved the refund stays Pending (reserved, never resent) and the audit has the gateway reference.
+    /// </summary>
+    private async Task<bool> SettleOnlineRefundAsync(long refundId, Payment payment, OnlineRefundResult result)
+    {
+        for (var attempt = 1; attempt <= SettleAttempts; attempt++)
+        {
+            _context.ChangeTracker.Clear();
+            try
+            {
+                await using var transaction = await _context.Database.BeginTransactionAsync(CancellationToken.None);
+                await _context.Database.AcquireAsync(RefundLock(payment), CancellationToken.None);
+                var refund = await _context.Refunds.FirstAsync(r => r.Id == refundId, CancellationToken.None);
+                if (refund.Status != RefundStatusEnum.Pending)
+                    return true;
+
+                refund.ExternalReference = result.Reference ?? refund.ExternalReference;
+                if (result.Outcome == OnlineRefundOutcomeEnum.Succeeded)
+                {
+                    var invoice = await _context.Invoices.FirstAsync(i => i.Id == payment.InvoiceId, CancellationToken.None);
+                    if (!invoice.TryApplyRefund(refund.Amount))
+                        return false;
+                    refund.Status = RefundStatusEnum.Completed;
+                }
+                else if (result.Outcome == OnlineRefundOutcomeEnum.Refused)
+                {
+                    var current = await _context.Payments.FirstAsync(p => p.Id == payment.Id, CancellationToken.None);
+                    current.CancelRefund(refund.Amount);
+                    refund.Status = RefundStatusEnum.Failed;
+                }
+
+                await _context.SaveChangesAsync(CancellationToken.None);
+                await transaction.CommitAsync(CancellationToken.None);
+                return true;
+            }
+            catch (Exception ex) when (ex is DbUpdateConcurrencyException or TimeoutException && attempt < SettleAttempts)
+            {
+                // The invoice changed meanwhile (desk payment, credit note): read it again and re-apply.
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        }
+        return false;
+    }
+
+    /// <summary>Numbers a refund (RFD-…) and adds it with the idempotency record; the caller saves inside its transaction.</summary>
+    private async Task<Refund> NewRefundAsync(Payment payment, RefundRequest request, long? shiftId, RefundStatusEnum status,
+        CancellationToken cancellationToken)
+    {
+        var (year, sequence, number) = await _numbers.NextAsync("RFD",
+            y => _context.Refunds.Where(r => r.Year == y).MaxAsync(r => (int?)r.Sequence, cancellationToken), cancellationToken);
+        var refund = new Refund
+        {
+            PaymentId = payment.Id,
+            CashierShiftId = shiftId,
+            Number = number,
+            Year = year,
+            Sequence = sequence,
+            Amount = request.Model.Amount,
+            Method = payment.Method,
+            Reason = request.Model.Reason.Trim(),
+            RefundedByUserId = CurrentUserId(),
+            Status = status,
+        };
+        _context.Refunds.Add(refund);
+        _idempotency.Remember(request.Operation, request.Key, request.Hash, refund.Id, request.Now);
+        return refund;
+    }
+
+    private static string RefundLock(Payment payment) => $"billing:refund:{payment.TenantId}:{payment.Id}";
 
     /// <summary>The caller's open shift at the branch (ADR-011: shifts are mandatory).</summary>
     private async Task<CashierShift> OpenShiftAsync(long branchId, CancellationToken cancellationToken)
@@ -221,46 +288,6 @@ public class PaymentRepo : IPaymentRepo
 
     /// <summary>UPDATE the shift row in the same save, so closing the shift can't race this payment/refund.</summary>
     private void TouchShift(CashierShift shift) => _context.Entry(shift).Property(s => s.OpeningCash).IsModified = true;
-
-    private async Task<long?> FindReplayAsync(string operation, string key, string hash, DateTimeOffset now, CancellationToken cancellationToken)
-    {
-        var record = await _context.IdempotencyRecords.FirstOrDefaultAsync(r => r.Operation == operation && r.Key == key, cancellationToken);
-        if (record is null)
-            return null;
-        if (record.ExpiresAt <= now)
-        {
-            _context.IdempotencyRecords.Remove(record);
-            await _context.SaveChangesAsync(cancellationToken);
-            return null;
-        }
-        return record.RequestHash == hash
-            ? record.ResultId
-            : throw new BusinessException(_localizer["IdempotencyKeyReused"].Value, HttpStatusCode.UnprocessableEntity);
-    }
-
-    private void Remember(string operation, string key, string hash, long resultId, DateTimeOffset now) =>
-        _context.IdempotencyRecords.Add(new BillingIdempotencyRecord
-        {
-            Operation = operation,
-            Key = key,
-            RequestHash = hash,
-            ResultId = resultId,
-            ExpiresAt = now + IdempotencyLifetime,
-        });
-
-    private string RequireKey(string? idempotencyKey) =>
-        string.IsNullOrWhiteSpace(idempotencyKey) || idempotencyKey.Length > 100
-            ? throw new BusinessException(_localizer["IdempotencyKeyRequired"].Value, HttpStatusCode.BadRequest)
-            : idempotencyKey.Trim();
-
-    /// <summary>Keys are scoped to the staff membership, so one cashier's key can't block or replay another's.</summary>
-    private string ScopedOperation(string operation) =>
-        $"{operation}:m:{_access.MembershipId ?? throw new InvalidOperationException("Cash-desk operations need a staff membership.")}";
-
-    private static string Hash(string value) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
-
-    private static bool IsIdempotencyConflict(DbUpdateException ex) =>
-        ex.InnerException?.Message.Contains(BillingIndexes.Idempotency, StringComparison.Ordinal) == true;
 
     private IQueryable<Invoice> InScope(IQueryable<Invoice> invoices)
     {

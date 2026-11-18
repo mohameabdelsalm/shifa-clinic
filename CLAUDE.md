@@ -135,6 +135,12 @@ One class per file. Namespaces follow folders without a `Shifa.` prefix: `Core.E
 - Staff endpoints follow branch scope: a branch-limited caller only reaches staff who share a branch (or work in all branches); others are 404.
 - When a subscription has ended (A6), the clinic is read-only for 30 days. A new POST/PUT that changes nothing must carry `[ReadOperation]` (routes ending in `/search` are reads by convention), or it will be refused in read-only mode.
 
+## Production rules (ADR-017)
+
+- **Production settings.** New production-only settings must fail closed: throw at startup outside Development when missing, like the JWT key, Data Protection, SMTP, SMS, the QuestPDF license and the Paymob fake.
+- **Deployment.** Migrations run only through `dotnet Shifa.dll --migrate`, never at startup. The API's database login has no DDL rights. Deployment files live in `Dockerfile` and `deploy/` (runbook: `deploy/README.md`).
+- **Money with outside systems.** Anything that moves money through an outside system follows reserve → call → settle: save a Pending record with the idempotency key first, call with `CancellationToken.None`, then settle. An unclear answer stays Pending; never send it again automatically.
+
 ## Online payment rules (ADR-013)
 
 - Each clinic uses its own Paymob account. Secret key and HMAC secret are encrypted with Data Protection (`PaymentGatewaySecrets`), never returned, never logged. Managed with `Billing.Settings`; needs `Feature.OnlinePayments`.

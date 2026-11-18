@@ -1,46 +1,47 @@
-using System.Net;
-using Core;
-using Core.Common;
+using Core.DTO.Billing;
 using Core.Entities.Billing;
+using Core.Enums.Billing;
 using Core.Interfaces.Billing;
-using Microsoft.Extensions.Localization;
+using Microsoft.Extensions.Logging;
 
 namespace Infrastructure.Services.Billing.Paymob;
 
 /// <summary>
-/// Refunds an online payment back to the card/wallet through the clinic's Paymob account (ADR-013). Works even if
-/// the OnlinePayments feature was turned off later: money already taken must still be returnable.
+/// Refunds an online payment through the clinic's Paymob account (ADR-013, ADR-017). Works even if the OnlinePayments
+/// feature was turned off later: money already taken must still be returnable. A missing answer is Unknown, never
+/// "not refunded", so a retry can't send the money back twice.
 /// </summary>
 public sealed class PaymobOnlineRefunds : IOnlineRefunds
 {
     private readonly PaymentGatewaySecrets _secrets;
     private readonly IPaymobClient _client;
-    private readonly IStringLocalizer<LanguageResource> _localizer;
+    private readonly ILogger<PaymobOnlineRefunds> _logger;
 
-    public PaymobOnlineRefunds(PaymentGatewaySecrets secrets, IPaymobClient client, IStringLocalizer<LanguageResource> localizer)
+    public PaymobOnlineRefunds(PaymentGatewaySecrets secrets, IPaymobClient client, ILogger<PaymobOnlineRefunds> logger)
     {
         _secrets = secrets;
         _client = client;
-        _localizer = localizer;
+        _logger = logger;
     }
 
-    public async Task<string> RefundAsync(Payment payment, decimal amount, CancellationToken cancellationToken)
+    public async Task<OnlineRefundResult> RefundAsync(Payment payment, decimal amount, CancellationToken cancellationToken)
     {
-        var credentials = await _secrets.LoadAsync(cancellationToken)
-            ?? throw new BusinessException(_localizer["OnlinePaymentsNotConfigured"].Value, HttpStatusCode.BadRequest);
+        var credentials = await _secrets.LoadAsync(cancellationToken);
+        if (credentials is null)
+            return new OnlineRefundResult(OnlineRefundOutcomeEnum.Refused, null);
 
-        PaymobRefundResult result;
         try
         {
-            result = await _client.RefundAsync(credentials, payment.Reference ?? "", PaymobAmounts.ToCents(amount), cancellationToken);
+            var result = await _client.RefundAsync(credentials, payment.Reference ?? "", PaymobAmounts.ToCents(amount), cancellationToken);
+            if (result.Success)
+                return new OnlineRefundResult(OnlineRefundOutcomeEnum.Succeeded, result.TransactionId);
+            return new OnlineRefundResult(result.Pending ? OnlineRefundOutcomeEnum.Unknown : OnlineRefundOutcomeEnum.Refused, result.TransactionId);
         }
         catch (PaymobException)
         {
-            throw new BusinessException(_localizer["PaymentGatewayError"].Value, HttpStatusCode.BadGateway);
+            // No (usable) answer: Paymob may or may not have refunded.
+            _logger.LogWarning("Paymob refund for payment {PaymentId} has no definite answer", payment.Id);
+            return new OnlineRefundResult(OnlineRefundOutcomeEnum.Unknown, null);
         }
-
-        if (!result.Success)
-            throw new BusinessException(_localizer["OnlineRefundFailed"].Value, HttpStatusCode.BadRequest);
-        return result.TransactionId ?? "";
     }
 }

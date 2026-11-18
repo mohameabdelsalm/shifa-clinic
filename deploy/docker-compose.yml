@@ -1,0 +1,41 @@
+# Production example (ADR-017): the Shifa API behind Caddy (automatic HTTPS).
+# SQL Server is NOT here: use a licensed SQL Server or Azure SQL (never Developer Edition in production).
+#
+#   cp .env.example .env            # then fill in every value
+#   docker compose build
+#   docker compose run --rm api --migrate          # first install and after every update (review the list it prints)
+#   docker compose up -d
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    image: shifa-api:latest
+    env_file: .env
+    volumes:
+      - shifa-data:/data          # Data Protection key ring + patient attachments: back this up
+    restart: unless-stopped
+    expose: ["8080"]
+    networks: [shifa]
+
+  caddy:
+    image: caddy:2.11.9
+    ports: ["80:80", "443:443"]
+    environment:
+      SHIFA_DOMAIN: ${SHIFA_DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data          # TLS certificates
+    depends_on: [api]
+    restart: unless-stopped
+    networks: [shifa]
+
+networks:
+  shifa:
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24   # matches ReverseProxy__KnownNetworks__0 in .env
+
+volumes:
+  shifa-data:
+  caddy-data:

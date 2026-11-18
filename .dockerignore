@@ -1,0 +1,16 @@
+**/bin/
+**/obj/
+**/.vs/
+**/*.user
+.git/
+.gitignore
+docs/
+project/
+deploy/
+src/
+tests/
+*.md
+!Shifa/Fonts/**
+docker-compose.yml
+**/appsettings.Development.json
+**/launchSettings.json

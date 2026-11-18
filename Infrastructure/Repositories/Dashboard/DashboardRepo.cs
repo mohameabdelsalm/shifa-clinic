@@ -59,8 +59,8 @@ public class DashboardRepo : IDashboardRepo
         var previous = Summarize(await _scheduling.CountAppointmentsAsync(prevFrom, prevTo, branches, model.DoctorId, cancellationToken));
         var newPatients = (await _patients.GetRegistrationTimesAsync(StartUtc(from), StartUtc(to.AddDays(1)), cancellationToken)).Count;
         var previousNewPatients = (await _patients.GetRegistrationTimesAsync(StartUtc(prevFrom), StartUtc(prevTo.AddDays(1)), cancellationToken)).Count;
-        var money = await _billing.GetMoneyFlowsAsync(StartUtc(from), StartUtc(to.AddDays(1)), branches, null, cancellationToken);
-        var previousMoney = await _billing.GetMoneyFlowsAsync(StartUtc(prevFrom), StartUtc(prevTo.AddDays(1)), branches, null, cancellationToken);
+        var money = await _billing.GetMoneyFlowsByLocalDayAsync(from, to, branches, cancellationToken: cancellationToken);
+        var previousMoney = await _billing.GetMoneyFlowsByLocalDayAsync(prevFrom, prevTo, branches, cancellationToken: cancellationToken);
 
         var vsPeriod = PeriodLabel(prevFrom, prevTo);
         var statistics = new DashboardStatisticsDto
@@ -82,8 +82,7 @@ public class DashboardRepo : IDashboardRepo
     public async Task<Response> Payments(PaymentsDashboardModel model, CancellationToken cancellationToken)
     {
         var (from, to) = Period(model);
-        var money = await _billing.GetMoneyFlowsAsync(StartUtc(from), StartUtc(to.AddDays(1)), BranchesInScope(model), model.CashierUserId,
-            cancellationToken);
+        var money = await _billing.GetMoneyFlowsByLocalDayAsync(from, to, BranchesInScope(model), model.CashierUserId, cancellationToken);
 
         var daily = to.DayNumber - from.DayNumber + 1 <= DailyTimelineMaxDays;
         var timeline = new List<MoneyPointDto>();

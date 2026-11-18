@@ -24,5 +24,5 @@ public interface IBillingApi
     /// local days [from, to] (reports: a payment at 01:00 Cairo time belongs to that Cairo day, DST included).
     /// </summary>
     Task<MoneyFlows> GetMoneyFlowsByLocalDayAsync(DateOnly fromLocalDate, DateOnly toLocalDate, IReadOnlyCollection<long>? branchIds,
-        CancellationToken cancellationToken = default);
+        long? cashierUserId = null, CancellationToken cancellationToken = default);
 }

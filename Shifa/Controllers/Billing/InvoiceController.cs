@@ -43,5 +43,6 @@ public class InvoiceController : ControllerBase
 
     [HttpPost("credit-notes")]
     [Permission(Permissions.BillingRefund)]
-    public async Task<Response> AddCreditNote(AddCreditNoteModel model, CancellationToken ct) => await _repo.AddCreditNote(model, ct);
+    public async Task<Response> AddCreditNote(AddCreditNoteModel model, [FromHeader(Name = PaymentController.IdempotencyHeader)] string? idempotencyKey,
+        CancellationToken ct) => await _repo.AddCreditNote(model, idempotencyKey, ct);
 }

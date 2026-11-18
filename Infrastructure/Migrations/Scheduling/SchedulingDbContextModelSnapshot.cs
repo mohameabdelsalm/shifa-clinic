@@ -154,6 +154,13 @@ namespace Infrastructure.Migrations.Scheduling
 
                     b.HasKey("Id");
 
+                    b.HasIndex("Status", "StartAt");
+
+                    b.HasIndex("TenantId", "LocalDate")
+                        .HasDatabaseName("IX_Appointments_TenantId_LocalDate_Stats");
+
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("TenantId", "LocalDate"), new[] { "BranchId", "DoctorId", "Status", "StartAt", "EndAt" });
+
                     b.HasIndex("TenantId", "BranchId", "StartAt");
 
                     b.HasIndex("TenantId", "DoctorId", "StartAt");

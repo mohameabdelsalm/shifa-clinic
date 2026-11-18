@@ -180,6 +180,7 @@ Your appointment with {doctor} at {clinic} on {date} at {time} has been cancelle
 
 {clinic} received {amount} {currency} for invoice {invoice}. Receipt number: {receipt}.</value></data>
   <data name="Notification.PaymentReceipt.Subject" xml:space="preserve"><value>Payment receipt</value></data>
+  <data name="RefundPending" xml:space="preserve"><value>The payment gateway hasn't confirmed the refund yet. It is recorded as pending; check it in the gateway before trying again.</value></data>
   <data name="ReportPeriodTooLong" xml:space="preserve"><value>A report covers at most 366 days.</value></data>
   <data name="Report.DailyBranches" xml:space="preserve"><value>Daily branch report</value></data>
   <data name="Report.Revenue" xml:space="preserve"><value>Revenue and collections</value></data>

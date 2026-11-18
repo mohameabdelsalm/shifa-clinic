@@ -13,6 +13,8 @@ public class CreditNoteConfiguration : IEntityTypeConfiguration<CreditNote>
 
         builder.HasIndex(c => new { c.TenantId, c.Number }).IsUnique().HasFilter("[IsDeleted] = 0");
         builder.HasIndex(c => new { c.TenantId, c.Year, c.Sequence }).IsUnique().HasFilter("[IsDeleted] = 0");
+        // Money statistics by date.
+        builder.HasIndex(c => new { c.TenantId, c.CreationDate });
         builder.References<CreditNote, Invoice>(nameof(CreditNote.InvoiceId));
     }
 }

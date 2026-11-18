@@ -14,6 +14,10 @@ public static class PaymobServiceExtensions
         var dataProtection = services.AddDataProtection().SetApplicationName("Shifa");
         if (configuration["DataProtection:KeysPath"] is { Length: > 0 } keysPath)
             dataProtection.PersistKeysToFileSystem(new DirectoryInfo(keysPath));
+        else if (!environment.IsDevelopment())
+            // Without a persisted (and, with several instances, shared) key ring, stored gateway secrets become
+            // unreadable after a redeploy (ADR-013, ADR-017).
+            throw new InvalidOperationException("DataProtection:KeysPath is not configured.");
 
         services.Configure<PaymobOptions>(configuration.GetSection(PaymobOptions.Section));
         services.AddScoped<PaymentGatewaySecrets>();

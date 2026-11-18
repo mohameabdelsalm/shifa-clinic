@@ -26,5 +26,12 @@ public class AppointmentConfiguration : IEntityTypeConfiguration<Appointment>
         builder.HasIndex(a => new { a.TenantId, a.BranchId, a.StartAt });
         builder.HasIndex(a => new { a.TenantId, a.DoctorId, a.StartAt });
         builder.HasIndex(a => new { a.TenantId, a.PatientId, a.StartAt });
+
+        // Statistics and reports count by local day without a doctor (ADR-017): covering index, no lookups.
+        builder.HasIndex(a => new { a.TenantId, a.LocalDate })
+            .IncludeProperties(a => new { a.BranchId, a.DoctorId, a.Status, a.StartAt, a.EndAt })
+            .HasDatabaseName("IX_Appointments_TenantId_LocalDate_Stats");
+        // The no-show job looks across clinics for confirmed appointments past their start.
+        builder.HasIndex(a => new { a.Status, a.StartAt });
     }
 }
