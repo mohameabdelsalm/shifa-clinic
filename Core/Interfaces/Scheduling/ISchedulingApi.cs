@@ -8,6 +8,9 @@ public interface ISchedulingApi
     /// <summary>The appointment in the current tenant, or null.</summary>
     Task<AppointmentForVisit?> GetAppointmentForVisitAsync(long appointmentId, CancellationToken cancellationToken = default);
 
+    /// <summary>Current status and start of the appointment in the current tenant, or null.</summary>
+    Task<AppointmentState?> GetAppointmentStateAsync(long appointmentId, CancellationToken cancellationToken = default);
+
     /// <summary>CheckedIn → InProgress when the doctor opens the visit. Already InProgress = no-op; any other state = 400.</summary>
     Task StartVisitAsync(long appointmentId, CancellationToken cancellationToken = default);
 

@@ -17,6 +17,8 @@ public class BillingDbContext : ModuleDbContext
 
     protected override string Module => "Billing";
 
+    public override bool HasOutbox => true;
+
     public DbSet<Invoice> Invoices => Set<Invoice>();
     public DbSet<InvoiceItem> InvoiceItems => Set<InvoiceItem>();
     public DbSet<Payment> Payments => Set<Payment>();

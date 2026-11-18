@@ -139,6 +139,7 @@ public class AppointmentRepo : IAppointmentRepo
             appointment.QueueNumber = (await _context.Appointments
                 .Where(a => a.BranchId == appointment.BranchId && a.DoctorId == appointment.DoctorId && a.LocalDate == appointment.LocalDate)
                 .MaxAsync(a => a.QueueNumber, cancellationToken) ?? 0) + 1;
+            _context.AddEvent(AppointmentEvents.CheckedIn(appointment), now);
             await _context.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
         }
@@ -206,6 +207,7 @@ public class AppointmentRepo : IAppointmentRepo
         appointment.CancelReason = reason?.Trim();
         await ReleaseTicksAsync(appointment, cancellationToken);
         _context.AppointmentStatusHistory.Add(new AppointmentStatusHistory { AppointmentId = appointment.Id, FromStatus = from, ToStatus = appointment.Status, Reason = reason });
+        _context.AddEvent(AppointmentEvents.Cancelled(appointment), _time.GetUtcNow());
 
         await _context.SaveChangesAsync(cancellationToken);
         await _audit.LogAsync("Appointments.Cancelled", "Appointment", appointment.Id, cancellationToken: cancellationToken);
@@ -225,6 +227,10 @@ public class AppointmentRepo : IAppointmentRepo
         if (releaseTicks)
             await ReleaseTicksAsync(appointment, cancellationToken);
         _context.AppointmentStatusHistory.Add(new AppointmentStatusHistory { AppointmentId = appointment.Id, FromStatus = from, ToStatus = target, Reason = reason });
+        if (target == AppointmentStatusEnum.Confirmed)
+            _context.AddEvent(AppointmentEvents.Confirmed(appointment), _time.GetUtcNow());
+        else if (target == AppointmentStatusEnum.NoShow)
+            _context.AddEvent(AppointmentEvents.NoShow(appointment, automatic: false), _time.GetUtcNow());
         await _context.SaveChangesAsync(cancellationToken);
         await _audit.LogAsync($"Appointments.{target}", "Appointment", appointment.Id, cancellationToken: cancellationToken);
         return Ok();

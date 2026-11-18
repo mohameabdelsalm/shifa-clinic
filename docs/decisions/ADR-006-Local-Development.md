@@ -15,7 +15,7 @@ Hosting (cloud provider, source control host) is not chosen yet and must not blo
 | Integration tests | Database `Shifa_Tests` on the same instance, reset with Respawn | Testcontainers in CI |
 | Cache | Redis (Docker) | Managed Redis |
 | Logs | Serilog → console + Seq (Docker, `localhost:5341`) | Central log store |
-| Email | Mailpit (Docker, `localhost:8025`) | SMTP provider |
+| Email | Mailpit (Docker, `localhost:8025`), or the in-memory fake (`/dev/email`); sent with MailKit (ADR-015) | SMTP provider |
 | SMS / WhatsApp | Fake sender (log + notifications table) | Real provider |
 | Files | Azurite (Docker) — private container | Private object storage |
 | Source control | Local git | GitHub or Azure DevOps + CI |

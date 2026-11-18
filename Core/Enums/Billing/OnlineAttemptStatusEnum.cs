@@ -14,4 +14,7 @@ public enum OnlineAttemptStatusEnum
 
     /// <summary>A NotApplied payment that was returned to the patient through the gateway.</summary>
     Refunded,
+
+    /// <summary>Still Pending an hour after the Paymob intention expired (abandoned). Not final: a late callback is still recorded.</summary>
+    Expired,
 }

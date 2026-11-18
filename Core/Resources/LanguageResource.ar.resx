@@ -149,5 +149,36 @@
 
 تمت إضافتك إلى {1} على شفاء. استخدم هذا الرابط خلال 72 ساعة لتعيين كلمة المرور:
 {2}</value></data>
+  <data name="UnknownPlaceholder" xml:space="preserve"><value>النص يستخدم متغيراً غير متاح لهذا النوع من الرسائل.</value></data>
+  <data name="Notification.AppointmentConfirmed.Sms" xml:space="preserve"><value>{clinic}: تم تأكيد موعدك مع {doctor} يوم {date} الساعة {time} - {branch}</value></data>
+  <data name="Notification.AppointmentConfirmed.Email" xml:space="preserve"><value>مرحباً {patient}،
+
+تم تأكيد موعدك مع {doctor} في {clinic} ({branch}) يوم {date} الساعة {time}.</value></data>
+  <data name="Notification.AppointmentConfirmed.Subject" xml:space="preserve"><value>تأكيد الموعد</value></data>
+  <data name="Notification.AppointmentReminder24h.Sms" xml:space="preserve"><value>{clinic}: تذكير بموعدك مع {doctor} غداً {date} الساعة {time} - {branch}</value></data>
+  <data name="Notification.AppointmentReminder24h.Email" xml:space="preserve"><value>مرحباً {patient}،
+
+تذكير: موعدك مع {doctor} في {clinic} ({branch}) يوم {date} الساعة {time}.</value></data>
+  <data name="Notification.AppointmentReminder24h.Subject" xml:space="preserve"><value>تذكير بالموعد</value></data>
+  <data name="Notification.AppointmentReminder2h.Sms" xml:space="preserve"><value>{clinic}: موعدك مع {doctor} اليوم الساعة {time} - {branch}</value></data>
+  <data name="Notification.AppointmentReminder2h.Email" xml:space="preserve"><value>مرحباً {patient}،
+
+موعدك مع {doctor} في {clinic} ({branch}) اليوم الساعة {time}.</value></data>
+  <data name="Notification.AppointmentReminder2h.Subject" xml:space="preserve"><value>موعدك اليوم</value></data>
+  <data name="Notification.AppointmentRescheduled.Sms" xml:space="preserve"><value>{clinic}: تم تغيير موعدك مع {doctor} إلى {date} الساعة {time} - {branch}</value></data>
+  <data name="Notification.AppointmentRescheduled.Email" xml:space="preserve"><value>مرحباً {patient}،
+
+تم تغيير موعدك مع {doctor} في {clinic} ({branch}) إلى يوم {date} الساعة {time}.</value></data>
+  <data name="Notification.AppointmentRescheduled.Subject" xml:space="preserve"><value>تغيير الموعد</value></data>
+  <data name="Notification.AppointmentCancelled.Sms" xml:space="preserve"><value>{clinic}: تم إلغاء موعدك مع {doctor} يوم {date} الساعة {time}</value></data>
+  <data name="Notification.AppointmentCancelled.Email" xml:space="preserve"><value>مرحباً {patient}،
+
+تم إلغاء موعدك مع {doctor} في {clinic} يوم {date} الساعة {time}.</value></data>
+  <data name="Notification.AppointmentCancelled.Subject" xml:space="preserve"><value>إلغاء الموعد</value></data>
+  <data name="Notification.PaymentReceipt.Sms" xml:space="preserve"><value>{clinic}: استلمنا {amount} {currency} للفاتورة {invoice}. إيصال {receipt}</value></data>
+  <data name="Notification.PaymentReceipt.Email" xml:space="preserve"><value>مرحباً {patient}،
+
+استلمت {clinic} مبلغ {amount} {currency} للفاتورة {invoice}. رقم الإيصال: {receipt}.</value></data>
+  <data name="Notification.PaymentReceipt.Subject" xml:space="preserve"><value>إيصال دفع</value></data>
   <data name="SubscriptionReadOnly" xml:space="preserve"><value>انتهى اشتراك العيادة، لذلك النظام للقراءة فقط. تواصل مع مدير العيادة للتجديد.</value></data>
 </root>

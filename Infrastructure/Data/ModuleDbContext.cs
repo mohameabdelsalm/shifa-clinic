@@ -1,5 +1,7 @@
 using System.Reflection;
+using System.Text.Json;
 using Core.Entities.Common;
+using Core.Events;
 using Core.Interfaces.Common;
 using Microsoft.EntityFrameworkCore;
 
@@ -45,6 +47,35 @@ public abstract class ModuleDbContext : DbContext
     /// <summary>Read by the Tenant filter on every query execution (not cached with the model).</summary>
     private long? CurrentTenantId => _tenantContext.TenantId;
 
+    /// <summary>The module publishes integration events: it gets an OutboxMessages table (ADR-005).</summary>
+    public virtual bool HasOutbox => false;
+
+    /// <summary>The module consumes integration events: it gets an InboxMessages table (ADR-005).</summary>
+    public virtual bool HasInbox => false;
+
+    public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
+    public DbSet<InboxMessage> InboxMessages => Set<InboxMessage>();
+
+    /// <summary>
+    /// Adds an integration event to this module's outbox; it is saved by the next SaveChanges, together with the
+    /// business change (never published for a change that wasn't saved). The event's tenant is the current tenant.
+    /// </summary>
+    public void AddEvent(IIntegrationEvent integrationEvent, DateTimeOffset now)
+    {
+        if (!HasOutbox)
+            throw new InvalidOperationException($"{GetType().Name} has no outbox.");
+
+        OutboxMessages.Add(new OutboxMessage
+        {
+            Id = Guid.NewGuid(),
+            TenantId = _tenantContext.TenantId ?? throw new InvalidOperationException("Integration events need a tenant context."),
+            Type = integrationEvent.GetType().Name,
+            PayloadJson = JsonSerializer.Serialize(integrationEvent, integrationEvent.GetType()),
+            OccurredAt = now,
+            NextAttemptAt = now,
+        });
+    }
+
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
         configurationBuilder.Properties<decimal>().HavePrecision(18, 2);
@@ -59,6 +90,42 @@ public abstract class ModuleDbContext : DbContext
         modelBuilder.UseHiLo("EntityFrameworkHiLoSequence");
         var configurationsNamespace = $"Infrastructure.Configurations.{Module}";
         modelBuilder.ApplyConfigurationsFromAssembly(GetType().Assembly, type => type.Namespace == configurationsNamespace);
+
+        // The OutboxMessages/InboxMessages DbSets live on this base class, so EF would add both tables to every module:
+        // keep only what the module opted into.
+        if (!HasOutbox)
+            modelBuilder.Ignore<OutboxMessage>();
+        if (!HasInbox)
+            modelBuilder.Ignore<InboxMessage>();
+
+        if (HasOutbox)
+        {
+            modelBuilder.Entity<OutboxMessage>(outbox =>
+            {
+                outbox.ToTable("OutboxMessages");
+                outbox.HasKey(m => m.Id);
+                outbox.Property(m => m.Id).ValueGeneratedNever();
+                outbox.Property(m => m.Type).HasMaxLength(200).IsRequired();
+                outbox.Property(m => m.PayloadJson).IsRequired();
+                outbox.Property(m => m.LastError).HasMaxLength(1000);
+                // Fast polling of what is still to do (database-design.md).
+                outbox.HasIndex(m => new { m.NextAttemptAt, m.OccurredAt })
+                    .HasFilter("[ProcessedAt] IS NULL AND [PoisonedAt] IS NULL")
+                    .HasDatabaseName("IX_OutboxMessages_Pending");
+                outbox.HasIndex(m => m.ProcessedAt);
+            });
+        }
+
+        if (HasInbox)
+        {
+            modelBuilder.Entity<InboxMessage>(inbox =>
+            {
+                inbox.ToTable("InboxMessages");
+                inbox.HasKey(m => new { m.MessageId, m.Consumer });
+                inbox.Property(m => m.Consumer).HasMaxLength(200);
+                inbox.HasIndex(m => m.ProcessedAt);
+            });
+        }
 
         var rootEntityTypes = modelBuilder.Model.GetEntityTypes()
             .Where(entityType => entityType.BaseType is null && !entityType.IsOwned())

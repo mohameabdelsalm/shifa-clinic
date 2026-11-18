@@ -738,6 +738,56 @@ namespace Infrastructure.Migrations.Billing
                     b.ToTable("Refunds", "billing");
                 });
 
+            modelBuilder.Entity("Core.Entities.Common.OutboxMessage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("int");
+
+                    b.Property<string>("LastError")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTimeOffset?>("LockedUntil")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset>("NextAttemptAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset>("OccurredAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("PayloadJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTimeOffset?>("PoisonedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("ProcessedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<long?>("TenantId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProcessedAt");
+
+                    b.HasIndex("NextAttemptAt", "OccurredAt")
+                        .HasDatabaseName("IX_OutboxMessages_Pending")
+                        .HasFilter("[ProcessedAt] IS NULL AND [PoisonedAt] IS NULL");
+
+                    b.ToTable("OutboxMessages", "billing");
+                });
+
             modelBuilder.Entity("Core.Entities.Billing.CreditNote", b =>
                 {
                     b.HasOne("Core.Entities.Billing.Invoice", null)

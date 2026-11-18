@@ -1,21 +1,23 @@
 # Local development services (ADR-006). SQL Server is NOT here: we use the local instance (Server=.).
 # Start: docker compose up -d     Stop: docker compose down
+# Image versions are pinned so a service never changes under us; update them on purpose.
 services:
   redis:
     image: redis:7-alpine
     ports: ["6379:6379"]
 
   seq:
-    image: datalust/seq:latest
+    image: datalust/seq:2026.1.17526
     environment:
       ACCEPT_EULA: "Y"
       SEQ_FIRSTRUN_NOAUTHENTICATION: "true"   # local only
     ports: ["5341:80"]
 
+  # SMTP catcher: Email__SmtpHost=localhost, Email__SmtpPort=1025, Email__SmtpSecurity=None; read mails on localhost:8025.
   mailpit:
-    image: axllent/mailpit:latest
+    image: axllent/mailpit:v1.33.1
     ports: ["8025:8025", "1025:1025"]
 
   azurite:
-    image: mcr.microsoft.com/azure-storage/azurite
+    image: mcr.microsoft.com/azure-storage/azurite:3.37.0
     ports: ["10000:10000"]

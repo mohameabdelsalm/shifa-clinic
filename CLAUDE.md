@@ -111,6 +111,14 @@ One class per file. Namespaces follow folders without a `Shifa.` prefix: `Core.E
 - Payments and refunds need an `Idempotency-Key` (scoped to the caller) and the caller's open cashier shift at the invoice's branch. Card and Wallet need a reference.
 - Document numbers (`INV-`, `RCT-`, `RFD-`, `CN-`) use `DatabaseLocks` + a unique index.
 
+## Events, jobs and notifications (ADR-005, ADR-015)
+
+- **Publishing.** Publish an integration event with `context.AddEvent(...)` before the `SaveChanges` that saves the change, never after it. The module's DbContext needs `HasOutbox => true` and the outbox added to `AddOutbox(...)`.
+- **Event classes.** Events live in `Core/Events/<Module>`, carry ids, times and amounts only, and are never renamed (the class name is the message type).
+- **Handlers.** Handlers derive from `InboxEventHandler<TEvent, TContext>`, only change tracked entities, and are registered with `AddIntegrationEventHandler`. The consumer's DbContext needs `HasInbox => true`.
+- **Jobs** are Hangfire recurring jobs with `[DisableConcurrentExecution]` and `[AutomaticRetry(Attempts = 0)]`. They query across clinics only with `IgnoreQueryFilters([ModuleDbContext.TenantFilter])` (soft delete still applies), then handle each clinic through `ITenantScopeFactory`.
+- **Message content.** Patient messages go through the Notifications module. Templates use the placeholders in `NotificationPlaceholders` and never anything medical. Never log a recipient or a message text.
+
 ## Account and subscription rules (ADR-014)
 
 - Password tokens (reset 30 min, invitation 72 h) are stored hashed, work once, and the newest replaces older ones. Setting or changing a password revokes all of the user's refresh tokens.

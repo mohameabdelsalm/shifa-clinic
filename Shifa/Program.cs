@@ -45,6 +45,7 @@ builder.Services.AddModuleDbContext<PatientsDbContext>(PatientsDbContext.SchemaN
 builder.Services.AddModuleDbContext<SchedulingDbContext>(SchedulingDbContext.SchemaName);
 builder.Services.AddModuleDbContext<ClinicalDbContext>(ClinicalDbContext.SchemaName);
 builder.Services.AddModuleDbContext<BillingDbContext>(BillingDbContext.SchemaName);
+builder.Services.AddModuleDbContext<NotificationsDbContext>(NotificationsDbContext.SchemaName);
 
 // AutoMapper profiles and FluentValidation validators live in Core.
 builder.Services.AddAutoMapper(typeof(LanguageResource).Assembly);
@@ -108,6 +109,11 @@ builder.Services.AddScoped<IPaymobWebhookHandler, PaymobWebhookHandler>();
 // Dashboard
 builder.Services.AddScoped<IDashboardRepo, DashboardRepo>();
 
+// Outbox, notifications and background jobs (ADR-005, ADR-015)
+builder.Services.AddShifaMessaging(builder.Configuration);
+builder.Services.AddScoped<NoShowMarker>();
+builder.Services.AddShifaJobs(builder.Configuration);
+
 // Clinical
 builder.Services.AddScoped<IClinicalApi, ClinicalApi>();
 builder.Services.AddScoped<IVisitRepo, VisitRepo>();
@@ -131,9 +137,11 @@ if (args.Contains("--seed-platform-admin"))
     return;
 }
 
-// First in the pipeline so it catches errors from everything after it.
-app.UseExceptionHandler();
+// Request logging wraps the exception handler, so it logs the status the client really got (a business rule's 400,
+// not a 500 with a stack trace); unexpected exceptions are logged by GlobalExceptionHandler.
 app.UseSerilogRequestLogging();
+// Catches errors from everything after it.
+app.UseExceptionHandler();
 app.UseRequestLocalization();
 
 if (app.Environment.IsDevelopment())
@@ -162,6 +170,7 @@ if (app.Environment.IsDevelopment())
 
 app.MapControllers();
 app.MapShifaHealthChecks();
+app.UseShifaJobs();
 
 app.Run();
 
