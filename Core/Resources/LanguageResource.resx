@@ -180,5 +180,33 @@ Your appointment with {doctor} at {clinic} on {date} at {time} has been cancelle
 
 {clinic} received {amount} {currency} for invoice {invoice}. Receipt number: {receipt}.</value></data>
   <data name="Notification.PaymentReceipt.Subject" xml:space="preserve"><value>Payment receipt</value></data>
+  <data name="ReportPeriodTooLong" xml:space="preserve"><value>A report covers at most 366 days.</value></data>
+  <data name="Report.DailyBranches" xml:space="preserve"><value>Daily branch report</value></data>
+  <data name="Report.Revenue" xml:space="preserve"><value>Revenue and collections</value></data>
+  <data name="Report.Doctors" xml:space="preserve"><value>Doctors report</value></data>
+  <data name="Report.Period" xml:space="preserve"><value>Period: {0} to {1}</value></data>
+  <data name="Report.Generated" xml:space="preserve"><value>Generated: {0}</value></data>
+  <data name="Report.Total" xml:space="preserve"><value>Total</value></data>
+  <data name="Report.Col.Date" xml:space="preserve"><value>Date</value></data>
+  <data name="Report.Col.Branch" xml:space="preserve"><value>Branch</value></data>
+  <data name="Report.Col.Doctor" xml:space="preserve"><value>Doctor</value></data>
+  <data name="Report.Col.Appointments" xml:space="preserve"><value>Appointments</value></data>
+  <data name="Report.Col.Completed" xml:space="preserve"><value>Completed</value></data>
+  <data name="Report.Col.NoShows" xml:space="preserve"><value>No-shows</value></data>
+  <data name="Report.Col.Cancelled" xml:space="preserve"><value>Cancelled</value></data>
+  <data name="Report.Col.NoShowRate" xml:space="preserve"><value>No-show rate %</value></data>
+  <data name="Report.Col.Revenue" xml:space="preserve"><value>Revenue</value></data>
+  <data name="Report.Col.Collections" xml:space="preserve"><value>Collections</value></data>
+  <data name="Report.Col.Invoiced" xml:space="preserve"><value>Invoiced</value></data>
+  <data name="Report.Col.Credited" xml:space="preserve"><value>Credited</value></data>
+  <data name="Report.Col.Cash" xml:space="preserve"><value>Cash</value></data>
+  <data name="Report.Col.Card" xml:space="preserve"><value>Card</value></data>
+  <data name="Report.Col.Wallet" xml:space="preserve"><value>Wallet</value></data>
+  <data name="Report.Col.Online" xml:space="preserve"><value>Online</value></data>
+  <data name="Report.Col.Refunded" xml:space="preserve"><value>Refunded</value></data>
+  <data name="Report.Col.Difference" xml:space="preserve"><value>Not collected</value></data>
+  <data name="Report.Col.AvailableMinutes" xml:space="preserve"><value>Available min</value></data>
+  <data name="Report.Col.BookedMinutes" xml:space="preserve"><value>Booked min</value></data>
+  <data name="Report.Col.Utilization" xml:space="preserve"><value>Utilization %</value></data>
   <data name="SubscriptionReadOnly" xml:space="preserve"><value>The clinic's subscription has ended, so the system is read-only. Contact the clinic administrator to renew.</value></data>
 </root>

@@ -119,6 +119,14 @@ One class per file. Namespaces follow folders without a `Shifa.` prefix: `Core.E
 - **Jobs** are Hangfire recurring jobs with `[DisableConcurrentExecution]` and `[AutomaticRetry(Attempts = 0)]`. They query across clinics only with `IgnoreQueryFilters([ModuleDbContext.TenantFilter])` (soft delete still applies), then handle each clinic through `ITenantScopeFactory`.
 - **Message content.** Patient messages go through the Notifications module. Templates use the placeholders in `NotificationPlaceholders` and never anything medical. Never log a recipient or a message text.
 
+## Reporting rules (ADR-016)
+
+- **Data source.** Reports and the dashboard read module statistics APIs (`I<Module>Api`), never another module's tables. Shared definitions (booked, no-show rate, booked minutes) live in `AppointmentStats`; change them there only.
+- **Days.** Reports use branch-local days for appointments and money (`GetMoneyFlowsByLocalDayAsync`).
+- **Scope.** Every report applies branch scope and at most 366 days. File exports (Xlsx/Pdf) are audited.
+- **New report columns.** Add a `ReportColumn` with a resource header (en + ar). Numbers stay numbers in Excel; never write user text as a formula.
+- **PDF fonts.** List only fonts that exist where the API runs (`Reports:PdfFontFamilies`); QuestPDF fails on a missing family.
+
 ## Account and subscription rules (ADR-014)
 
 - Password tokens (reset 30 min, invitation 72 h) are stored hashed, work once, and the newest replaces older ones. Setting or changing a password revokes all of the user's refresh tokens.

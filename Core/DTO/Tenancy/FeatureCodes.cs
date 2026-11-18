@@ -15,6 +15,9 @@ public static class FeatureCodes
     /// <summary>Appointment confirmations, reminders and receipts to patients (SMS/e-mail, ADR-015).</summary>
     public const string Notifications = "Feature.Notifications";
 
+    /// <summary>Reports with Excel/PDF export (ADR-016).</summary>
+    public const string Reports = "Feature.Reports";
+
     /// <summary>Value when neither the plan nor an override says anything (existing plans keep working).</summary>
     public static readonly IReadOnlyDictionary<string, bool> Defaults = new Dictionary<string, bool>
     {
@@ -24,6 +27,7 @@ public static class FeatureCodes
         [Dashboard] = true,
         [OnlinePayments] = false,
         [Notifications] = true,
+        [Reports] = true,
     };
 
     public static bool IsKnown(string code) => Defaults.ContainsKey(code);

@@ -14,6 +14,7 @@ using Core.Interfaces.Dashboard;
 using Core.Interfaces.Patients;
 using Core.Interfaces.Scheduling;
 using Core.Models.Dashboard;
+using Infrastructure.Services.Reporting;
 using Microsoft.Extensions.Localization;
 
 namespace Infrastructure.Repositories.Dashboard;
@@ -199,20 +200,8 @@ public class DashboardRepo : IDashboardRepo
             .OrderByDescending(r => r.Appointments).ThenBy(r => r.Name)
             .ToList();
 
-    /// <summary>The counts the dashboard is built from.</summary>
-    private sealed record Summary(int Booked, int Completed, int NoShows, int Cancelled, decimal NoShowRate);
-
-    private static Summary Summarize(IEnumerable<AppointmentCountRow> rows)
-    {
-        int Count(params AppointmentStatusEnum[] statuses) => rows.Where(r => statuses.Contains(r.Status)).Sum(r => r.Count);
-
-        var cancelled = Count(AppointmentStatusEnum.Cancelled);
-        var booked = rows.Sum(r => r.Count) - cancelled;
-        var noShows = Count(AppointmentStatusEnum.NoShow);
-        var came = Count(AppointmentStatusEnum.CheckedIn, AppointmentStatusEnum.InProgress, AppointmentStatusEnum.Completed);
-        var noShowRate = came + noShows == 0 ? 0 : Math.Round(noShows * 100m / (came + noShows), 1);
-        return new Summary(booked, Count(AppointmentStatusEnum.Completed), noShows, cancelled, noShowRate);
-    }
+    /// <summary>Shared with the reports (<see cref="AppointmentStats"/>), so both always agree.</summary>
+    private static AppointmentStats.Summary Summarize(IEnumerable<AppointmentCountRow> rows) => AppointmentStats.Summarize(rows);
 
     private static KpiDto Kpi(decimal current, decimal previous, string vsPeriod, bool lowerIsBetter = false) => new()
     {

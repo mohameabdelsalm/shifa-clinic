@@ -18,4 +18,11 @@ public interface IBillingApi
     /// </summary>
     Task<MoneyFlows> GetMoneyFlowsAsync(DateTimeOffset fromUtc, DateTimeOffset toUtc, IReadOnlyCollection<long>? branchIds,
         long? cashierUserId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Like <see cref="GetMoneyFlowsAsync"/>, but each amount is dated by the local day of its branch's time zone, for the
+    /// local days [from, to] (reports: a payment at 01:00 Cairo time belongs to that Cairo day, DST included).
+    /// </summary>
+    Task<MoneyFlows> GetMoneyFlowsByLocalDayAsync(DateOnly fromLocalDate, DateOnly toLocalDate, IReadOnlyCollection<long>? branchIds,
+        CancellationToken cancellationToken = default);
 }

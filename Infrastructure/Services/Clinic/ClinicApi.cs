@@ -85,6 +85,71 @@ public sealed class ClinicApi : IClinicApi
         _context.Doctors.Where(d => d.MembershipId == membershipId && d.Status == StatusEnum.Active)
             .Select(d => (long?)d.Id).FirstOrDefaultAsync(cancellationToken);
 
+    public async Task<IReadOnlyDictionary<long, string>> GetBranchTimeZonesAsync(IReadOnlyCollection<long>? branchIds, CancellationToken cancellationToken = default)
+    {
+        var ids = branchIds?.ToList();
+        return await _context.Branches.AsNoTracking()
+            .Where(b => ids == null || ids.Contains(b.Id))
+            .ToDictionaryAsync(b => b.Id, b => b.TimeZoneId, cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<DoctorCapacityRow>> GetDoctorCapacityAsync(DateOnly fromLocalDate, DateOnly toLocalDate,
+        IReadOnlyCollection<long>? branchIds, long? doctorId, CancellationToken cancellationToken = default)
+    {
+        var ids = branchIds?.ToList();
+        var schedules = await (from s in _context.DoctorSchedules.AsNoTracking()
+                               join db in _context.DoctorBranches.AsNoTracking() on s.DoctorBranchId equals db.Id
+                               join b in _context.Branches.AsNoTracking() on db.BranchId equals b.Id
+                               where (ids == null || ids.Contains(db.BranchId)) && (doctorId == null || db.DoctorId == doctorId)
+                               select new { db.DoctorId, db.BranchId, b.TimeZoneId, s.DayOfWeek, s.StartTime, s.EndTime })
+            .ToListAsync(cancellationToken);
+        if (schedules.Count == 0)
+            return [];
+
+        // Time off is stored in UTC; a day before/after covers every time zone offset.
+        var windowFrom = new DateTimeOffset(fromLocalDate.AddDays(-1).ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
+        var windowTo = new DateTimeOffset(toLocalDate.AddDays(2).ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
+        var doctorIds = schedules.Select(s => s.DoctorId).Distinct().ToList();
+        var timeOff = (await _context.DoctorTimeOffs.AsNoTracking()
+                .Where(t => doctorIds.Contains(t.DoctorId) && t.FromAt < windowTo && windowFrom < t.ToAt)
+                .Select(t => new { t.DoctorId, t.FromAt, t.ToAt })
+                .ToListAsync(cancellationToken))
+            .ToLookup(t => t.DoctorId);
+
+        var minutes = new Dictionary<(long DoctorId, long BranchId), double>();
+        foreach (var schedule in schedules)
+        {
+            var zone = TimeZoneInfo.FindSystemTimeZoneById(schedule.TimeZoneId);
+            for (var day = fromLocalDate; day <= toLocalDate; day = day.AddDays(1))
+            {
+                if (day.DayOfWeek != schedule.DayOfWeek)
+                    continue;
+
+                var start = ToUtc(day, schedule.StartTime, zone);
+                var end = ToUtc(day, schedule.EndTime, zone);
+                var worked = (end - start).TotalMinutes;
+                foreach (var off in timeOff[schedule.DoctorId])
+                {
+                    var overlapStart = off.FromAt > start ? off.FromAt : start;
+                    var overlapEnd = off.ToAt < end ? off.ToAt : end;
+                    if (overlapEnd > overlapStart)
+                        worked -= (overlapEnd - overlapStart).TotalMinutes;
+                }
+
+                var key = (schedule.DoctorId, schedule.BranchId);
+                minutes[key] = minutes.GetValueOrDefault(key) + Math.Max(0, worked);
+            }
+        }
+
+        return minutes.Select(m => new DoctorCapacityRow(m.Key.DoctorId, m.Key.BranchId, (int)Math.Round(m.Value))).ToList();
+    }
+
+    private static DateTimeOffset ToUtc(DateOnly day, TimeOnly time, TimeZoneInfo zone)
+    {
+        var local = day.ToDateTime(time, DateTimeKind.Unspecified);
+        return new DateTimeOffset(local, zone.GetUtcOffset(local)).ToUniversalTime();
+    }
+
     public async Task<IReadOnlyList<TimeRange>> GetDoctorTimeOffAsync(long doctorId, DateTimeOffset fromUtc, DateTimeOffset toUtc, CancellationToken cancellationToken = default) =>
         await _context.DoctorTimeOffs.AsNoTracking()
             .Where(t => t.DoctorId == doctorId && t.FromAt < toUtc && fromUtc < t.ToAt)
