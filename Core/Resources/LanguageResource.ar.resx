@@ -180,5 +180,33 @@
 
 استلمت {clinic} مبلغ {amount} {currency} للفاتورة {invoice}. رقم الإيصال: {receipt}.</value></data>
   <data name="Notification.PaymentReceipt.Subject" xml:space="preserve"><value>إيصال دفع</value></data>
+  <data name="ReportPeriodTooLong" xml:space="preserve"><value>التقرير يغطي 366 يوماً على الأكثر.</value></data>
+  <data name="Report.DailyBranches" xml:space="preserve"><value>التقرير اليومي للفروع</value></data>
+  <data name="Report.Revenue" xml:space="preserve"><value>الإيرادات والتحصيل</value></data>
+  <data name="Report.Doctors" xml:space="preserve"><value>تقرير الأطباء</value></data>
+  <data name="Report.Period" xml:space="preserve"><value>الفترة: من {0} إلى {1}</value></data>
+  <data name="Report.Generated" xml:space="preserve"><value>تاريخ الإصدار: {0}</value></data>
+  <data name="Report.Total" xml:space="preserve"><value>الإجمالي</value></data>
+  <data name="Report.Col.Date" xml:space="preserve"><value>التاريخ</value></data>
+  <data name="Report.Col.Branch" xml:space="preserve"><value>الفرع</value></data>
+  <data name="Report.Col.Doctor" xml:space="preserve"><value>الطبيب</value></data>
+  <data name="Report.Col.Appointments" xml:space="preserve"><value>المواعيد</value></data>
+  <data name="Report.Col.Completed" xml:space="preserve"><value>المكتملة</value></data>
+  <data name="Report.Col.NoShows" xml:space="preserve"><value>عدم الحضور</value></data>
+  <data name="Report.Col.Cancelled" xml:space="preserve"><value>الملغاة</value></data>
+  <data name="Report.Col.NoShowRate" xml:space="preserve"><value>نسبة عدم الحضور %</value></data>
+  <data name="Report.Col.Revenue" xml:space="preserve"><value>الإيرادات</value></data>
+  <data name="Report.Col.Collections" xml:space="preserve"><value>التحصيل</value></data>
+  <data name="Report.Col.Invoiced" xml:space="preserve"><value>المفوتر</value></data>
+  <data name="Report.Col.Credited" xml:space="preserve"><value>إشعارات دائنة</value></data>
+  <data name="Report.Col.Cash" xml:space="preserve"><value>نقدي</value></data>
+  <data name="Report.Col.Card" xml:space="preserve"><value>بطاقة</value></data>
+  <data name="Report.Col.Wallet" xml:space="preserve"><value>محفظة</value></data>
+  <data name="Report.Col.Online" xml:space="preserve"><value>أونلاين</value></data>
+  <data name="Report.Col.Refunded" xml:space="preserve"><value>المسترد</value></data>
+  <data name="Report.Col.Difference" xml:space="preserve"><value>غير المحصّل</value></data>
+  <data name="Report.Col.AvailableMinutes" xml:space="preserve"><value>الدقائق المتاحة</value></data>
+  <data name="Report.Col.BookedMinutes" xml:space="preserve"><value>الدقائق المحجوزة</value></data>
+  <data name="Report.Col.Utilization" xml:space="preserve"><value>نسبة الإشغال %</value></data>
   <data name="SubscriptionReadOnly" xml:space="preserve"><value>انتهى اشتراك العيادة، لذلك النظام للقراءة فقط. تواصل مع مدير العيادة للتجديد.</value></data>
 </root>

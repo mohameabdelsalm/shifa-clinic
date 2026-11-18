@@ -106,8 +106,9 @@ builder.Services.AddScoped<IPaymentGatewayRepo, PaymentGatewayRepo>();
 builder.Services.AddScoped<IOnlinePaymentRepo, OnlinePaymentRepo>();
 builder.Services.AddScoped<IPaymobWebhookHandler, PaymobWebhookHandler>();
 
-// Dashboard
+// Dashboard and reports
 builder.Services.AddScoped<IDashboardRepo, DashboardRepo>();
+builder.Services.AddShifaReports(builder.Configuration, builder.Environment);
 
 // Outbox, notifications and background jobs (ADR-005, ADR-015)
 builder.Services.AddShifaMessaging(builder.Configuration);

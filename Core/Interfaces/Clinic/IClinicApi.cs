@@ -34,4 +34,14 @@ public interface IClinicApi
 
     /// <summary>The doctor's time off overlapping [fromUtc, toUtc).</summary>
     Task<IReadOnlyList<TimeRange>> GetDoctorTimeOffAsync(long doctorId, DateTimeOffset fromUtc, DateTimeOffset toUtc, CancellationToken cancellationToken = default);
+
+    /// <summary>Time zone id per branch; <paramref name="branchIds"/> null = every branch of the tenant.</summary>
+    Task<IReadOnlyDictionary<long, string>> GetBranchTimeZonesAsync(IReadOnlyCollection<long>? branchIds, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Scheduled working minutes per doctor and branch over the local days [from, to], minus time off (reports: utilization).
+    /// <paramref name="branchIds"/> null = all branches.
+    /// </summary>
+    Task<IReadOnlyList<DoctorCapacityRow>> GetDoctorCapacityAsync(DateOnly fromLocalDate, DateOnly toLocalDate, IReadOnlyCollection<long>? branchIds,
+        long? doctorId, CancellationToken cancellationToken = default);
 }

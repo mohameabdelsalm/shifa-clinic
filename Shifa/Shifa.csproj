@@ -18,4 +18,9 @@
     <PackageReference Include="Swashbuckle.AspNetCore" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Font files for PDF reports (ADR-016): copied next to the app, where QuestPDF finds them. -->
+    <None Include="Fonts\**\*.ttf;Fonts\**\*.otf" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

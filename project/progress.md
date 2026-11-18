@@ -16,11 +16,34 @@ _Last updated: 2026-11-07_
 | 6 — Clinical / EMR | ✅ Done, reviewed (opus / high) and fixed |
 | 7 — Billing | ✅ Implemented (ADR-011) + dynamic features (ADR-012) + Paymob online payments (ADR-013); review pending |
 | 8 — Outbox, jobs, notifications | ✅ Done (ADR-015) |
-| 9–10 | Not started (see `implementation-roadmap.md`) |
+| 9 — Reporting | ✅ Done (ADR-016): JSON + Excel + PDF |
+| 10 | Not started (see `implementation-roadmap.md`) |
 
 ## Current phase
 
 **Phase 7 — Billing implemented** (ADR-011; decisions by the product owner on 2026-11-16: pay on arrival, no discounts, cash/card/wallet, mandatory shifts). Next, as asked on 2026-11-16 ("finish the whole project"): dynamic features per plan/tenant, Paymob online payments, identity gaps, Phase 8–10. The Billing review (opus / high) is still to do.
+
+## Phase 9 — reporting (2026-11-18, ADR-016)
+
+- **Reports** at `POST api/reports/{daily-branches|revenue|doctors}`, in `Format` Json, Xlsx (ClosedXML 0.105.1) or Pdf (QuestPDF 2026.9.2). All are computed live from the module APIs, in branch scope, by branch-local day, with a totals row. `Reports.Read` + `Feature.Reports`; file exports are audited.
+- **Module APIs:**
+  - `AppointmentCountRow.Minutes`;
+  - `IBillingApi.GetMoneyFlowsByLocalDayAsync` (money dated by the branch time zone);
+  - `IClinicApi.GetDoctorCapacityAsync` (schedule minus time off) and `GetBranchTimeZonesAsync`.
+  - `AppointmentStats` is now shared by the dashboard and the reports.
+- **QuestPDF license:** `Reports:QuestPdfLicense` is required outside Development (Community only under USD 1M revenue).
+- **Fonts:** `Reports:UseSystemFonts` / `Reports:PdfFontFamilies`; `Shifa/Fonts` is deployed with the app (Linux needs an Arabic font).
+- **No migration.**
+- **Verification:** reports smoke on `Shifa_Smoke`, **23/23 passed**. Covered:
+  - known data: 3 booked / 1 cancelled / 1 no-show → rate 50.0;
+  - revenue 200 vs collections 150 → not collected 50;
+  - a payment at 00:30 Cairo counted on that Cairo day, not the previous UTC day;
+  - doctor available 2790 min (2 days − 1 h off), booked 30 → utilization 1.1 %;
+  - 366-day and date-order validation; receptionist 403; branch scope (B manager sees nothing of A);
+  - xlsx (RTL, Arabic headers, amounts as numbers); PDF ar/en;
+  - 3 exports audited and JSON views not; feature off 403.
+  - The Arabic PDF was rendered to an image and checked by eye: right-to-left, joined letters, correct totals.
+- **Regression:** clinical 111/111 (dashboard included), features 15/15 (the check now takes new features), Paymob 31/31, identity 38/38, Phase 8 36/36.
 
 ## Phase 8 — outbox, jobs, notifications (2026-11-18, ADR-015)
 

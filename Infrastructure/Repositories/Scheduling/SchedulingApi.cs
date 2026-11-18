@@ -55,9 +55,13 @@ public sealed class SchedulingApi : ISchedulingApi
         // Grouped in SQL: one row per day × branch × doctor × status, never one row per appointment.
         var rows = await query
             .GroupBy(a => new { a.LocalDate, a.BranchId, a.DoctorId, a.Status })
-            .Select(g => new { g.Key.LocalDate, g.Key.BranchId, g.Key.DoctorId, g.Key.Status, Count = g.Count() })
+            .Select(g => new
+            {
+                g.Key.LocalDate, g.Key.BranchId, g.Key.DoctorId, g.Key.Status, Count = g.Count(),
+                Minutes = g.Sum(a => EF.Functions.DateDiffMinute(a.StartAt, a.EndAt)),
+            })
             .ToListAsync(cancellationToken);
-        return rows.Select(r => new AppointmentCountRow(r.LocalDate, r.BranchId, r.DoctorId, r.Status, r.Count)).ToList();
+        return rows.Select(r => new AppointmentCountRow(r.LocalDate, r.BranchId, r.DoctorId, r.Status, r.Count, r.Minutes)).ToList();
     }
 
     /// <summary>One status change with its history row; the appointment's rowversion makes a concurrent change fail (409).</summary>

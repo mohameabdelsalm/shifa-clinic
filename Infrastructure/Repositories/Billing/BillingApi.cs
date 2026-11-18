@@ -67,8 +67,30 @@ public sealed class BillingApi : IBillingApi
         }
     }
 
-    public async Task<MoneyFlows> GetMoneyFlowsAsync(DateTimeOffset fromUtc, DateTimeOffset toUtc, IReadOnlyCollection<long>? branchIds,
-        long? cashierUserId, CancellationToken cancellationToken = default)
+    public Task<MoneyFlows> GetMoneyFlowsAsync(DateTimeOffset fromUtc, DateTimeOffset toUtc, IReadOnlyCollection<long>? branchIds,
+        long? cashierUserId, CancellationToken cancellationToken = default) =>
+        LoadMoneyFlowsAsync(fromUtc, toUtc, branchIds, cashierUserId, (at, _) => DateOnly.FromDateTime(at.UtcDateTime), cancellationToken);
+
+    public async Task<MoneyFlows> GetMoneyFlowsByLocalDayAsync(DateOnly fromLocalDate, DateOnly toLocalDate, IReadOnlyCollection<long>? branchIds,
+        CancellationToken cancellationToken = default)
+    {
+        var zones = (await _clinic.GetBranchTimeZonesAsync(branchIds, cancellationToken))
+            .ToDictionary(z => z.Key, z => TimeZoneInfo.FindSystemTimeZoneById(z.Value));
+        DateOnly LocalDay(DateTimeOffset at, long branchId) =>
+            DateOnly.FromDateTime(zones.TryGetValue(branchId, out var zone) ? TimeZoneInfo.ConvertTime(at, zone).DateTime : at.UtcDateTime);
+
+        // A day either side covers every offset; then keep only the requested local days.
+        var flows = await LoadMoneyFlowsAsync(
+            new DateTimeOffset(fromLocalDate.AddDays(-1).ToDateTime(TimeOnly.MinValue), TimeSpan.Zero),
+            new DateTimeOffset(toLocalDate.AddDays(2).ToDateTime(TimeOnly.MinValue), TimeSpan.Zero),
+            branchIds, null, LocalDay, cancellationToken);
+
+        List<MoneyRow> InRange(IReadOnlyList<MoneyRow> rows) => rows.Where(r => r.Date >= fromLocalDate && r.Date <= toLocalDate).ToList();
+        return new MoneyFlows(InRange(flows.Invoiced), InRange(flows.Credited), InRange(flows.Payments), InRange(flows.Refunds));
+    }
+
+    private async Task<MoneyFlows> LoadMoneyFlowsAsync(DateTimeOffset fromUtc, DateTimeOffset toUtc, IReadOnlyCollection<long>? branchIds,
+        long? cashierUserId, Func<DateTimeOffset, long, DateOnly> dayOf, CancellationToken cancellationToken)
     {
         var ids = branchIds?.ToList();
         var invoices = _context.Invoices.AsNoTracking().Where(i => ids == null || ids.Contains(i.BranchId));
@@ -91,12 +113,11 @@ public sealed class BillingApi : IBillingApi
                              where r.CreationDate >= fromUtc && r.CreationDate < toUtc && (cashierUserId == null || r.RefundedByUserId == cashierUserId)
                              select new { At = r.CreationDate, i.BranchId, r.Method, r.Amount }).ToListAsync(cancellationToken);
 
-        static DateOnly Day(DateTimeOffset at) => DateOnly.FromDateTime(at.UtcDateTime);
         return new MoneyFlows(
-            invoiced.Select(x => new MoneyRow(Day(x.At), x.BranchId, null, x.Amount)).ToList(),
-            credited.Select(x => new MoneyRow(Day(x.At), x.BranchId, null, x.Amount)).ToList(),
-            payments.Select(x => new MoneyRow(Day(x.At), x.BranchId, x.Method, x.Amount)).ToList(),
-            refunds.Select(x => new MoneyRow(Day(x.At), x.BranchId, x.Method, x.Amount)).ToList());
+            invoiced.Select(x => new MoneyRow(dayOf(x.At, x.BranchId), x.BranchId, null, x.Amount)).ToList(),
+            credited.Select(x => new MoneyRow(dayOf(x.At, x.BranchId), x.BranchId, null, x.Amount)).ToList(),
+            payments.Select(x => new MoneyRow(dayOf(x.At, x.BranchId), x.BranchId, x.Method, x.Amount)).ToList(),
+            refunds.Select(x => new MoneyRow(dayOf(x.At, x.BranchId), x.BranchId, x.Method, x.Amount)).ToList());
     }
 
     private Task<long?> ExistingVisitInvoiceAsync(long appointmentId, CancellationToken cancellationToken) =>
