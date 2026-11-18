@@ -15,11 +15,47 @@ _Last updated: 2026-11-07_
 | HRM layout | ✅ Restructured like Trio HRM (ADR-009) |
 | 6 — Clinical / EMR | ✅ Done, reviewed (opus / high) and fixed |
 | 7 — Billing | ✅ Implemented (ADR-011) + dynamic features (ADR-012) + Paymob online payments (ADR-013); review pending |
-| 8–10 | Not started (see `implementation-roadmap.md`) |
+| 8 — Outbox, jobs, notifications | ✅ Done (ADR-015) |
+| 9–10 | Not started (see `implementation-roadmap.md`) |
 
 ## Current phase
 
 **Phase 7 — Billing implemented** (ADR-011; decisions by the product owner on 2026-11-16: pay on arrival, no discounts, cash/card/wallet, mandatory shifts). Next, as asked on 2026-11-16 ("finish the whole project"): dynamic features per plan/tenant, Paymob online payments, identity gaps, Phase 8–10. The Billing review (opus / high) is still to do.
+
+## Phase 8 — outbox, jobs, notifications (2026-11-18, ADR-015)
+
+- **Outbox/inbox** (opt-in per module):
+  - Scheduling publishes 6 appointment events; Billing publishes `PaymentRecorded` (desk and Paymob).
+  - `OutboxDispatcher` claims with `UPDLOCK/READPAST` + lease, retries with backoff, and poisons after 10 tries (unknown type at once).
+  - `InboxEventHandler` makes consumers idempotent.
+- **Hangfire 1.8.25** (`hangfire` schema): no-show every 5 min (A10), notification sending every minute, online-payment expiry every 30 min (new `Expired` status, still accepts a late callback), daily cleanup of processed outbox/inbox rows (14 days). Development: `/hangfire` and `POST /dev/jobs/{name}`.
+- **Notifications module** (`notifications` schema, `Feature.Notifications`):
+  - Confirmation, reminders 24 h and 2 h before, rescheduled, cancelled and receipt messages, by SMS, else e-mail.
+  - Templates: default ar/en, clinic overrides validated by placeholder.
+  - The sender re-checks the appointment and retries 3 times.
+  - `POST api/notifications/search` (masked recipient) and `GET/PUT api/notification-templates`.
+  - Permissions `Notifications.Read`/`Notifications.Manage`.
+- **E-mail:** MailKit sender (`Email:SmtpSecurity`); Docker images pinned (Mailpit v1.33.1, Seq 2026.1.17526, Azurite 3.37.0).
+- **Logging fix:** request logging now wraps the exception handler, so business errors log their real status (e.g. 400) instead of "500 + stack trace".
+- **Packages:** Hangfire.Core/AspNetCore/SqlServer 1.8.25, MailKit 4.18.2. Newtonsoft.Json pinned to 13.0.4, because Hangfire's minimum 11.0.1 has GHSA-5crp-9r3c-p9vr.
+- **Migrations:** `Scheduling/AddOutbox`, `Billing/AddOutbox` and `Notifications/InitialCreate`, applied to `Shifa` and `Shifa_Smoke`. The other 5 modules have no pending model changes.
+- **Verification:** Phase 8 smoke, **36/36 passed**. Covered:
+  - outbox → handler → 3 notifications; outbox processed; inbox recorded;
+  - Arabic confirmation SMS with doctor and branch;
+  - redelivered event creates nothing new; unknown type poisoned;
+  - reschedule cancels the old reminders and plans new ones; a due reminder is sent;
+  - a silently moved appointment's reminders are cancelled at send time;
+  - cancel → cancellation SMS; no-show job marks after 30 min and cancels the reminders;
+  - check-in + desk payment → receipt SMS with RCT number;
+  - patient without a phone → e-mail;
+  - template override, unknown placeholder 400, revert;
+  - feature off → nothing planned and API 403;
+  - 4 recurring jobs registered and the server running.
+- **Regression:** clinical 111/111, features 15/15 (now 6 features), Paymob 31/31, identity 38/38. The log has no phone numbers or message text, and no 500s.
+- **Open:**
+  - The SMS provider isn't chosen yet (fake sender).
+  - Retention of expired security tokens and old notifications needs a decision.
+  - Paymob reconciliation needs merchant API credentials.
 
 ## Identity gaps (2026-11-16, ADR-014)
 

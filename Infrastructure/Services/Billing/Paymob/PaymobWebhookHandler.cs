@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Core.Entities.Billing;
 using Core.Enums.Billing;
+using Core.Events.Billing;
 using Core.Interfaces.Billing;
 using Core.Interfaces.Common;
 using Infrastructure.Configurations.Billing;
@@ -170,6 +171,8 @@ public sealed class PaymobWebhookHandler : IPaymobWebhookHandler
         context.Payments.Add(payment);
         attempt.Status = OnlineAttemptStatusEnum.Succeeded;
         attempt.PaymentId = payment.Id;
+        context.AddEvent(new PaymentRecorded(payment.Id, number, invoice.Id, invoice.Number, invoice.PatientId, invoice.BranchId,
+            payment.Amount, invoice.CurrencyCode, payment.Method.ToString()), now);
 
         await context.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);

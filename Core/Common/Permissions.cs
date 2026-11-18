@@ -36,6 +36,12 @@ public static class Permissions
 
     /// <summary>Manage the clinic's online payment gateway (Paymob keys).</summary>
     public const string BillingSettings = "Billing.Settings";
+
+    /// <summary>See which messages were sent to patients.</summary>
+    public const string NotificationsRead = "Notifications.Read";
+
+    /// <summary>Edit the clinic's message templates.</summary>
+    public const string NotificationsManage = "Notifications.Manage";
     public const string ReportsRead = "Reports.Read";
 
     public static readonly IReadOnlyList<string> All = typeof(Permissions)
@@ -51,10 +57,10 @@ public static class Permissions
     {
         [TenantAdminRole] = All,
         ["BranchManager"] = [StaffRead, BranchesRead, DoctorsRead, ServicesRead, PatientsRead, PatientsCreate, PatientsUpdate,
-            AppointmentsRead, AppointmentsCreate, AppointmentsCancel, AppointmentsCheckIn, BillingRead, BillingRefund, ReportsRead],
+            AppointmentsRead, AppointmentsCreate, AppointmentsCancel, AppointmentsCheckIn, BillingRead, BillingRefund, ReportsRead, NotificationsRead],
         ["Doctor"] = [PatientsRead, AppointmentsRead, ClinicalRead, ClinicalWrite, ClinicalVitals],
         ["Receptionist"] = [PatientsRead, PatientsCreate, PatientsUpdate, AppointmentsRead, AppointmentsCreate, BillingRead, BillingCollect,
-            AppointmentsCancel, AppointmentsCheckIn, DoctorsRead, ServicesRead],
+            AppointmentsCancel, AppointmentsCheckIn, DoctorsRead, ServicesRead, NotificationsRead],
         ["Cashier"] = [PatientsRead, AppointmentsRead, BillingRead, BillingCollect],
         ["Nurse"] = [PatientsRead, AppointmentsRead, ClinicalRead, ClinicalVitals],
     };

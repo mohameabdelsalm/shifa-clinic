@@ -1,4 +1,5 @@
 using Core.DTO.Patients;
+using Core.Enums.Patients;
 using Core.Interfaces.Patients;
 using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
@@ -23,6 +24,28 @@ public sealed class PatientsApi : IPatientsApi
             .Where(p => p.Id == patientId)
             .Select(p => new PatientBillingContact(p.FullName, p.Email))
             .FirstOrDefaultAsync(cancellationToken);
+
+    public async Task<PatientContact?> GetContactAsync(long patientId, CancellationToken cancellationToken = default)
+    {
+        var patient = await _context.Patients.AsNoTracking()
+            .Where(p => p.Id == patientId)
+            .Select(p => new { p.FullName, p.PhoneNumber, p.Email })
+            .FirstOrDefaultAsync(cancellationToken);
+        if (patient is null)
+            return null;
+
+        var phone = patient.PhoneNumber;
+        if (string.IsNullOrWhiteSpace(phone))
+        {
+            phone = await _context.PatientAccountAccesses.AsNoTracking()
+                .Where(a => a.PatientId == patientId)
+                .OrderBy(a => a.Relationship == RelationshipEnum.Self ? 0 : 1).ThenBy(a => a.Id)
+                .Select(a => a.PhoneNumber)
+                .FirstOrDefaultAsync(cancellationToken);
+        }
+
+        return new PatientContact(patient.FullName, string.IsNullOrWhiteSpace(phone) ? null : phone, patient.Email);
+    }
 
     public Task<bool> HasPortalAccessAsync(string normalizedPhoneNumber, CancellationToken cancellationToken = default) =>
         _context.PatientAccountAccesses.AnyAsync(a => a.PhoneNumber == normalizedPhoneNumber, cancellationToken);

@@ -17,6 +17,8 @@ public class SchedulingDbContext : ModuleDbContext
 
     protected override string Module => "Scheduling";
 
+    public override bool HasOutbox => true;
+
     public DbSet<Appointment> Appointments => Set<Appointment>();
     public DbSet<AppointmentSlot> AppointmentSlots => Set<AppointmentSlot>();
     public DbSet<AppointmentStatusHistory> AppointmentStatusHistory => Set<AppointmentStatusHistory>();

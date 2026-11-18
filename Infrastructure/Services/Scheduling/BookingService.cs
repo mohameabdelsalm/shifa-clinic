@@ -105,6 +105,7 @@ public sealed class BookingService
             ResultId = appointment.Id,
             ExpiresAt = now + SchedulingRules.IdempotencyLifetime,
         });
+        _context.AddEvent(AppointmentEvents.Booked(appointment), now);
 
         try
         {
@@ -175,6 +176,7 @@ public sealed class BookingService
                 ToStatus = appointment.Status,
                 Reason = $"Rescheduled from {previousStart:O}",
             });
+            _context.AddEvent(AppointmentEvents.Rescheduled(appointment, previousStart), _time.GetUtcNow());
             await _context.SaveChangesAsync(cancellationToken);
 
             await transaction.CommitAsync(cancellationToken);

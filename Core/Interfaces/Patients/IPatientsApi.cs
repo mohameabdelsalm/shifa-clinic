@@ -16,6 +16,9 @@ public interface IPatientsApi
     /// <summary>Name and e-mail for a payment gateway's billing data; null when the patient isn't in this tenant.</summary>
     Task<PatientBillingContact?> GetBillingContactAsync(long patientId, CancellationToken cancellationToken = default);
 
+    /// <summary>Phone (own, else a linked portal phone, the patient's own link first) and e-mail for service messages; null when unknown.</summary>
+    Task<PatientContact?> GetContactAsync(long patientId, CancellationToken cancellationToken = default);
+
     /// <summary>Registration times of patients created in [fromUtc, toUtc), for statistics (patients belong to the tenant, not a branch).</summary>
     Task<IReadOnlyList<DateTimeOffset>> GetRegistrationTimesAsync(DateTimeOffset fromUtc, DateTimeOffset toUtc, CancellationToken cancellationToken = default);
 }

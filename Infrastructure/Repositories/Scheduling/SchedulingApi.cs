@@ -28,6 +28,12 @@ public sealed class SchedulingApi : ISchedulingApi
             .Select(a => new AppointmentForVisit(a.Id, a.PatientId, a.DoctorId, a.BranchId, a.Status, a.ServiceId))
             .FirstOrDefaultAsync(cancellationToken);
 
+    public Task<AppointmentState?> GetAppointmentStateAsync(long appointmentId, CancellationToken cancellationToken = default) =>
+        _context.Appointments.AsNoTracking()
+            .Where(a => a.Id == appointmentId)
+            .Select(a => new AppointmentState(a.Id, a.Status, a.StartAt))
+            .FirstOrDefaultAsync(cancellationToken);
+
     public Task StartVisitAsync(long appointmentId, CancellationToken cancellationToken = default) =>
         MoveAsync(appointmentId, AppointmentStatusEnum.InProgress, "Visit opened", cancellationToken);
 

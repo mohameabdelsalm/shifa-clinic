@@ -5,6 +5,7 @@ using Core;
 using Core.Common;
 using Core.Entities.Billing;
 using Core.Enums.Billing;
+using Core.Events.Billing;
 using Core.Interfaces.Billing;
 using Core.Interfaces.Common;
 using Core.Models.Billing;
@@ -95,6 +96,8 @@ public class PaymentRepo : IPaymentRepo
             _context.Payments.Add(payment);
             TouchShift(shift);
             Remember(operation, key, hash, payment.Id, now);
+            _context.AddEvent(new PaymentRecorded(payment.Id, number, invoice.Id, invoice.Number, invoice.PatientId, invoice.BranchId,
+                payment.Amount, invoice.CurrencyCode, payment.Method.ToString()), now);
 
             await _context.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);

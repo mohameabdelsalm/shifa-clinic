@@ -149,5 +149,36 @@ If you didn't ask for this, ignore this e-mail; your password stays the same.</v
 
 You have been added to {1} on Shifa. Use this link within 72 hours to set your password:
 {2}</value></data>
+  <data name="UnknownPlaceholder" xml:space="preserve"><value>The text uses a placeholder this message kind doesn't have.</value></data>
+  <data name="Notification.AppointmentConfirmed.Sms" xml:space="preserve"><value>{clinic}: your appointment with {doctor} is confirmed for {date} at {time}, {branch}.</value></data>
+  <data name="Notification.AppointmentConfirmed.Email" xml:space="preserve"><value>Hello {patient},
+
+Your appointment with {doctor} at {clinic} ({branch}) is confirmed for {date} at {time}.</value></data>
+  <data name="Notification.AppointmentConfirmed.Subject" xml:space="preserve"><value>Appointment confirmed</value></data>
+  <data name="Notification.AppointmentReminder24h.Sms" xml:space="preserve"><value>{clinic}: reminder, your appointment with {doctor} is tomorrow {date} at {time}, {branch}.</value></data>
+  <data name="Notification.AppointmentReminder24h.Email" xml:space="preserve"><value>Hello {patient},
+
+A reminder: your appointment with {doctor} at {clinic} ({branch}) is on {date} at {time}.</value></data>
+  <data name="Notification.AppointmentReminder24h.Subject" xml:space="preserve"><value>Appointment reminder</value></data>
+  <data name="Notification.AppointmentReminder2h.Sms" xml:space="preserve"><value>{clinic}: your appointment with {doctor} is today at {time}, {branch}.</value></data>
+  <data name="Notification.AppointmentReminder2h.Email" xml:space="preserve"><value>Hello {patient},
+
+Your appointment with {doctor} at {clinic} ({branch}) is today at {time}.</value></data>
+  <data name="Notification.AppointmentReminder2h.Subject" xml:space="preserve"><value>Your appointment is today</value></data>
+  <data name="Notification.AppointmentRescheduled.Sms" xml:space="preserve"><value>{clinic}: your appointment with {doctor} moved to {date} at {time}, {branch}.</value></data>
+  <data name="Notification.AppointmentRescheduled.Email" xml:space="preserve"><value>Hello {patient},
+
+Your appointment with {doctor} at {clinic} ({branch}) has moved to {date} at {time}.</value></data>
+  <data name="Notification.AppointmentRescheduled.Subject" xml:space="preserve"><value>Appointment moved</value></data>
+  <data name="Notification.AppointmentCancelled.Sms" xml:space="preserve"><value>{clinic}: your appointment with {doctor} on {date} at {time} is cancelled.</value></data>
+  <data name="Notification.AppointmentCancelled.Email" xml:space="preserve"><value>Hello {patient},
+
+Your appointment with {doctor} at {clinic} on {date} at {time} has been cancelled.</value></data>
+  <data name="Notification.AppointmentCancelled.Subject" xml:space="preserve"><value>Appointment cancelled</value></data>
+  <data name="Notification.PaymentReceipt.Sms" xml:space="preserve"><value>{clinic}: received {amount} {currency} for invoice {invoice}. Receipt {receipt}.</value></data>
+  <data name="Notification.PaymentReceipt.Email" xml:space="preserve"><value>Hello {patient},
+
+{clinic} received {amount} {currency} for invoice {invoice}. Receipt number: {receipt}.</value></data>
+  <data name="Notification.PaymentReceipt.Subject" xml:space="preserve"><value>Payment receipt</value></data>
   <data name="SubscriptionReadOnly" xml:space="preserve"><value>The clinic's subscription has ended, so the system is read-only. Contact the clinic administrator to renew.</value></data>
 </root>
