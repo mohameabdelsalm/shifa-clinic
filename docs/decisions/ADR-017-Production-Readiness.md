@@ -85,3 +85,4 @@ Outside Development the API refuses to start without each of these:
   - Document numbers use the UTC year: documents issued between 00:00 and 02:00 Cairo time on 1 January get the previous year's series.
   - The portal invoice DTO carries the patient and branch ids of the caller's own linked patients.
 - **Not verified here.** Docker isn't running on the development machine, so the image build and compose stack are not run; the first real build is part of go-live.
+- **Tests restored.** `Shifa.Tests` (Unit / Architecture / Integration on SQL Server): the Phase 1–5 suite ported to the HRM layout plus tests for every fix above; 167 green. Integration tests turn background work off and call the dispatcher and jobs directly. Mutation checks confirmed the webhook replay and credit-note idempotency tests fail without their guards.

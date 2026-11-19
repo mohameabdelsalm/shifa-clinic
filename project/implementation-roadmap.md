@@ -14,7 +14,7 @@ Each phase ends with: build green, relevant tests green, docs updated, `project/
 | 7 | Billing: invoices, items, payments, partial payments, refunds, credit notes, cashier shifts | **opus / high design** → sonnet / medium | Duplicate payment and totals consistency tests |
 | 8 | Outbox, dispatcher, inbox, Hangfire jobs, notification templates, delivery attempts, reminders — **done 2026-11-18 (ADR-015)** | sonnet / medium | Duplicate event + worker failure tests |
 | 9 | Reporting: daily branch stats, appointments, revenue vs collections, doctor stats — **done 2026-11-18 (ADR-016)** | sonnet / medium; haiku / low for docs | Report scope tests |
-| 10 | Production readiness: OpenTelemetry, security review, performance, index review, backup/restore, deployment, configuration | sonnet / medium → **opus / high final review** | Critical tests and operational checks pass |
+| 10 | Production readiness: OpenTelemetry, security review, performance, index review, backup/restore, deployment, configuration — **done 2026-11-19 (ADR-017)** | sonnet / medium → **opus / high final review** | Critical tests and operational checks pass |
 
 ## Phase 1 detail
 

@@ -13,7 +13,8 @@ Multi-tenant monolith (ASP.NET Core .NET 10, SQL Server, EF Core 10), laid out e
 - Explain in Arabic with English technical terms inline: business problem first, then the design, then the code flow.
 - Copy the Trio ERP HRM/Auth layout and naming exactly (`D:\trio\New folder\Trio-ERP-HRM-API`). Before adding a folder, project or layer HRM doesn't have, propose it to the developer first.
 - At the start of each phase, give the execution header (phase, model alias, effort, reason, complexity). The developer switches models from the app's model picker.
-- Phase done = build green, docs + `project/progress.md` updated, merged to `develop`. Tests are paused for now (the developer will add them back after the project is finished; the last suite is in git history before ADR-009).
+- Phase done = build green, `dotnet test` green, docs + `project/progress.md` updated, merged to `develop`.
+- Tests (ADR-017): one project `Shifa.Tests` at the root with `Unit/` (no database), `Architecture/` (layout, ownership, anonymous endpoints) and `Integration/` (the real API through WebApplicationFactory on SQL Server, database `Shifa_Tests`, override with `SHIFA_TEST_CONNECTION`; tables are emptied by Respawn between tests, the database is never dropped). Run `dotnet test`. New behavior gets tests; never delete or weaken a test to make code pass. In integration tests background work is off: call `TestClinic.DispatchOutboxAsync<T>()` and jobs through `TestClinic.JobAsync<T>()`.
 
 ## Solution layout (ADR-009, same as HRM)
 
