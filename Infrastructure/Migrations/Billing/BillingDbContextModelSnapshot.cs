@@ -225,6 +225,8 @@ namespace Infrastructure.Migrations.Billing
 
                     b.HasAlternateKey("TenantId", "Id");
 
+                    b.HasIndex("TenantId", "CreationDate");
+
                     b.HasIndex("TenantId", "InvoiceId");
 
                     b.HasIndex("TenantId", "Number")
@@ -344,7 +346,9 @@ namespace Infrastructure.Migrations.Billing
                     b.HasIndex("TenantId", "AppointmentId")
                         .IsUnique()
                         .HasDatabaseName("IX_Invoices_VisitAppointment")
-                        .HasFilter("[Kind] = 'Visit' AND [IsDeleted] = 0");
+                        .HasFilter("[Kind] = 'Visit' AND [Status] <> 'Void' AND [IsDeleted] = 0");
+
+                    b.HasIndex("TenantId", "IssuedAt");
 
                     b.HasIndex("TenantId", "Number")
                         .IsUnique()
@@ -430,6 +434,10 @@ namespace Infrastructure.Migrations.Billing
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<decimal?>("CapturedAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<DateTimeOffset?>("CompletedAt")
                         .HasColumnType("datetimeoffset");
 
@@ -445,6 +453,10 @@ namespace Infrastructure.Migrations.Billing
                         .HasColumnType("nvarchar(3)");
 
                     b.Property<string>("GatewayIntentionId")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("GatewayOrderId")
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
@@ -486,6 +498,8 @@ namespace Infrastructure.Migrations.Billing
                     b.HasKey("Id");
 
                     b.HasAlternateKey("TenantId", "Id");
+
+                    b.HasIndex("Status", "CreationDate");
 
                     b.HasIndex("TenantId", "InvoiceId");
 
@@ -713,6 +727,11 @@ namespace Infrastructure.Migrations.Billing
                     b.Property<int>("Sequence")
                         .HasColumnType("int");
 
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
                     b.Property<long>("TenantId")
                         .HasColumnType("bigint");
 
@@ -724,6 +743,8 @@ namespace Infrastructure.Migrations.Billing
                     b.HasAlternateKey("TenantId", "Id");
 
                     b.HasIndex("TenantId", "CashierShiftId");
+
+                    b.HasIndex("TenantId", "CreationDate");
 
                     b.HasIndex("TenantId", "Number")
                         .IsUnique()

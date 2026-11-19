@@ -14,7 +14,11 @@ namespace Infrastructure.Auth;
 /// </summary>
 public sealed class JwtKeyProvider
 {
+    /// <summary>Signs new tokens.</summary>
     public SymmetricSecurityKey Key { get; }
+
+    /// <summary>Validates tokens: the current key first, then previous keys during a rotation.</summary>
+    public IReadOnlyList<SecurityKey> ValidationKeys { get; }
 
     public JwtKeyProvider(IOptions<JwtSettings> settings, IHostEnvironment environment, ILogger<JwtKeyProvider> logger)
     {
@@ -22,9 +26,8 @@ public sealed class JwtKeyProvider
 
         if (!string.IsNullOrWhiteSpace(configured))
         {
-            if (Encoding.UTF8.GetByteCount(configured) < 32)
-                throw new InvalidOperationException("Jwt:SigningKey must be at least 32 bytes.");
-            Key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(configured));
+            Key = ToKey(configured, "Jwt:SigningKey");
+            ValidationKeys = [Key, .. settings.Value.PreviousSigningKeys.Where(k => !string.IsNullOrWhiteSpace(k)).Select(k => ToKey(k, "Jwt:PreviousSigningKeys"))];
             return;
         }
 
@@ -33,5 +36,11 @@ public sealed class JwtKeyProvider
 
         logger.LogWarning("Jwt:SigningKey is not set; using a temporary key for this process (Development only).");
         Key = new SymmetricSecurityKey(RandomNumberGenerator.GetBytes(64));
+        ValidationKeys = [Key];
     }
+
+    private static SymmetricSecurityKey ToKey(string value, string setting) =>
+        Encoding.UTF8.GetByteCount(value) < 32
+            ? throw new InvalidOperationException($"{setting} must be at least 32 bytes.")
+            : new SymmetricSecurityKey(Encoding.UTF8.GetBytes(value));
 }

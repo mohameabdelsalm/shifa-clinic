@@ -24,10 +24,7 @@ public static class InfrastructureModule
         services.AddScoped<AuditTenantInterceptor>();
         services.AddSingleton<IFileStorage, LocalFileStorage>();
 
-        // Local fake (ADR-006); a real provider replaces ISmsSender in production.
-        services.AddSingleton<InMemorySmsOutbox>();
-        services.TryAddSingleton<ISmsSender, FakeSmsSender>();
-
+        // ISmsSender is chosen by Sms:Provider in the API (AddShifaSms, ADR-017).
         return services;
     }
 }

@@ -72,7 +72,7 @@ public sealed class BillingApi : IBillingApi
         LoadMoneyFlowsAsync(fromUtc, toUtc, branchIds, cashierUserId, (at, _) => DateOnly.FromDateTime(at.UtcDateTime), cancellationToken);
 
     public async Task<MoneyFlows> GetMoneyFlowsByLocalDayAsync(DateOnly fromLocalDate, DateOnly toLocalDate, IReadOnlyCollection<long>? branchIds,
-        CancellationToken cancellationToken = default)
+        long? cashierUserId = null, CancellationToken cancellationToken = default)
     {
         var zones = (await _clinic.GetBranchTimeZonesAsync(branchIds, cancellationToken))
             .ToDictionary(z => z.Key, z => TimeZoneInfo.FindSystemTimeZoneById(z.Value));
@@ -83,7 +83,7 @@ public sealed class BillingApi : IBillingApi
         var flows = await LoadMoneyFlowsAsync(
             new DateTimeOffset(fromLocalDate.AddDays(-1).ToDateTime(TimeOnly.MinValue), TimeSpan.Zero),
             new DateTimeOffset(toLocalDate.AddDays(2).ToDateTime(TimeOnly.MinValue), TimeSpan.Zero),
-            branchIds, null, LocalDay, cancellationToken);
+            branchIds, cashierUserId, LocalDay, cancellationToken);
 
         List<MoneyRow> InRange(IReadOnlyList<MoneyRow> rows) => rows.Where(r => r.Date >= fromLocalDate && r.Date <= toLocalDate).ToList();
         return new MoneyFlows(InRange(flows.Invoiced), InRange(flows.Credited), InRange(flows.Payments), InRange(flows.Refunds));
@@ -110,7 +110,8 @@ public sealed class BillingApi : IBillingApi
         var refunds = await (from r in _context.Refunds.AsNoTracking()
                              join p in _context.Payments.AsNoTracking() on r.PaymentId equals p.Id
                              join i in invoices on p.InvoiceId equals i.Id
-                             where r.CreationDate >= fromUtc && r.CreationDate < toUtc && (cashierUserId == null || r.RefundedByUserId == cashierUserId)
+                             where r.CreationDate >= fromUtc && r.CreationDate < toUtc && r.Status == RefundStatusEnum.Completed
+                                   && (cashierUserId == null || r.RefundedByUserId == cashierUserId)
                              select new { At = r.CreationDate, i.BranchId, r.Method, r.Amount }).ToListAsync(cancellationToken);
 
         return new MoneyFlows(
@@ -121,6 +122,6 @@ public sealed class BillingApi : IBillingApi
     }
 
     private Task<long?> ExistingVisitInvoiceAsync(long appointmentId, CancellationToken cancellationToken) =>
-        _context.Invoices.Where(i => i.AppointmentId == appointmentId && i.Kind == InvoiceKindEnum.Visit)
+        _context.Invoices.Where(i => i.AppointmentId == appointmentId && i.Kind == InvoiceKindEnum.Visit && i.Status != InvoiceStatusEnum.Void)
             .Select(i => (long?)i.Id).FirstOrDefaultAsync(cancellationToken);
 }

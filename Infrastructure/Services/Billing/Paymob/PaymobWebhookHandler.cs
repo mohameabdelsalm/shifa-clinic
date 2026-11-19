@@ -106,15 +106,18 @@ public sealed class PaymobWebhookHandler : IPaymobWebhookHandler
 
         await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
         var attempt = await context.OnlinePaymentAttempts.FirstOrDefaultAsync(a => a.Reference == callback.MerchantOrderId, cancellationToken);
-        if (attempt is null)
+        // merchant_order_id is not among the signed fields, but order.id is: the signed order must be this attempt's
+        // order, so a signed transaction can't be replayed against another attempt (ADR-017).
+        if (attempt is null || attempt.GatewayOrderId is null || attempt.GatewayOrderId != callback.OrderId)
         {
-            _logger.LogWarning("Paymob callback for tenant {TenantId} has an unknown reference; ignored.", tenantId);
+            _logger.LogWarning("Paymob callback for tenant {TenantId} matches no attempt (reference/order); ignored.", tenantId);
             return WebhookOutcome.Accepted;
         }
 
         await context.Database.AcquireAsync(OnlineAttemptLock(tenantId, attempt.Id), cancellationToken);
         await context.Entry(attempt).ReloadAsync(cancellationToken);
-        if (attempt.Status is OnlineAttemptStatusEnum.Succeeded or OnlineAttemptStatusEnum.NotApplied or OnlineAttemptStatusEnum.Refunded)
+        if (attempt.Status is OnlineAttemptStatusEnum.Succeeded or OnlineAttemptStatusEnum.NotApplied or OnlineAttemptStatusEnum.Refunding
+            or OnlineAttemptStatusEnum.Refunded)
             return WebhookOutcome.Accepted;
 
         if (!callback.Success)
@@ -132,6 +135,7 @@ public sealed class PaymobWebhookHandler : IPaymobWebhookHandler
 
         attempt.GatewayTransactionId = callback.TransactionId;
         attempt.CompletedAt = now;
+        attempt.CapturedAmount = callback.AmountCents / 100m;
 
         var invoice = await context.Invoices.FirstOrDefaultAsync(i => i.Id == attempt.InvoiceId, cancellationToken);
         var fits = callback.AmountCents == PaymobAmounts.ToCents(attempt.Amount)

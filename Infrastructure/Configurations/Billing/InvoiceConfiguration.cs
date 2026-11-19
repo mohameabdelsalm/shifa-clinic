@@ -20,10 +20,12 @@ public class InvoiceConfiguration : IEntityTypeConfiguration<Invoice>
         // At most one visit invoice per appointment, also when check-in and the repair endpoint race.
         builder.HasIndex(i => new { i.TenantId, i.AppointmentId })
             .IsUnique()
-            .HasFilter("[Kind] = 'Visit' AND [IsDeleted] = 0")
+            .HasFilter("[Kind] = 'Visit' AND [Status] <> 'Void' AND [IsDeleted] = 0")
             .HasDatabaseName(BillingIndexes.VisitInvoice);
 
         builder.HasIndex(i => new { i.TenantId, i.BranchId, i.IssuedAt });
         builder.HasIndex(i => new { i.TenantId, i.PatientId, i.IssuedAt });
+        // Money statistics without a branch filter.
+        builder.HasIndex(i => new { i.TenantId, i.IssuedAt });
     }
 }

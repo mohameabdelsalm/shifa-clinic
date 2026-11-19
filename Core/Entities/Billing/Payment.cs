@@ -36,4 +36,12 @@ public class Payment : TenantOwnedEntity
         RefundedAmount += amount;
         return true;
     }
+
+    /// <summary>Releases an online refund reservation the gateway refused (ADR-017).</summary>
+    public void CancelRefund(decimal amount)
+    {
+        if (amount <= 0 || amount > RefundedAmount)
+            throw new InvalidOperationException("Cannot release more than was reserved.");
+        RefundedAmount -= amount;
+    }
 }

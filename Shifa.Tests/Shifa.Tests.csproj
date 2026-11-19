@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- One test project at the root, next to Core/Infrastructure/Shifa (ADR-017):
+       Unit/          fast, no database (entities, calculators, rules);
+       Architecture/  layout and module rules;
+       Integration/   the real API (WebApplicationFactory) on a real SQL Server database, Shifa_Tests by default
+                      (override with SHIFA_TEST_CONNECTION). Never EF InMemory: these prove SQL Server behavior.
+       Run: dotnet test -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="Respawn" />
+    <PackageReference Include="xunit.runner.visualstudio">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="xunit.v3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Shifa\Shifa.csproj" />
+  </ItemGroup>
+
+</Project>

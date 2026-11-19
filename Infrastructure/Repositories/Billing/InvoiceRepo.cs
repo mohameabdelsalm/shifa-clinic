@@ -41,11 +41,13 @@ public class InvoiceRepo : IInvoiceRepo
     private readonly IAuditService _audit;
     private readonly TimeProvider _time;
     private readonly IStringLocalizer<LanguageResource> _localizer;
+    private readonly BillingIdempotency _idempotency;
 
     public InvoiceRepo(BillingDbContext context, IMapper mapper, InvoiceIssuer issuer, BillingNumbers numbers, IBillingApi billing,
         IClinicApi clinic, IPatientsApi patients, ISchedulingApi scheduling, IAccessContext access, ICurrentUser currentUser,
-        IAuditService audit, TimeProvider time, IStringLocalizer<LanguageResource> localizer)
+        IAuditService audit, TimeProvider time, IStringLocalizer<LanguageResource> localizer, BillingIdempotency idempotency)
     {
+        _idempotency = idempotency;
         _context = context;
         _mapper = mapper;
         _issuer = issuer;
@@ -138,14 +140,35 @@ public class InvoiceRepo : IInvoiceRepo
         return new Response(_localizer["Updated"].Value, HttpStatusCode.OK);
     }
 
-    public async Task<Response> AddCreditNote(AddCreditNoteModel model, CancellationToken cancellationToken)
+    public async Task<Response> AddCreditNote(AddCreditNoteModel model, string? idempotencyKey, CancellationToken cancellationToken)
     {
+        var key = _idempotency.RequireKey(idempotencyKey);
+        var operation = _idempotency.Operation("CreditNote");
+        var hash = BillingIdempotency.Hash(model.InvoiceId, model.Amount, model.Reason.Trim());
+        var now = _time.GetUtcNow();
+        if (await _idempotency.FindReplayAsync(operation, key, hash, now, cancellationToken) is long replayed)
+            return new Response(_localizer["Created"].Value, HttpStatusCode.OK, data: replayed);
+
         var invoice = await InScope(_context.Invoices).FirstOrDefaultAsync(i => i.Id == model.InvoiceId, cancellationToken) ?? throw NotFound();
         if (invoice.Status == InvoiceStatusEnum.Void)
             throw new BusinessException(_localizer["InvoiceVoid"].Value, HttpStatusCode.BadRequest);
         if (!invoice.TryApplyCredit(model.Amount))
             throw new BusinessException(_localizer["AmountExceedsBalance"].Value, HttpStatusCode.BadRequest);
 
+        try
+        {
+            return await SaveCreditNoteAsync(invoice, model, operation, key, hash, now, cancellationToken);
+        }
+        catch (DbUpdateException ex) when (BillingIdempotency.IsConflict(ex))
+        {
+            return new Response(_localizer["Created"].Value, HttpStatusCode.OK,
+                data: await _idempotency.ReplayAfterConflictAsync(operation, key, hash, now, cancellationToken));
+        }
+    }
+
+    private async Task<Response> SaveCreditNoteAsync(Invoice invoice, AddCreditNoteModel model, string operation, string key, string hash,
+        DateTimeOffset now, CancellationToken cancellationToken)
+    {
         await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
         var (year, sequence, number) = await _numbers.NextAsync("CN",
             y => _context.CreditNotes.Where(c => c.Year == y).MaxAsync(c => (int?)c.Sequence, cancellationToken), cancellationToken);
@@ -160,6 +183,7 @@ public class InvoiceRepo : IInvoiceRepo
             CreatedByUserId = _currentUser.GetUserId() ?? throw new InvalidOperationException("No signed-in user."),
         };
         _context.CreditNotes.Add(note);
+        _idempotency.Remember(operation, key, hash, note.Id, now);
         await _context.SaveChangesAsync(cancellationToken);   // the invoice update is in this save (rowversion)
         await transaction.CommitAsync(cancellationToken);
 

@@ -1,6 +1,6 @@
 # Progress
 
-_Last updated: 2026-11-07_
+_Last updated: 2026-11-19_
 
 ## Phases
 
@@ -14,14 +14,52 @@ _Last updated: 2026-11-07_
 | 5 — Scheduling | ✅ Done, reviewed (opus / high) and fixed |
 | HRM layout | ✅ Restructured like Trio HRM (ADR-009) |
 | 6 — Clinical / EMR | ✅ Done, reviewed (opus / high) and fixed |
-| 7 — Billing | ✅ Implemented (ADR-011) + dynamic features (ADR-012) + Paymob online payments (ADR-013); review pending |
+| 7 — Billing | ✅ Implemented (ADR-011) + dynamic features (ADR-012) + Paymob (ADR-013); independent review (opus) done and fixed in Phase 10 (ADR-017) |
 | 8 — Outbox, jobs, notifications | ✅ Done (ADR-015) |
 | 9 — Reporting | ✅ Done (ADR-016): JSON + Excel + PDF |
-| 10 | Not started (see `implementation-roadmap.md`) |
+| 10 — Production readiness | ✅ Done (ADR-017): hardening, Docker/deploy runbook, indexes, Billing review fixes, tests restored (167 green) |
 
 ## Current phase
 
-**Phase 7 — Billing implemented** (ADR-011; decisions by the product owner on 2026-11-16: pay on arrival, no discounts, cash/card/wallet, mandatory shifts). Next, as asked on 2026-11-16 ("finish the whole project"): dynamic features per plan/tenant, Paymob online payments, identity gaps, Phase 8–10. The Billing review (opus / high) is still to do.
+**All phases (0–10) done** (2026-11-19). What is left is outside the code: the product owner's decisions in the go-live checklist (`deploy/README.md`).
+- SMS provider (currently `Sms:Provider=Disabled` in production).
+- QuestPDF license type.
+- Retention of expired tokens and old notifications.
+- Approval to drop the unused `patients.Patients.NoShowCount` column and the throwaway `Shifa_Smoke` database.
+- The repository visibility on GitHub (currently Public).
+
+## Phase 10 — production readiness (2026-11-18/19, ADR-017)
+
+- **Hardening.**
+  - Fail-closed production settings: Data Protection keys, `Sms:Provider` (Fake only in Development, `Disabled`), QuestPDF license, plus the existing JWT key and SMTP.
+  - JWT key rotation (`Jwt:PreviousSigningKeys`).
+  - Forwarded headers trusted only from known proxies; CORS allow-list; security headers; `Cache-Control: no-store` on the API.
+  - No OpenTelemetry (product owner).
+- **Deployment.**
+  - `Dockerfile` (non-root, Arabic font, tzdata) and `deploy/` (compose + Caddy HTTPS, `.env.example`, runbook with backups/restore drill and the go-live checklist).
+  - `dotnet Shifa.dll --migrate` applies every module and installs the Hangfire schema, so the API login needs no DDL. The image build was not run here (Docker isn't running on this machine).
+- **Indexes** for statistics, reports and the cross-clinic jobs. Migrations `Scheduling/AddReportingIndexes` and `Billing/AddReportingIndexes`.
+- **Independent Billing review (opus) and fixes.**
+  - Online refunds go reserve → gateway → settle, so a refund can never be paid twice; an unclear gateway answer stays Pending.
+  - The webhook requires the intention's signed order id.
+  - NotApplied returns reserve (`Refunding`) and refund the captured amount.
+  - Credit notes are idempotent; request hashes are culture-independent; secrets are hidden in `ToString`; a voided visit invoice is replaceable; the dashboard money is by local day.
+  - Migration `Billing/HardenRefunds`.
+- **Tests restored** (`Shifa.Tests`, one project at the root: Unit / Architecture / Integration on SQL Server `Shifa_Tests`). **167 passed, 0 failed** (`dotnet test`, about 5 minutes).
+  - **Ported suite (135).** The old Phase 1–5 suite was ported to the HRM layout.
+    - Architecture tests rewritten for the layout. They had silently passed with zero modules; they now check the 8 DbContexts and fail if any is missing.
+    - Scheduling setup now prices the service (booking needs a price since ADR-011).
+    - Patient search sends `search` (the HRM field name).
+    - Check-in reads `{ queueNumber, invoiceId }`.
+  - **New tests (32).**
+    - Unit: invoice invariants, including 2000 random operations; refund reservation; Paymob HMAC against the documented field list written by hand; A6 read-only/blocked boundaries; dashboard/report counting rules; culture-independent idempotency hashes.
+    - Integration: parallel payments never overpay; payment and credit-note retries replay; signed callbacks only, with 5 parallel repeats recording one payment; a signed transaction replayed against another attempt is ignored; online refund pending/refused/succeeded; outbox → notifications → SMS, then cancel → reminders cancelled (redelivery creates nothing); feature off; read-only subscription and renewal; sign-in blocked after 30 days; revenue by branch-local day.
+    - New security rule: only listed endpoints may be anonymous.
+  - **Mutation checks.**
+    - With the webhook's order-id check removed, the replay test fails (attempt became NotApplied). This also showed the first version of that test passed for the wrong reason; it now uses another amount.
+    - With the credit-note idempotency record removed, the retry test fails (second note).
+  - **Faster runs.** Background work is off in tests: the dispatcher and jobs are called directly, which cut the run from ~10 to ~5 minutes.
+- **Smoke regression** (PowerShell, `Shifa_Smoke`): Paymob 37, clinical 113, features 15, identity 38, Phase 8 36, reports 23. All passed.
 
 ## Phase 9 — reporting (2026-11-18, ADR-016)
 
@@ -313,7 +351,7 @@ See git history. Highlights: ADR-001..007, architecture docs, `ModuleDbContext` 
 
 ## Tests
 
-`dotnet test --solution Shifa.slnx` → **135 passed, 0 failed** (2026-11-07): unit 30 (new project `Shifa.UnitTests`), architecture 12, integration 93.
+`dotnet test` → **167 passed, 0 failed** (2026-11-19, project `Shifa.Tests`): unit 51, architecture 12, integration 104. Details of what Phase 10 added: see the Phase 10 section. Below: the history of the suite before it was paused (2026-11-07).
 
 Phase 5 (15 integration tests on a fake clock + 30 unit tests): 10 parallel bookings of one slot → exactly one; overlapping multi-slot bookings in parallel → one; idempotency (missing key, replay, reuse 422, 5 parallel retries → one appointment, key expiry); cancel frees the slot; reschedule onto own ticks; one visit per patient/doctor/day; doctor busy across branches; check-in window, queue numbers, no-show timing; parallel check-ins get 1..5; check-in vs cancel race has one winner; branch scope; tenant isolation; portal `CanBook`, 3-hour cancel rule, Pending after 3 no-shows. Calculator: multi-slot, window fit, busy edges, range, DST spring/fall, 23/25-hour days.
 **Mutation check:** with `IX_AppointmentSlots_Tick` dropped from `Shifa_Tests`, both race tests failed (5–10 double bookings succeeded); index restored.

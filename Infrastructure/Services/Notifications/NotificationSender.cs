@@ -65,6 +65,8 @@ public sealed class NotificationSender
                 Close(notification, NotificationStatusEnum.Skipped, "ClinicInactive");
             else if (!enabled)
                 Close(notification, NotificationStatusEnum.Skipped, "FeatureOff");
+            else if (notification.Channel == NotificationChannelEnum.Sms && !_sms.IsEnabled)
+                Close(notification, NotificationStatusEnum.Skipped, "SmsDisabled");
             else if (await StaleReasonAsync(notification, now, cancellationToken) is { } stale)
                 Close(notification, stale.Status, stale.Reason);
             else if (await TrySendAsync(notification, now, cancellationToken))

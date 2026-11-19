@@ -115,6 +115,7 @@ public class OnlinePaymentRepo : IOnlinePaymentRepo
         }
 
         attempt.GatewayIntentionId = intention.Id;
+        attempt.GatewayOrderId = intention.OrderId;
         await _context.SaveChangesAsync(cancellationToken);
         await _audit.LogAsync("Billing.OnlinePaymentStarted", nameof(OnlinePaymentAttempt), attempt.Id,
             detail: $"invoice {invoice.Number} {attempt.Amount}", cancellationToken: CancellationToken.None);
@@ -160,48 +161,59 @@ public class OnlinePaymentRepo : IOnlinePaymentRepo
     public async Task<Response> RefundNotApplied(long attemptId, CancellationToken cancellationToken)
     {
         var tenantId = _tenant.TenantId ?? throw new InvalidOperationException("No tenant.");
-
-        await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
-        var attempt = await InScope(_context.OnlinePaymentAttempts).FirstOrDefaultAsync(a => a.Id == attemptId, cancellationToken)
-            ?? throw new BusinessException(_localizer["OnlinePaymentNotFound"].Value, HttpStatusCode.NotFound);
-
-        // Same lock as the callback: a double click or a late callback can't run alongside this refund.
-        await _context.Database.AcquireAsync(PaymobWebhookHandler.OnlineAttemptLock(tenantId, attempt.Id), cancellationToken);
-        await _context.Entry(attempt).ReloadAsync(cancellationToken);
-        if (attempt.Status != OnlineAttemptStatusEnum.NotApplied || attempt.GatewayTransactionId is null)
-            throw new BusinessException(_localizer["OnlinePaymentNotRefundable"].Value, HttpStatusCode.BadRequest);
-
         var credentials = await _secrets.LoadAsync(cancellationToken)
             ?? throw new BusinessException(_localizer["OnlinePaymentsNotConfigured"].Value, HttpStatusCode.BadRequest);
 
-        PaymobRefundResult result;
+        // 1) Reserve: NotApplied → Refunding in its own commit, under the callback's lock. A double click or a retry
+        //    finds Refunding and stops; nothing can call the gateway twice for this attempt (ADR-017).
+        OnlinePaymentAttempt attempt;
+        await using (var transaction = await _context.Database.BeginTransactionAsync(cancellationToken))
+        {
+            attempt = await InScope(_context.OnlinePaymentAttempts).FirstOrDefaultAsync(a => a.Id == attemptId, cancellationToken)
+                ?? throw new BusinessException(_localizer["OnlinePaymentNotFound"].Value, HttpStatusCode.NotFound);
+            await _context.Database.AcquireAsync(PaymobWebhookHandler.OnlineAttemptLock(tenantId, attempt.Id), cancellationToken);
+            await _context.Entry(attempt).ReloadAsync(cancellationToken);
+            if (attempt.Status != OnlineAttemptStatusEnum.NotApplied || attempt.GatewayTransactionId is null)
+                throw new BusinessException(_localizer["OnlinePaymentNotRefundable"].Value, HttpStatusCode.BadRequest);
+
+            // The same gateway transaction recorded as a payment on an invoice must be refunded there, not here.
+            var transactionId = attempt.GatewayTransactionId;
+            if (await _context.Payments.AnyAsync(p => p.Method == PaymentMethodEnum.Online && p.Reference == transactionId, cancellationToken))
+                throw new BusinessException(_localizer["OnlinePaymentNotRefundable"].Value, HttpStatusCode.BadRequest);
+
+            attempt.Status = OnlineAttemptStatusEnum.Refunding;
+            await _context.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
+
+        // 2) Gateway: the amount actually captured; the request's cancellation can't stop a refund half way.
+        var amount = attempt.CapturedAmount ?? attempt.Amount;
+        PaymobRefundResult? result = null;
         try
         {
-            result = await _client.RefundAsync(credentials, attempt.GatewayTransactionId, PaymobAmounts.ToCents(attempt.Amount), cancellationToken);
+            result = await _client.RefundAsync(credentials, attempt.GatewayTransactionId!, PaymobAmounts.ToCents(amount), CancellationToken.None);
         }
         catch (PaymobException)
         {
-            throw new BusinessException(_localizer["PaymentGatewayError"].Value, HttpStatusCode.BadGateway);
+            // No answer: may have been refunded. Stays Refunding for a person to check in Paymob.
         }
-        if (!result.Success)
-            throw new BusinessException(_localizer["OnlineRefundFailed"].Value, HttpStatusCode.BadRequest);
 
-        try
+        // 3) Record the outcome. Refused → back to NotApplied (can be tried again); unknown → stays Refunding.
+        var outcome = result is null || result.Pending ? "unknown" : result.Success ? "refunded" : "refused";
+        if (outcome != "unknown")
         {
-            attempt.Status = OnlineAttemptStatusEnum.Refunded;
+            attempt.Status = outcome == "refunded" ? OnlineAttemptStatusEnum.Refunded : OnlineAttemptStatusEnum.NotApplied;
             await _context.SaveChangesAsync(CancellationToken.None);
-            await transaction.CommitAsync(CancellationToken.None);
-        }
-        catch (Exception ex)
-        {
-            await _audit.LogAsync("Billing.OnlineRefundNotRecorded", nameof(OnlinePaymentAttempt), attempt.Id,
-                detail: $"gateway refund {result.TransactionId} {attempt.Amount}: {ex.GetType().Name}", cancellationToken: CancellationToken.None);
-            throw;
         }
 
-        await _audit.LogAsync("Billing.OnlinePaymentReturned", nameof(OnlinePaymentAttempt), attempt.Id,
-            detail: $"invoice {attempt.InvoiceId} {attempt.Amount} gateway refund {result.TransactionId}", cancellationToken: CancellationToken.None);
-        return new Response(_localizer["Updated"].Value, HttpStatusCode.OK);
+        await _audit.LogAsync("Billing.OnlinePaymentReturn", nameof(OnlinePaymentAttempt), attempt.Id,
+            detail: $"invoice {attempt.InvoiceId} {amount} {outcome} gateway refund {result?.TransactionId}", cancellationToken: CancellationToken.None);
+        return outcome switch
+        {
+            "refunded" => new Response(_localizer["Updated"].Value, HttpStatusCode.OK),
+            "refused" => throw new BusinessException(_localizer["OnlineRefundFailed"].Value, HttpStatusCode.BadRequest),
+            _ => new Response(_localizer["RefundPending"].Value, HttpStatusCode.Accepted, data: attempt.Id),
+        };
     }
 
     /// <summary>Staff see attempts of invoices in their branches only.</summary>

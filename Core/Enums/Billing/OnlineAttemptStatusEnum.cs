@@ -12,6 +12,9 @@ public enum OnlineAttemptStatusEnum
     /// <summary>Paid at the gateway but the invoice no longer had that balance (paid at the desk meanwhile): needs a refund decision.</summary>
     NotApplied,
 
+    /// <summary>A NotApplied payment being returned: reserved before calling the gateway; stays here if the answer is unknown.</summary>
+    Refunding,
+
     /// <summary>A NotApplied payment that was returned to the patient through the gateway.</summary>
     Refunded,
 

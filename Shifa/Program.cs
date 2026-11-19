@@ -35,6 +35,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.AddShifaLogging();
 builder.Services.AddShifaApi(builder.Configuration);
+builder.Services.AddShifaSecurity(builder.Configuration);
 builder.Services.AddShifaInfrastructure();
 
 // DbContexts: one per module, each in its own schema with its own migrations history.
@@ -64,6 +65,7 @@ builder.Services.AddSingleton<MembershipAccessCache>();
 builder.Services.AddSingleton<ITokenService, TokenService>();
 builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddShifaEmail(builder.Configuration, builder.Environment);
+builder.Services.AddShifaSms(builder.Configuration, builder.Environment);
 builder.Services.AddScoped<PasswordTokens>();
 builder.Services.AddScoped<IIdentityApi, IdentityApi>();
 builder.Services.AddScoped<IAuthRepo, AuthRepo>();
@@ -92,6 +94,7 @@ builder.Services.AddScoped<ISchedulingApi, SchedulingApi>();
 // Clinical
 // Billing
 builder.Services.AddScoped<BillingNumbers>();
+builder.Services.AddScoped<BillingIdempotency>();
 builder.Services.AddScoped<InvoiceIssuer>();
 builder.Services.AddScoped<IBillingApi, BillingApi>();
 builder.Services.AddScoped<ICashierShiftRepo, CashierShiftRepo>();
@@ -113,7 +116,7 @@ builder.Services.AddShifaReports(builder.Configuration, builder.Environment);
 // Outbox, notifications and background jobs (ADR-005, ADR-015)
 builder.Services.AddShifaMessaging(builder.Configuration);
 builder.Services.AddScoped<NoShowMarker>();
-builder.Services.AddShifaJobs(builder.Configuration);
+builder.Services.AddShifaJobs(builder.Configuration, builder.Environment);
 
 // Clinical
 builder.Services.AddScoped<IClinicalApi, ClinicalApi>();
@@ -122,6 +125,14 @@ builder.Services.AddScoped<IPatientClinicalRepo, PatientClinicalRepo>();
 builder.Services.AddScoped<IPortalPrescriptionRepo, PortalPrescriptionRepo>();
 
 var app = builder.Build();
+
+// Explicit command at deploy time, never run at startup (ADR-017):
+//   dotnet Shifa.dll --migrate
+if (args.Contains("--migrate"))
+{
+    await MigrationCommand.RunAsync(app.Services);
+    return;
+}
 
 // Explicit command, never run at startup:
 //   dotnet run --project Shifa -- --seed-platform-admin
@@ -140,9 +151,12 @@ if (args.Contains("--seed-platform-admin"))
 
 // Request logging wraps the exception handler, so it logs the status the client really got (a business rule's 400,
 // not a 500 with a stack trace); unexpected exceptions are logged by GlobalExceptionHandler.
+// Real client IP and scheme from the reverse proxy first, so everything after sees them.
+app.UseShifaForwardedHeaders();
 app.UseSerilogRequestLogging();
 // Catches errors from everything after it.
 app.UseExceptionHandler();
+app.UseShifaSecurityHeaders();
 app.UseRequestLocalization();
 
 if (app.Environment.IsDevelopment())

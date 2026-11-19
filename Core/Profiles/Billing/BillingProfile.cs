@@ -50,6 +50,7 @@ public class BillingProfile : Profile
 
         CreateMap<Refund, RefundDto>()
             .ForMember(dest => dest.Method, opt => opt.MapFrom(src => src.Method.ToString()))
+            .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.Status.ToString()))
             .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => src.CreationDate));
 
         CreateMap<CreditNote, CreditNoteDto>()

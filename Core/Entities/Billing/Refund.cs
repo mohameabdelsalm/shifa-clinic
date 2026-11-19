@@ -23,4 +23,7 @@ public class Refund : TenantOwnedEntity
 
     /// <summary>The gateway's refund transaction id for online refunds.</summary>
     public string? ExternalReference { get; set; }
+
+    /// <summary>Online refunds: Pending until the gateway answers (ADR-017). Desk refunds are Completed at once.</summary>
+    public RefundStatusEnum Status { get; set; } = RefundStatusEnum.Completed;
 }

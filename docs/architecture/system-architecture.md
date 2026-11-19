@@ -32,7 +32,7 @@ flowchart LR
 | Jobs | Hangfire (SQL Server storage) | Reminders, no-show marking, cleanup, reports |
 | Cache | Redis via HybridCache | Tenant-prefixed keys; never the booking authority |
 | Logging | Serilog → console, Seq locally | No medical data, tokens or OTPs in logs |
-| Observability | OpenTelemetry (traces, metrics) | Added in Phase 10 with the production exporter |
+| Observability | Serilog logs + health checks (`/health/live`, `/health/ready`) | No OpenTelemetry (product owner, ADR-017) |
 
 ## Request pipeline
 

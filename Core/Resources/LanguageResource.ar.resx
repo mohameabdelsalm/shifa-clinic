@@ -180,6 +180,7 @@
 
 استلمت {clinic} مبلغ {amount} {currency} للفاتورة {invoice}. رقم الإيصال: {receipt}.</value></data>
   <data name="Notification.PaymentReceipt.Subject" xml:space="preserve"><value>إيصال دفع</value></data>
+  <data name="RefundPending" xml:space="preserve"><value>لم تؤكد بوابة الدفع الاسترداد بعد. تم تسجيله كمعلّق؛ راجعه في بوابة الدفع قبل المحاولة مرة أخرى.</value></data>
   <data name="ReportPeriodTooLong" xml:space="preserve"><value>التقرير يغطي 366 يوماً على الأكثر.</value></data>
   <data name="Report.DailyBranches" xml:space="preserve"><value>التقرير اليومي للفروع</value></data>
   <data name="Report.Revenue" xml:space="preserve"><value>الإيرادات والتحصيل</value></data>

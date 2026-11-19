@@ -2,4 +2,5 @@
   <Project Path="Core/Core.csproj" />
   <Project Path="Infrastructure/Infrastructure.csproj" />
   <Project Path="Shifa/Shifa.csproj" />
+  <Project Path="Shifa.Tests/Shifa.Tests.csproj" />
 </Solution>

@@ -243,6 +243,13 @@ public class AuthRepo : IAuthRepo
         if (!known)
             return generic;
 
+        // No SMS provider yet (Sms:Provider=Disabled): no code can reach the patient, so none is created. Same answer.
+        if (!_sms.IsEnabled)
+        {
+            await _audit.LogAsync("Portal.OtpSkippedSmsDisabled", targetTenantId: tenant.Id, cancellationToken: cancellationToken);
+            return generic;
+        }
+
         var since = now.AddMinutes(-10);
         var recent = await _context.OtpChallenges.CountAsync(
             c => c.TenantId == tenant.Id && c.PhoneNumber == phone && c.CreationDate > since, cancellationToken);

@@ -29,10 +29,12 @@ public sealed class NotificationPlanner
     private readonly ITenantContext _tenant;
     private readonly TimeProvider _time;
     private readonly NotificationOptions _options;
+    private readonly ISmsSender _sms;
 
     public NotificationPlanner(NotificationsDbContext context, IPatientsApi patients, IClinicApi clinic, ITenancyApi tenancy, ITenantContext tenant,
-        TimeProvider time, IOptions<NotificationOptions> options)
+        TimeProvider time, IOptions<NotificationOptions> options, ISmsSender sms)
     {
+        _sms = sms;
         _context = context;
         _patients = patients;
         _clinic = clinic;
@@ -124,9 +126,9 @@ public sealed class NotificationPlanner
     private Task<bool> EnabledAsync(CancellationToken cancellationToken) =>
         _tenancy.IsFeatureEnabledAsync(_tenant.TenantId ?? throw new InvalidOperationException("No tenant."), FeatureCodes.Notifications, cancellationToken);
 
-    /// <summary>SMS to a phone when there is one, else e-mail; nothing when the patient has neither.</summary>
-    private static (NotificationChannelEnum, string)? Recipient(Core.DTO.Patients.PatientContact? contact) =>
-        contact?.PhoneNumber is { Length: > 0 } phone ? (NotificationChannelEnum.Sms, phone)
+    /// <summary>SMS to a phone when there is one (and SMS is enabled), else e-mail; nothing when neither works.</summary>
+    private (NotificationChannelEnum, string)? Recipient(Core.DTO.Patients.PatientContact? contact) =>
+        _sms.IsEnabled && contact?.PhoneNumber is { Length: > 0 } phone ? (NotificationChannelEnum.Sms, phone)
         : contact?.Email is { Length: > 0 } email ? (NotificationChannelEnum.Email, email)
         : null;
 
