@@ -1,0 +1,213 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="UnexpectedError" xml:space="preserve">
+    <value>حدث خطأ ما. من فضلك حاول مرة أخرى لاحقًا.</value>
+  </data>
+  <data name="InvalidInput" xml:space="preserve">
+    <value>البيانات المدخلة غير صحيحة.</value>
+  </data>
+  <data name="NotFound" xml:space="preserve">
+    <value>العنصر المطلوب غير موجود.</value>
+  </data>
+  <data name="Forbidden" xml:space="preserve">
+    <value>ليس لديك صلاحية لتنفيذ هذا الإجراء.</value>
+  </data>
+  <data name="Retrieved" xml:space="preserve">
+    <value>تم جلب البيانات بنجاح.</value>
+  </data>
+  <data name="Created" xml:space="preserve">
+    <value>تمت الإضافة بنجاح.</value>
+  </data>
+  <data name="Updated" xml:space="preserve">
+    <value>تم التعديل بنجاح.</value>
+  </data>
+  <data name="Deleted" xml:space="preserve">
+    <value>تم الحذف بنجاح.</value>
+  </data>
+  <data name="Required" xml:space="preserve"><value>حقل مطلوب غير مُدخل.</value></data>
+  <data name="InvalidEmail" xml:space="preserve"><value>البريد الإلكتروني غير صحيح.</value></data>
+  <data name="PasswordTooWeak" xml:space="preserve"><value>كلمة المرور يجب ألا تقل عن 10 أحرف وتحتوي على حرف كبير وحرف صغير ورقم.</value></data>
+  <data name="InvalidCredentials" xml:space="preserve"><value>بيانات الدخول غير صحيحة.</value></data>
+  <data name="InvalidToken" xml:space="preserve"><value>الجلسة غير صالحة. من فضلك سجّل الدخول مرة أخرى.</value></data>
+  <data name="Unauthorized" xml:space="preserve"><value>يجب تسجيل الدخول أولًا.</value></data>
+  <data name="TenantInactive" xml:space="preserve"><value>هذه المؤسسة غير نشطة.</value></data>
+  <data name="RoleNotFound" xml:space="preserve"><value>الدور غير موجود.</value></data>
+  <data name="RoleNameDuplicated" xml:space="preserve"><value>يوجد دور بنفس الاسم.</value></data>
+  <data name="SystemRoleLocked" xml:space="preserve"><value>لا يمكن تعديل أو حذف هذا الدور الأساسي.</value></data>
+  <data name="InvalidPermission" xml:space="preserve"><value>صلاحية واحدة أو أكثر غير صحيحة.</value></data>
+  <data name="StaffNotFound" xml:space="preserve"><value>الموظف غير موجود.</value></data>
+  <data name="StaffAlreadyExists" xml:space="preserve"><value>هذا الشخص عضو بالفعل في المؤسسة.</value></data>
+  <data name="EmployeeLimitReached" xml:space="preserve"><value>تم الوصول للحد الأقصى للموظفين في باقتك.</value></data>
+  <data name="CannotSuspendSelf" xml:space="preserve"><value>لا يمكنك إيقاف حسابك.</value></data>
+  <data name="BranchNotFound" xml:space="preserve"><value>فرع واحد أو أكثر غير موجود.</value></data>
+  <data name="TenantNotFound" xml:space="preserve"><value>المؤسسة غير موجودة.</value></data>
+  <data name="TenantSlugDuplicated" xml:space="preserve"><value>الاسم المختصر مستخدم بالفعل.</value></data>
+  <data name="InvalidSlug" xml:space="preserve"><value>الاسم المختصر يقبل أحرفًا إنجليزية صغيرة وأرقامًا وشرطات فقط.</value></data>
+  <data name="PlanNotFound" xml:space="preserve"><value>الباقة غير موجودة.</value></data>
+  <data name="PlanCodeDuplicated" xml:space="preserve"><value>يوجد باقة بنفس الكود.</value></data>
+  <data name="LastTenantAdmin" xml:space="preserve"><value>يجب أن يبقى في المؤسسة مسؤول نشط واحد على الأقل.</value></data>
+  <data name="InvalidSchedule" xml:space="preserve"><value>الجدول غير صحيح: وقت النهاية يجب أن يكون بعد البداية وطول الفترة يقبل القسمة على مدة الموعد.</value></data>
+  <data name="ScheduleOverlap" xml:space="preserve"><value>للدكتور مواعيد عمل أخرى تتداخل مع هذا الجدول.</value></data>
+  <data name="DoctorNotFound" xml:space="preserve"><value>الدكتور غير موجود.</value></data>
+  <data name="DoctorNotAtBranch" xml:space="preserve"><value>الدكتور لا يعمل في هذا الفرع.</value></data>
+  <data name="SpecialtyNotFound" xml:space="preserve"><value>تخصص واحد أو أكثر غير موجود.</value></data>
+  <data name="ServiceNotFound" xml:space="preserve"><value>الخدمة غير موجودة.</value></data>
+  <data name="TimeOffNotFound" xml:space="preserve"><value>الإجازة غير موجودة.</value></data>
+  <data name="DuplicateName" xml:space="preserve"><value>الاسم أو الكود مستخدم بالفعل.</value></data>
+  <data name="BranchLimitReached" xml:space="preserve"><value>تم الوصول للحد الأقصى للفروع في باقتك.</value></data>
+  <data name="DoctorLimitReached" xml:space="preserve"><value>تم الوصول للحد الأقصى للدكاترة في باقتك.</value></data>
+  <data name="InvalidPhone" xml:space="preserve"><value>رقم الهاتف غير صحيح.</value></data>
+  <data name="InvalidOtp" xml:space="preserve"><value>الكود غير صحيح أو منتهي.</value></data>
+  <data name="OtpMessage" xml:space="preserve"><value>كود التحقق الخاص بك في شفا هو {0}. صالح لمدة 5 دقائق. لا تشاركه مع أحد.</value></data>
+  <data name="OtpRequested" xml:space="preserve"><value>لو كان الرقم مسجلًا لدى العيادة، تم إرسال كود التحقق.</value></data>
+  <data name="PatientNotFound" xml:space="preserve"><value>المريض غير موجود.</value></data>
+  <data name="PatientAlreadyExists" xml:space="preserve"><value>يوجد مريض بنفس رقم الهوية.</value></data>
+  <data name="GuardianRequiredForMinor" xml:space="preserve"><value>المريض أقل من 18 سنة ويحتاج ولي أمر واحد على الأقل.</value></data>
+  <data name="InvalidDateOfBirth" xml:space="preserve"><value>تاريخ الميلاد غير صحيح.</value></data>
+  <data name="ConsentNotFound" xml:space="preserve"><value>الموافقة غير موجودة.</value></data>
+  <data name="GuardianNotFound" xml:space="preserve"><value>ولي الأمر غير موجود.</value></data>
+  <data name="PortalAccessNotFound" xml:space="preserve"><value>صلاحية البوابة غير موجودة.</value></data>
+  <data name="SlotNotAvailable" xml:space="preserve"><value>هذا الموعد غير متاح. من فضلك اختر وقتًا آخر.</value></data>
+  <data name="SlotTaken" xml:space="preserve"><value>تم حجز هذا الموعد للتو. من فضلك اختر وقتًا آخر.</value></data>
+  <data name="IdempotencyKeyRequired" xml:space="preserve"><value>مطلوب إرسال Idempotency-Key (حتى 100 حرف).</value></data>
+  <data name="IdempotencyKeyReused" xml:space="preserve"><value>تم استخدام هذا الـ Idempotency-Key لطلب مختلف.</value></data>
+  <data name="AppointmentNotFound" xml:space="preserve"><value>الموعد غير موجود.</value></data>
+  <data name="InvalidTransition" xml:space="preserve"><value>لا يمكن تنفيذ هذا الإجراء في حالة الموعد الحالية.</value></data>
+  <data name="BookingTargetInvalid" xml:space="preserve"><value>لا يمكن حجز هذا الدكتور لهذه الخدمة في هذا الفرع.</value></data>
+  <data name="PatientAlreadyBookedThatDay" xml:space="preserve"><value>للمريض موعد بالفعل مع هذا الدكتور في نفس اليوم.</value></data>
+  <data name="CheckInNotAllowedNow" xml:space="preserve"><value>تسجيل الحضور متاح قبل الموعد بساعتين وحتى نهاية نفس اليوم.</value></data>
+  <data name="CancelWindowPassed" xml:space="preserve"><value>الإلغاء أونلاين متاح حتى 3 ساعات قبل الموعد. من فضلك اتصل بالعيادة.</value></data>
+  <data name="NoShowTooEarly" xml:space="preserve"><value>يمكن تسجيل الغياب بعد 30 دقيقة من بداية الموعد.</value></data>
+  <data name="ConcurrentChange" xml:space="preserve"><value>قام شخص آخر بتعديل نفس البيانات في نفس الوقت. من فضلك أعد التحميل وحاول مرة أخرى.</value></data>
+  <data name="InvalidDateRange" xml:space="preserve"><value>فترة التاريخ غير صحيحة (بحد أقصى 62 يومًا).</value></data>
+  <data name="TooManyRequests" xml:space="preserve"><value>طلبات كثيرة. من فضلك حاول لاحقًا.</value></data>
+  <data name="VisitNotFound" xml:space="preserve"><value>الزيارة غير موجودة.</value></data>
+  <data name="VisitCompleted" xml:space="preserve"><value>هذه الزيارة مكتملة ولا يمكن تعديلها. أضف ملحقًا بدلًا من ذلك.</value></data>
+  <data name="VisitStillOpen" xml:space="preserve"><value>الزيارة ما زالت مفتوحة؛ عدّلها مباشرة بدلًا من إضافة ملحق.</value></data>
+  <data name="NotTheVisitDoctor" xml:space="preserve"><value>طبيب الموعد فقط يمكنه فتح هذه الزيارة أو تعديلها.</value></data>
+  <data name="AppointmentNotReadyForVisit" xml:space="preserve"><value>لا يمكن فتح الزيارة إلا بعد تسجيل حضور المريض.</value></data>
+  <data name="AttachmentNotFound" xml:space="preserve"><value>المرفق غير موجود.</value></data>
+  <data name="InvalidFile" xml:space="preserve"><value>مسموح فقط بملفات PDF أو JPEG أو PNG حتى 10 ميجابايت.</value></data>
+  <data name="AllergyNotFound" xml:space="preserve"><value>الحساسية غير موجودة.</value></data>
+  <data name="ConditionNotFound" xml:space="preserve"><value>المرض غير موجود.</value></data>
+  <data name="DoctorAccountInUse" xml:space="preserve"><value>حساب الموظف هذا مرتبط بطبيب آخر بالفعل.</value></data>
+  <data name="InvalidIcd10" xml:space="preserve"><value>أدخل كود ICD-10 صحيحًا (مثل J06.9).</value></data>
+  <data name="OnePrimaryDiagnosis" xml:space="preserve"><value>يمكن أن يكون تشخيص واحد فقط أساسيًا.</value></data>
+  <data name="VitalsRequired" xml:space="preserve"><value>أدخل قياسًا واحدًا على الأقل، في حدود القيم الطبيعية للإنسان.</value></data>
+  <data name="DoctorHasOpenVisits" xml:space="preserve"><value>هذا الطبيب لديه زيارات ما زالت مفتوحة. أكملها أولًا.</value></data>
+  <data name="InvalidAmount" xml:space="preserve"><value>أدخل مبلغًا صحيحًا (أكبر من صفر، وبحد أقصى رقمين عشريين).</value></data>
+  <data name="PaymentReferenceRequired" xml:space="preserve"><value>الدفع بالكارت أو المحفظة يحتاج الرقم المرجعي.</value></data>
+  <data name="InvoiceNotFound" xml:space="preserve"><value>الفاتورة غير موجودة.</value></data>
+  <data name="PaymentNotFound" xml:space="preserve"><value>الدفعة غير موجودة.</value></data>
+  <data name="ShiftNotFound" xml:space="preserve"><value>وردية الكاشير غير موجودة.</value></data>
+  <data name="NoOpenShift" xml:space="preserve"><value>افتح وردية كاشير في هذا الفرع أولًا.</value></data>
+  <data name="ShiftAlreadyOpen" xml:space="preserve"><value>لديك بالفعل وردية مفتوحة في هذا الفرع.</value></data>
+  <data name="ShiftClosed" xml:space="preserve"><value>هذه الوردية مقفولة بالفعل.</value></data>
+  <data name="AmountExceedsBalance" xml:space="preserve"><value>المبلغ أكبر من المتبقي على الفاتورة.</value></data>
+  <data name="AmountExceedsRefundable" xml:space="preserve"><value>المبلغ أكبر من المتاح استرداده من هذه الدفعة.</value></data>
+  <data name="InvoiceVoid" xml:space="preserve"><value>هذه الفاتورة ملغاة.</value></data>
+  <data name="InvoiceCantBeVoided" xml:space="preserve"><value>لا يمكن إلغاء فاتورة عليها مدفوعات أو إشعارات دائنة.</value></data>
+  <data name="ServiceHasNoPrice" xml:space="preserve"><value>هذه الخدمة ليس لها سعر في هذا الفرع.</value></data>
+  <data name="AppointmentNotCheckedIn" xml:space="preserve"><value>فاتورة الزيارة تُنشأ عند تسجيل حضور المريض.</value></data>
+  <data name="OnlinePaymentsNotConfigured" xml:space="preserve"><value>الدفع الأونلاين غير مُفعّل لهذه العيادة.</value></data>
+  <data name="FeatureNotEnabled" xml:space="preserve"><value>هذه الميزة غير مُفعّلة لعيادتك.</value></data>
+  <data name="NothingToPay" xml:space="preserve"><value>لا يوجد مبلغ مستحق على هذه الفاتورة.</value></data>
+  <data name="PaymentGatewayError" xml:space="preserve"><value>تعذّر الاتصال ببوابة الدفع. حاول مرة أخرى.</value></data>
+  <data name="OnlineRefundFailed" xml:space="preserve"><value>رفضت بوابة الدفع عملية الاسترداد.</value></data>
+  <data name="OnlinePaymentNotFound" xml:space="preserve"><value>عملية الدفع الأونلاين غير موجودة.</value></data>
+  <data name="OnlinePaymentNotRefundable" xml:space="preserve"><value>يمكن هنا فقط استرداد دفعة أونلاين لم يمكن تطبيقها على فاتورتها.</value></data>
+  <data name="Received" xml:space="preserve"><value>تم الاستلام.</value></data>
+  <data name="InvalidSignature" xml:space="preserve"><value>توقيع غير صالح.</value></data>
+  <data name="PasswordResetRequested" xml:space="preserve"><value>إذا كان هذا البريد مسجلاً لحساب، فقد أُرسل رابط لإعادة تعيين كلمة المرور.</value></data>
+  <data name="PasswordResetEmailSubject" xml:space="preserve"><value>إعادة تعيين كلمة مرور شفاء</value></data>
+  <data name="PasswordResetEmailBody" xml:space="preserve"><value>مرحباً {0}،
+
+استخدم هذا الرابط خلال 30 دقيقة لاختيار كلمة مرور جديدة:
+{1}
+
+إذا لم تطلب ذلك فتجاهل هذه الرسالة؛ كلمة مرورك لن تتغير.</value></data>
+  <data name="InvalidPasswordToken" xml:space="preserve"><value>هذا الرابط غير صالح أو انتهت صلاحيته. اطلب رابطاً جديداً.</value></data>
+  <data name="PasswordChanged" xml:space="preserve"><value>تم تغيير كلمة المرور. سجّل الدخول مرة أخرى.</value></data>
+  <data name="CurrentPasswordWrong" xml:space="preserve"><value>كلمة المرور الحالية غير صحيحة.</value></data>
+  <data name="PasswordMustChange" xml:space="preserve"><value>يجب أن تختلف كلمة المرور الجديدة عن الحالية.</value></data>
+  <data name="InvitationNotPending" xml:space="preserve"><value>لا توجد دعوة معلقة لهذا الموظف.</value></data>
+  <data name="InvitationSent" xml:space="preserve"><value>تم إرسال الدعوة.</value></data>
+  <data name="InvitationEmailSubject" xml:space="preserve"><value>دعوة للانضمام إلى {0} على شفاء</value></data>
+  <data name="InvitationEmailBody" xml:space="preserve"><value>مرحباً {0}،
+
+تمت إضافتك إلى {1} على شفاء. استخدم هذا الرابط خلال 72 ساعة لتعيين كلمة المرور:
+{2}</value></data>
+  <data name="UnknownPlaceholder" xml:space="preserve"><value>النص يستخدم متغيراً غير متاح لهذا النوع من الرسائل.</value></data>
+  <data name="Notification.AppointmentConfirmed.Sms" xml:space="preserve"><value>{clinic}: تم تأكيد موعدك مع {doctor} يوم {date} الساعة {time} - {branch}</value></data>
+  <data name="Notification.AppointmentConfirmed.Email" xml:space="preserve"><value>مرحباً {patient}،
+
+تم تأكيد موعدك مع {doctor} في {clinic} ({branch}) يوم {date} الساعة {time}.</value></data>
+  <data name="Notification.AppointmentConfirmed.Subject" xml:space="preserve"><value>تأكيد الموعد</value></data>
+  <data name="Notification.AppointmentReminder24h.Sms" xml:space="preserve"><value>{clinic}: تذكير بموعدك مع {doctor} غداً {date} الساعة {time} - {branch}</value></data>
+  <data name="Notification.AppointmentReminder24h.Email" xml:space="preserve"><value>مرحباً {patient}،
+
+تذكير: موعدك مع {doctor} في {clinic} ({branch}) يوم {date} الساعة {time}.</value></data>
+  <data name="Notification.AppointmentReminder24h.Subject" xml:space="preserve"><value>تذكير بالموعد</value></data>
+  <data name="Notification.AppointmentReminder2h.Sms" xml:space="preserve"><value>{clinic}: موعدك مع {doctor} اليوم الساعة {time} - {branch}</value></data>
+  <data name="Notification.AppointmentReminder2h.Email" xml:space="preserve"><value>مرحباً {patient}،
+
+موعدك مع {doctor} في {clinic} ({branch}) اليوم الساعة {time}.</value></data>
+  <data name="Notification.AppointmentReminder2h.Subject" xml:space="preserve"><value>موعدك اليوم</value></data>
+  <data name="Notification.AppointmentRescheduled.Sms" xml:space="preserve"><value>{clinic}: تم تغيير موعدك مع {doctor} إلى {date} الساعة {time} - {branch}</value></data>
+  <data name="Notification.AppointmentRescheduled.Email" xml:space="preserve"><value>مرحباً {patient}،
+
+تم تغيير موعدك مع {doctor} في {clinic} ({branch}) إلى يوم {date} الساعة {time}.</value></data>
+  <data name="Notification.AppointmentRescheduled.Subject" xml:space="preserve"><value>تغيير الموعد</value></data>
+  <data name="Notification.AppointmentCancelled.Sms" xml:space="preserve"><value>{clinic}: تم إلغاء موعدك مع {doctor} يوم {date} الساعة {time}</value></data>
+  <data name="Notification.AppointmentCancelled.Email" xml:space="preserve"><value>مرحباً {patient}،
+
+تم إلغاء موعدك مع {doctor} في {clinic} يوم {date} الساعة {time}.</value></data>
+  <data name="Notification.AppointmentCancelled.Subject" xml:space="preserve"><value>إلغاء الموعد</value></data>
+  <data name="Notification.PaymentReceipt.Sms" xml:space="preserve"><value>{clinic}: استلمنا {amount} {currency} للفاتورة {invoice}. إيصال {receipt}</value></data>
+  <data name="Notification.PaymentReceipt.Email" xml:space="preserve"><value>مرحباً {patient}،
+
+استلمت {clinic} مبلغ {amount} {currency} للفاتورة {invoice}. رقم الإيصال: {receipt}.</value></data>
+  <data name="Notification.PaymentReceipt.Subject" xml:space="preserve"><value>إيصال دفع</value></data>
+  <data name="RefundPending" xml:space="preserve"><value>لم تؤكد بوابة الدفع الاسترداد بعد. تم تسجيله كمعلّق؛ راجعه في بوابة الدفع قبل المحاولة مرة أخرى.</value></data>
+  <data name="ReportPeriodTooLong" xml:space="preserve"><value>التقرير يغطي 366 يوماً على الأكثر.</value></data>
+  <data name="Report.DailyBranches" xml:space="preserve"><value>التقرير اليومي للفروع</value></data>
+  <data name="Report.Revenue" xml:space="preserve"><value>الإيرادات والتحصيل</value></data>
+  <data name="Report.Doctors" xml:space="preserve"><value>تقرير الأطباء</value></data>
+  <data name="Report.Period" xml:space="preserve"><value>الفترة: من {0} إلى {1}</value></data>
+  <data name="Report.Generated" xml:space="preserve"><value>تاريخ الإصدار: {0}</value></data>
+  <data name="Report.Total" xml:space="preserve"><value>الإجمالي</value></data>
+  <data name="Report.Col.Date" xml:space="preserve"><value>التاريخ</value></data>
+  <data name="Report.Col.Branch" xml:space="preserve"><value>الفرع</value></data>
+  <data name="Report.Col.Doctor" xml:space="preserve"><value>الطبيب</value></data>
+  <data name="Report.Col.Appointments" xml:space="preserve"><value>المواعيد</value></data>
+  <data name="Report.Col.Completed" xml:space="preserve"><value>المكتملة</value></data>
+  <data name="Report.Col.NoShows" xml:space="preserve"><value>عدم الحضور</value></data>
+  <data name="Report.Col.Cancelled" xml:space="preserve"><value>الملغاة</value></data>
+  <data name="Report.Col.NoShowRate" xml:space="preserve"><value>نسبة عدم الحضور %</value></data>
+  <data name="Report.Col.Revenue" xml:space="preserve"><value>الإيرادات</value></data>
+  <data name="Report.Col.Collections" xml:space="preserve"><value>التحصيل</value></data>
+  <data name="Report.Col.Invoiced" xml:space="preserve"><value>المفوتر</value></data>
+  <data name="Report.Col.Credited" xml:space="preserve"><value>إشعارات دائنة</value></data>
+  <data name="Report.Col.Cash" xml:space="preserve"><value>نقدي</value></data>
+  <data name="Report.Col.Card" xml:space="preserve"><value>بطاقة</value></data>
+  <data name="Report.Col.Wallet" xml:space="preserve"><value>محفظة</value></data>
+  <data name="Report.Col.Online" xml:space="preserve"><value>أونلاين</value></data>
+  <data name="Report.Col.Refunded" xml:space="preserve"><value>المسترد</value></data>
+  <data name="Report.Col.Difference" xml:space="preserve"><value>غير المحصّل</value></data>
+  <data name="Report.Col.AvailableMinutes" xml:space="preserve"><value>الدقائق المتاحة</value></data>
+  <data name="Report.Col.BookedMinutes" xml:space="preserve"><value>الدقائق المحجوزة</value></data>
+  <data name="Report.Col.Utilization" xml:space="preserve"><value>نسبة الإشغال %</value></data>
+  <data name="SubscriptionReadOnly" xml:space="preserve"><value>انتهى اشتراك العيادة، لذلك النظام للقراءة فقط. تواصل مع مدير العيادة للتجديد.</value></data>
+</root>

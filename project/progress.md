@@ -1,0 +1,383 @@
+# Progress
+
+_Last updated: 2026-11-19_
+
+## Phases
+
+| Phase | State |
+|---|---|
+| 0 — Architecture finalization | ✅ Done |
+| 1 — Solution foundation | ✅ Done |
+| 2 — Identity, Tenancy, Platform Admin | ✅ Done, security-reviewed (opus / high) and fixed |
+| 3 — Clinic setup | ✅ Done |
+| 4 — Patients | ✅ Done |
+| 5 — Scheduling | ✅ Done, reviewed (opus / high) and fixed |
+| HRM layout | ✅ Restructured like Trio HRM (ADR-009) |
+| 6 — Clinical / EMR | ✅ Done, reviewed (opus / high) and fixed |
+| 7 — Billing | ✅ Implemented (ADR-011) + dynamic features (ADR-012) + Paymob (ADR-013); independent review (opus) done and fixed in Phase 10 (ADR-017) |
+| 8 — Outbox, jobs, notifications | ✅ Done (ADR-015) |
+| 9 — Reporting | ✅ Done (ADR-016): JSON + Excel + PDF |
+| 10 — Production readiness | ✅ Done (ADR-017): hardening, Docker/deploy runbook, indexes, Billing review fixes, tests restored (167 green) |
+
+## Current phase
+
+**All phases (0–10) done** (2026-11-19). What is left is outside the code: the product owner's decisions in the go-live checklist (`deploy/README.md`).
+- SMS provider (currently `Sms:Provider=Disabled` in production).
+- QuestPDF license type.
+- Retention of expired tokens and old notifications.
+- Approval to drop the unused `patients.Patients.NoShowCount` column and the throwaway `Shifa_Smoke` database.
+- The repository visibility on GitHub (currently Public).
+
+## Phase 10 — production readiness (2026-11-18/19, ADR-017)
+
+- **Hardening.**
+  - Fail-closed production settings: Data Protection keys, `Sms:Provider` (Fake only in Development, `Disabled`), QuestPDF license, plus the existing JWT key and SMTP.
+  - JWT key rotation (`Jwt:PreviousSigningKeys`).
+  - Forwarded headers trusted only from known proxies; CORS allow-list; security headers; `Cache-Control: no-store` on the API.
+  - No OpenTelemetry (product owner).
+- **Deployment.**
+  - `Dockerfile` (non-root, Arabic font, tzdata) and `deploy/` (compose + Caddy HTTPS, `.env.example`, runbook with backups/restore drill and the go-live checklist).
+  - `dotnet Shifa.dll --migrate` applies every module and installs the Hangfire schema, so the API login needs no DDL. The image build was not run here (Docker isn't running on this machine).
+- **Indexes** for statistics, reports and the cross-clinic jobs. Migrations `Scheduling/AddReportingIndexes` and `Billing/AddReportingIndexes`.
+- **Independent Billing review (opus) and fixes.**
+  - Online refunds go reserve → gateway → settle, so a refund can never be paid twice; an unclear gateway answer stays Pending.
+  - The webhook requires the intention's signed order id.
+  - NotApplied returns reserve (`Refunding`) and refund the captured amount.
+  - Credit notes are idempotent; request hashes are culture-independent; secrets are hidden in `ToString`; a voided visit invoice is replaceable; the dashboard money is by local day.
+  - Migration `Billing/HardenRefunds`.
+- **Tests restored** (`Shifa.Tests`, one project at the root: Unit / Architecture / Integration on SQL Server `Shifa_Tests`). **167 passed, 0 failed** (`dotnet test`, about 5 minutes).
+  - **Ported suite (135).** The old Phase 1–5 suite was ported to the HRM layout.
+    - Architecture tests rewritten for the layout. They had silently passed with zero modules; they now check the 8 DbContexts and fail if any is missing.
+    - Scheduling setup now prices the service (booking needs a price since ADR-011).
+    - Patient search sends `search` (the HRM field name).
+    - Check-in reads `{ queueNumber, invoiceId }`.
+  - **New tests (32).**
+    - Unit: invoice invariants, including 2000 random operations; refund reservation; Paymob HMAC against the documented field list written by hand; A6 read-only/blocked boundaries; dashboard/report counting rules; culture-independent idempotency hashes.
+    - Integration: parallel payments never overpay; payment and credit-note retries replay; signed callbacks only, with 5 parallel repeats recording one payment; a signed transaction replayed against another attempt is ignored; online refund pending/refused/succeeded; outbox → notifications → SMS, then cancel → reminders cancelled (redelivery creates nothing); feature off; read-only subscription and renewal; sign-in blocked after 30 days; revenue by branch-local day.
+    - New security rule: only listed endpoints may be anonymous.
+  - **Mutation checks.**
+    - With the webhook's order-id check removed, the replay test fails (attempt became NotApplied). This also showed the first version of that test passed for the wrong reason; it now uses another amount.
+    - With the credit-note idempotency record removed, the retry test fails (second note).
+  - **Faster runs.** Background work is off in tests: the dispatcher and jobs are called directly, which cut the run from ~10 to ~5 minutes.
+- **Smoke regression** (PowerShell, `Shifa_Smoke`): Paymob 37, clinical 113, features 15, identity 38, Phase 8 36, reports 23. All passed.
+
+## Phase 9 — reporting (2026-11-18, ADR-016)
+
+- **Reports** at `POST api/reports/{daily-branches|revenue|doctors}`, in `Format` Json, Xlsx (ClosedXML 0.105.1) or Pdf (QuestPDF 2026.9.2). All are computed live from the module APIs, in branch scope, by branch-local day, with a totals row. `Reports.Read` + `Feature.Reports`; file exports are audited.
+- **Module APIs:**
+  - `AppointmentCountRow.Minutes`;
+  - `IBillingApi.GetMoneyFlowsByLocalDayAsync` (money dated by the branch time zone);
+  - `IClinicApi.GetDoctorCapacityAsync` (schedule minus time off) and `GetBranchTimeZonesAsync`.
+  - `AppointmentStats` is now shared by the dashboard and the reports.
+- **QuestPDF license:** `Reports:QuestPdfLicense` is required outside Development (Community only under USD 1M revenue).
+- **Fonts:** `Reports:UseSystemFonts` / `Reports:PdfFontFamilies`; `Shifa/Fonts` is deployed with the app (Linux needs an Arabic font).
+- **No migration.**
+- **Verification:** reports smoke on `Shifa_Smoke`, **23/23 passed**. Covered:
+  - known data: 3 booked / 1 cancelled / 1 no-show → rate 50.0;
+  - revenue 200 vs collections 150 → not collected 50;
+  - a payment at 00:30 Cairo counted on that Cairo day, not the previous UTC day;
+  - doctor available 2790 min (2 days − 1 h off), booked 30 → utilization 1.1 %;
+  - 366-day and date-order validation; receptionist 403; branch scope (B manager sees nothing of A);
+  - xlsx (RTL, Arabic headers, amounts as numbers); PDF ar/en;
+  - 3 exports audited and JSON views not; feature off 403.
+  - The Arabic PDF was rendered to an image and checked by eye: right-to-left, joined letters, correct totals.
+- **Regression:** clinical 111/111 (dashboard included), features 15/15 (the check now takes new features), Paymob 31/31, identity 38/38, Phase 8 36/36.
+
+## Phase 8 — outbox, jobs, notifications (2026-11-18, ADR-015)
+
+- **Outbox/inbox** (opt-in per module):
+  - Scheduling publishes 6 appointment events; Billing publishes `PaymentRecorded` (desk and Paymob).
+  - `OutboxDispatcher` claims with `UPDLOCK/READPAST` + lease, retries with backoff, and poisons after 10 tries (unknown type at once).
+  - `InboxEventHandler` makes consumers idempotent.
+- **Hangfire 1.8.25** (`hangfire` schema): no-show every 5 min (A10), notification sending every minute, online-payment expiry every 30 min (new `Expired` status, still accepts a late callback), daily cleanup of processed outbox/inbox rows (14 days). Development: `/hangfire` and `POST /dev/jobs/{name}`.
+- **Notifications module** (`notifications` schema, `Feature.Notifications`):
+  - Confirmation, reminders 24 h and 2 h before, rescheduled, cancelled and receipt messages, by SMS, else e-mail.
+  - Templates: default ar/en, clinic overrides validated by placeholder.
+  - The sender re-checks the appointment and retries 3 times.
+  - `POST api/notifications/search` (masked recipient) and `GET/PUT api/notification-templates`.
+  - Permissions `Notifications.Read`/`Notifications.Manage`.
+- **E-mail:** MailKit sender (`Email:SmtpSecurity`); Docker images pinned (Mailpit v1.33.1, Seq 2026.1.17526, Azurite 3.37.0).
+- **Logging fix:** request logging now wraps the exception handler, so business errors log their real status (e.g. 400) instead of "500 + stack trace".
+- **Packages:** Hangfire.Core/AspNetCore/SqlServer 1.8.25, MailKit 4.18.2. Newtonsoft.Json pinned to 13.0.4, because Hangfire's minimum 11.0.1 has GHSA-5crp-9r3c-p9vr.
+- **Migrations:** `Scheduling/AddOutbox`, `Billing/AddOutbox` and `Notifications/InitialCreate`, applied to `Shifa` and `Shifa_Smoke`. The other 5 modules have no pending model changes.
+- **Verification:** Phase 8 smoke, **36/36 passed**. Covered:
+  - outbox → handler → 3 notifications; outbox processed; inbox recorded;
+  - Arabic confirmation SMS with doctor and branch;
+  - redelivered event creates nothing new; unknown type poisoned;
+  - reschedule cancels the old reminders and plans new ones; a due reminder is sent;
+  - a silently moved appointment's reminders are cancelled at send time;
+  - cancel → cancellation SMS; no-show job marks after 30 min and cancels the reminders;
+  - check-in + desk payment → receipt SMS with RCT number;
+  - patient without a phone → e-mail;
+  - template override, unknown placeholder 400, revert;
+  - feature off → nothing planned and API 403;
+  - 4 recurring jobs registered and the server running.
+- **Regression:** clinical 111/111, features 15/15 (now 6 features), Paymob 31/31, identity 38/38. The log has no phone numbers or message text, and no 500s.
+- **Open:**
+  - The SMS provider isn't chosen yet (fake sender).
+  - Retention of expired security tokens and old notifications needs a decision.
+  - Paymob reconciliation needs merchant API credentials.
+
+## Identity gaps (2026-11-16, ADR-014)
+
+- **Passwords:**
+  - `POST api/auth/password/forgot` (same answer always; at most 3 links per hour);
+  - `POST api/auth/password/reset` (token works once, revokes all sessions, clears lockout);
+  - `PUT api/auth/password` (current password required, counts toward lockout; portal tokens 403).
+  - New table `identity.PasswordTokens`, stored hashed.
+- **Invitations:** `POST api/staff` without a password e-mails a 72-hour set-password link (`User.InvitationPending`); `POST api/staff/{id}/resend-invitation`; `StaffDto.InvitationPending`.
+- **E-mail:** `IEmailSender`: SMTP (`Email:SmtpHost`…) or the Development-only fake (`GET /dev/email`); startup refuses the fake elsewhere. `App:StaffAppUrl` builds the links.
+- **Staff list follows branch scope:** search, view, update, suspend, activate and resend only reach staff sharing a branch with the caller (or all-branches staff); others 404. Closes the accepted risk from Phase 2.
+- **Subscription expiry (A6):** an ended subscription makes the clinic read-only for 30 days, then sign-in stops. Details:
+  - During read-only: GET, `/search`, dashboard, availability, switch tenant and own password change still work; other changes get 403 with a clear message.
+  - `GET api/subscription` shows the state.
+  - Recording a payment or changing the plan clears the tenant info and feature caches. The plan change previously left stale features for up to 30 s.
+  - "Latest subscription" now breaks the `StartsAt` tie on plan changes by id; the platform tenant list had the same tie.
+- Migration `Identity/AddPasswordTokens` (table + `Users.InvitationPending`, default false), applied to `Shifa` and `Shifa_Smoke`.
+- Verification: identity smoke on `Shifa_Smoke`, **38/38 passed**. Covered:
+  - invitation: e-mail, pending flag, resend invalidates the old link, weak password refused, link works once, sign-in;
+  - forgot/reset: unknown e-mail gets the same answer with no e-mail; reset revokes old sessions; 3-per-hour limit; garbage token 400;
+  - change password: wrong current, same password, sessions revoked;
+  - branch-scoped list, view and suspend;
+  - read-only: reads, search and dashboard work; creates get 403; own password change works; payment restores writes; 31 days after the end, sign-in 401.
+- Regression: clinical 111/111, features 15/15, Paymob 31/31. API log has no tokens or passwords.
+
+## Paymob online payments (2026-11-16, ADR-013)
+
+- **Settings:** `billing.PaymentGatewaySettings` (one per clinic; secret key + HMAC secret encrypted with Data Protection). `GET/PUT api/payment-gateway` (`Billing.Settings` + `Feature.OnlinePayments`); responses only say whether secrets are set.
+- **Paying:** `POST api/portal/invoices/{id}/pay-online` creates an `OnlinePaymentAttempt` (saved first) and a Paymob intention for exactly the balance, then returns the Unified Checkout URL. Billing data is the patient's name/e-mail (`IPatientsApi.GetBillingContactAsync`) and the portal phone.
+- **Callback:** `POST api/webhooks/paymob/{tenantId}` (anonymous, `webhooks` rate limit, 64 KB). HMAC-SHA512 over the 20 documented fields, constant-time. Success records an Online payment (`RCT-` number, no shift) in one save under an app lock on the attempt. Late payments become `NotApplied`; declines become `Failed`, and another card can still succeed. Repeats, pending and refund callbacks are ignored.
+- **Refunds:** `PaymobOnlineRefunds` replaces the placeholder. `PaymentRepo.Refund` for online payments takes an app lock on the payment, re-checks replay, reloads, calls Paymob, then saves; a failed save after Paymob succeeded is audited. `POST api/online-payments/{id}/refund` returns a NotApplied payment; `POST api/online-payments/search` (HRM style).
+- **TenantAdmin:** the default TenantAdmin role now always resolves to `Permissions.All`, so new permissions (like `Billing.Settings`) reach clinics created earlier. Before this, their stored list was frozen at creation and the role can't be edited.
+- **Config:** `Paymob:BaseUrl`, `Paymob:CheckoutUrl`, `Paymob:NotificationBaseUrl` (required to pay online), `Paymob:RedirectionUrl`, `Paymob:UseFake` (Development only); `DataProtection:KeysPath` persists the key ring; `RateLimiting:WebhookPermitLimit`.
+- Migration `Billing/AddOnlinePayments` (2 tables), applied to `Shifa` and `Shifa_Smoke`.
+- Verification: Paymob smoke on `Shifa_Smoke` with the fake client and HMAC-signed callbacks, **31/31 passed**. Covered:
+  - feature and permission gates; secrets not echoed and encrypted at rest;
+  - checkout URL; wrong, missing or other-tenant HMAC, and a tampered amount → 401, nothing recorded;
+  - success → invoice Paid; repeated callback and 5 parallel duplicates → one payment;
+  - desk payment first → NotApplied → returned → Refunded, second return refused;
+  - declined card, then a second card succeeds;
+  - partial online refund; refund callback ignored; another patient's invoice → 404.
+- Regression: clinical smoke 111/111, features 15/15. API log contains no secrets.
+- Not verified against the real Paymob sandbox (needs a merchant account): field names follow the docs read on 2026-11-16.
+
+## Dynamic features (2026-11-16, ADR-012)
+
+- `FeatureCodes` (Clinical, Billing, PatientPortal, Dashboard, OnlinePayments) with defaults; effective value = tenant override → plan entitlement → default (`ITenancyApi.GetFeaturesAsync`, 30 s cache). New table `tenancy.TenantFeatureOverrides` (migration `AddTenantFeatureOverrides`, applied to `Shifa` and `Shifa_Smoke`).
+- `[RequireFeature]` on Clinical, Billing, portal and dashboard controllers (403 "not enabled"); portal OTP silent when the portal is off; no visit invoice when Billing is off.
+- `GET api/platform/tenants/{id}/features`, `PUT api/platform/tenants/features` (Platform Admin, audited), `GET api/features` (the clinic's own list). Plans accept `Feature.*` entitlements.
+- Verification: smoke run, 15/15 passed (defaults, override off/on, clear 403, other features untouched, portal OTP silent, unknown code 400, tenant admin can't change features, plan without dashboard + per-tenant override).
+
+## Done in Phase 7 (2026-11-16)
+
+- **Billing module** (`billing` schema, 7 tables): `Invoice` (rowversion; `TryApplyPayment/Refund/Credit`, `TryVoid` keep `PaidAmount + CreditedAmount ≤ Total`), `InvoiceItem`, `Payment`, `Refund`, `CreditNote`, `CashierShift` (rowversion), `IdempotencyRecords`. Numbers `INV-/RCT-/RFD-/CN-yyyy-000001` via `BillingNumbers` (`DatabaseLocks`).
+- **Check-in issues the visit invoice:** `AppointmentRepo.CheckIn` → `IBillingApi.EnsureVisitInvoiceAsync` (idempotent, unique visit invoice per appointment); check-in returns `{ queueNumber, invoiceId }`; repair `POST api/invoices/visit/{appointmentId}`. Booking now needs a current price at the branch (`IClinicApi.GetCurrentPriceAsync`).
+- **APIs:** `api/cashier-shifts` (open, current, close with expected cash and variance, view, search), `api/invoices` (search HRM-style, view with items/payments/refunds/credit notes, extra invoice from the price list, void, credit notes), `api/payments` (pay, refunds — both need `Idempotency-Key`, scoped to the caller, and the caller's open shift), `api/portal/invoices`, `POST api/dashboard/payments` and Revenue/Collections in `api/dashboard/statistics`.
+- **Roles:** Receptionist gets `Billing.Read`/`Billing.Collect`; BranchManager gets `Billing.Refund` (new tenants).
+- **Online refunds** go through `IOnlineRefunds`; until Paymob is configured they are refused with a clear message.
+- Verification (HTTP smoke on `Shifa_Smoke`): a service without a price can't be booked; check-in creates one 300 invoice; repair returns the same invoice; payments without shift or key refused; overpayment, card without reference and 3 decimals refused; replay and key reuse (422); **5 parallel payments never overpay**; refund, credit note, void rules; extra invoice priced from the list; shift close with expected 560 and variance −5; payments dashboard and revenue/collections; portal invoices. All passed except one check that expected a re-check-in after the visit was already completed (correctly refused; the check was fixed).
+
+## HRM search and dashboard (2026-11-16, requested by the developer)
+
+- **All 8 searches** (branches, doctors, services, staff, patients, platform tenants, appointments, visits) now follow Trio HRM: `PaginationParameters` has `SortBy`, `SortType` (Ascending/Descending, default Descending) and `Search`; each repo has `Filter…`/`Sort…` (whitelisted `SortBy` names, unknown → default order). `Text` was replaced by `Search`. New filters: `Status` (branches, doctors, services, staff, tenants), `RoleId` (staff), `Gender` (patients).
+- **Dashboard** (`Reports.Read`, branch scope): `POST api/dashboard/statistics` (appointments, completed visits, cancellations, no-show rate, new patients; vs the same period last year with change % like HRM), `timeline` (daily ≤ 31 days, else monthly), `branches`, `doctors`. Data comes from `ISchedulingApi.CountAppointmentsAsync` (grouped in SQL), `IPatientsApi.GetRegistrationTimesAsync`, `IClinicApi.GetBranchNamesAsync/GetDoctorNamesAsync`.
+- **Payment statistics** (`POST api/dashboard/payments`, Revenue/Collections KPIs) are part of Phase 7 (ADR-011, roadmap step 6).
+- AutoMapper: two new advisories of the same class (GHSA-6vhm-j9h7-f9gh, GHSA-gpwp-5797-mjff, published 2026-11-13) suppressed by name with the reason; the product owner chose this over Mapster or a commercial license.
+- Verification: build clean; smoke run on `Shifa_Smoke` with 21 new checks: sorting both directions, the default direction, the free-text filter, paging, an unknown sort name, every search, dashboard numbers, the timeline, the breakdowns with names, an invalid range (400) and the permission (403). **0 failed.**
+
+## Phase 6 review (2026-11-07, opus / high)
+
+My own read plus an independent reviewer that didn't see my conclusions. **No High findings**: visit authorization (only the appointment's linked doctor), branch scope, tenant isolation, completed-visit immutability (rowversion on every content write), portal isolation and upload path safety were confirmed.
+
+| # | Severity | Finding | Fix |
+|---|---|---|---|
+| C1 | Medium | If the audit write failed after an attachment row was committed, the cleanup deleted the stored file → a record pointing at a missing file | The file is deleted only when the row wasn't saved; audit runs after, separately |
+| C2 | Medium | Re-linking a doctor's staff account while the doctor had open visits handed those visits to another person (e.g. an admin could link themselves and write as Dr. A) | Link/unlink refused while the doctor has open visits (`IClinicalApi.HasOpenVisitsAsync`). Self-link stays allowed (owner-doctor case) and audited |
+| C3 | Low-Med | Clinical audit rows used the request's cancellation token: a client disconnect after a commit lost the audit row | Clinical audits use `CancellationToken.None` |
+| C4 | Low | Deactivating a doctor mid-visit left visits open for ever | Deactivation refused while the doctor has open visits |
+| C5 | Low | Portal prescription reads weren't audited | One audit row per patient returned |
+| C6 | Low | `items: [null]` in diagnoses/prescription → 500 | Validators refuse null items (400) |
+| C7 | Low | Duplicate ICD codes were silently de-duplicated and could drop the primary flag | Duplicates refused (400) |
+| C8 | Low | A cancelled upload could leave a half-written file | Storage deletes partial files; the save is inside the cleanup block |
+| C9 | Low | Original file names kept control characters/quotes; no `nosniff` on downloads | Names sanitized; downloads send `X-Content-Type-Options: nosniff` |
+| C10 | Low | Unknown/foreign patient id on allergy/condition add returned 400 | 404, per the tenant rule |
+| C11 | Low | Visit searches without a patient filter weren't audited (who saw which doctor when) | Every search is audited with its filters (ids only) |
+| C12 | Low (mine) | ICD-10 format refused valid U codes (e.g. U07.1 COVID-19) | Pattern `^[A-Z][0-9][0-9A-Z](\.[0-9A-Z]{1,4})?$` |
+
+Verification: build clean; the HTTP smoke run on `Shifa_Smoke` now has **56/56 checks passing**, including new checks for C2, C4, C6, C7, C9, C10, C12. Audit rows for portal reads and searches were confirmed in the database. Not covered by the run: audit failure after commit (C1/C3) and cancelled uploads (C8), which were checked by reading the code only.
+
+Accepted: retrying "add vitals" after a lost response can create a duplicate vitals row (no idempotency key on clinical writes).
+
+## Done in Phase 6 (2026-11-07)
+
+Decisions by the product owner: clinical history follows branch scope (allergies/conditions tenant-wide); doctors **and nurses** record vitals (new permission `Clinical.Vitals`); attachments now, on local disk. Details in ADR-010.
+
+- **Clinic:** `Doctor.MembershipId` links a doctor to a staff account (`PUT api/doctors/account`, unique per tenant). `IClinicApi.GetDoctorIdForMembershipAsync`, `IIdentityApi.IsActiveMembershipAsync`.
+- **Scheduling:** `ISchedulingApi` (`GetAppointmentForVisitAsync`, `StartVisitAsync` CheckedIn → InProgress, `CompleteVisitAsync` InProgress → Completed).
+- **Clinical module** (`clinical` schema, 10 tables): `Visit` (rowversion, one per appointment), `ClinicalNote`, `VitalSign`, `Diagnosis` (ICD-10 format, one primary), `Prescription` + `PrescriptionItem`, `VisitAttachment`, `ClinicalAddendum`, `PatientAllergy`, `PatientCondition`.
+- **`api/visits`:** open, search, view (audited), note, vitals, diagnoses, prescription, attachments (upload PDF/JPEG/PNG ≤ 10 MB with signature check; download audited), complete, addenda.
+- **`api/patient-clinical`:** clinical summary (audited), allergies and conditions add/remove. **`api/portal/prescriptions`:** completed visits' prescriptions for linked patients.
+- **Infrastructure:** `IFileStorage` + `LocalFileStorage` (`FileStorage:RootPath`, default `App_Data/files`, ignored by git).
+- Migrations `Clinic/AddDoctorMembership` and `Clinical/InitialCreate`, applied to `Shifa`.
+
+Verification (no automated tests, ADR-009): build clean; `has-pending-model-changes` = none. **End-to-end smoke run over HTTP, 46/46 checks passed**, against a separate database `Shifa_Smoke` (created for this; the dev database was not touched by the run). The run covered:
+- linking the doctor to a staff account; booking and check-in;
+- refusing a visit before check-in, and refusing an unlinked doctor (403);
+- opening a visit, and that opening again returns the same visit; appointment InProgress → Completed;
+- a nurse-role user recording vitals while another doctor can't write the note;
+- refusing implausible vitals, an invalid ICD-10 code and two primary diagnoses;
+- a PDF upload, and refusing a renamed binary; downloading the file;
+- after completion, note, vitals and attachments refused, and an addendum accepted;
+- allergies, conditions and the patient summary;
+- portal prescriptions, and the portal refused on staff visit endpoints;
+- an audit row for every clinical read and write.
+The script is in the session scratchpad, not the repo.
+
+Left open:
+- Existing tenants' Doctor/Nurse roles don't get `Clinical.Vitals` automatically.
+- No size quota per tenant for attachments.
+- The `Shifa_Smoke` database can be dropped any time; ask before doing it.
+
+## Phase 5 review (2026-11-07, opus / high)
+
+Scope: booking transaction, availability calculator, lifecycle, idempotency, branch scope, portal rules. My own read plus an independent reviewer that didn't see my conclusions. Both found **no way to double-book a doctor**: every appointment claims 5-minute UTC ticks, and the unique index `(TenantId, DoctorId, SlotStart) WHERE IsDeleted = 0` covers every branch.
+
+| # | Severity | Finding | Fix |
+|---|---|---|---|
+| S1 | Medium | A reschedule to the same start, racing a cancel, could leave a cancelled appointment holding live ticks: EF sent no UPDATE, so the rowversion was never checked | Reschedule always updates the appointment row (`IsModified`), so the rowversion is checked → 409 |
+| S2 | Medium | The portal list returned the staff `AppointmentDto` (booking source, staff-written cancel reason, timestamps) | New `PortalAppointmentDto` |
+| S3 | Low-Med | No-show kept its ticks while availability treated the time as free → offered slots failed with 409 | No-show releases the ticks in the same save |
+| S4 | Low-Med | Idempotency keys were shared by every caller in a tenant: one caller's key could block another for 24 h, or replay an identical request | Keys scoped to the caller: `BookAppointment:m:{membershipId}` / `BookAppointment:p:{hash of phone}` |
+| S5 | Low | Check-in was refused when the 2-hour window crossed midnight (visit at 00:30, arrival at 23:45) | Window = from start − 2 h until the end of the appointment's local day |
+| S6 | Low | Repeated check-in returned no queue number; a double-click race returned 409 | Repeat returns the same number; the race loser reloads and returns it |
+| S7 | Low | Extreme dates (e.g. `9999-12-31`) overflowed time-zone math → 500 | Validators bound dates to 2000–2100 (400) |
+| S8 | Low | Across a mid-window DST gap, a visit could end after the shift (wall-clock vs elapsed time). Cairo isn't affected (midnight transitions) | Calculator also checks the end in UTC against the window end |
+| S9 | Low | SQL deadlock victims and app-lock timeouts became 500 | Mapped to 409 `ConcurrentChange` (nothing saved, safe to retry) |
+| S10 | Low | `Patient.NoShowCount` was never updated (Scheduling owns no-show counts), so the patient view always showed 0 | Removed from `PatientDto` |
+
+Verification: build clean; the API starts in Development (DI validated on build), `/health/ready` 200, Swagger 200, anonymous portal call → 401 in the `Response` shape. **Not test-verified:** the tests are paused (ADR-009), so S1–S9 were checked by reading and building only. Re-check them when the tests come back.
+
+Left open:
+- The `patients.Patients.NoShowCount` column is still in the database (always 0). Dropping it needs a migration; ask before running it.
+- A Pending online booking can't be marked no-show (Pending → NoShow isn't an allowed transition), so it keeps its time until it is confirmed or cancelled. This is a business decision.
+- The portal list shows ids, not doctor/branch/service names (names need `IClinicApi` lookups).
+
+## HRM layout restructure (2026-11-07)
+
+- 16 projects → 3 (`Core`, `Infrastructure`, `Shifa`); 323 types moved to one file each by a Roslyn script; namespaces follow folders without a `Shifa.` prefix.
+- All DI registrations in `Shifa/Program.cs` (like HRM); the per-module `XxxModule.cs` files are gone.
+- AutoMapper 14.0.0 (MIT) with profiles per feature (Branch, Specialty, Doctor, Service, Patient, Appointment, Plan, Tenant). Repos use `_mapper.Map<Entity>(model)`, `_mapper.Map(model, entity)` and `ProjectTo<Dto>`. DTOs built from several tables (Role, Staff, Plan, Tenant lists, portal patients) stay as LINQ projections, because the entities have no navigation properties.
+- Bug avoided: with all DbContexts in one assembly, `ApplyConfigurationsFromAssembly` loaded every module's entities into every context. Each context now applies only `Infrastructure.Configurations.<Module>`. Then `has-pending-model-changes` = no changes for all 5 contexts (database untouched).
+- Verification before removing tests: build clean, all 93 integration tests passed on the new layout (twice, before and after removing unused usings).
+- Tests removed at the developer's request (to be added back after the project is finished). The full suite is in git at commit `db02aa4` (`tests/`).
+- `AvailableSlot` moved to `Core/DTO/Scheduling` (needed by the AutoMapper profile). Scheduling `Events` records removed (unused until the outbox).
+
+## Phase 2 security review (2026-11-07, opus / high)
+
+Scope: every anonymous endpoint, every read/write by id, token issue/refresh/revoke, tenant resolution, role/staff management, onboarding. No raw SQL or `IgnoreQueryFilters` exists in `src`.
+
+| # | Severity | Finding | Fix | Test |
+|---|---|---|---|---|
+| R1 | High | A member with `Staff.Manage` could suspend or demote anyone, including the TenantAdmin | Can only change/suspend members whose current permissions and branches you hold | `A_staff_manager_cannot_suspend_or_demote_someone_more_powerful` |
+| R2 | High | The last TenantAdmin could lose the role, leaving the tenant without an admin | Last active TenantAdmin can't be suspended or demoted | `The_last_active_TenantAdmin_...` |
+| R3 | Medium | A `Roles.Manage` holder could strip or delete permissions they don't hold | Editing/deleting a role requires holding its current permissions | `A_role_manager_cannot_strip_...` |
+| R4 | Medium | Two concurrent refreshes with one token could both succeed (bypassing reuse detection) | Atomic conditional claim (`ExecuteUpdate ... WHERE RevokedAt IS NULL`) | `Two_concurrent_refreshes_...` |
+| R5 | Medium | Reactivating a suspended member bypassed `MaxEmployees`; a disabled limit meant unlimited | Capacity check on activate; disabled limit = none allowed | `Reactivating_a_member_...` |
+| R6 | Medium | Tenant slug index ignored soft delete, so a failed onboarding made the slug unusable (500 on retry) | Filtered unique index + migration `FilterTenantSlugIndex` | `A_slug_freed_by_a_removed_tenant_...` |
+| R7 | Low | No fallback policy: a future endpoint without an attribute would be public | `FallbackPolicy = RequireAuthenticatedUser`; health checks `AllowAnonymous` | existing health test |
+| R8 | Low | JWT accepted any HMAC algorithm; 401/403 bodies weren't in the `Response` shape | `ValidAlgorithms = HS256`, `RequireSignedTokens`; JwtBearer `OnChallenge`/`OnForbidden` | `Authentication_and_authorization_failures_use_the_Response_shape` |
+
+Verification: with the `src` fixes stashed, 6 of the 7 regression tests failed (the slug test passed only because the test database already had the new index).
+
+Accepted risks (documented, not fixed now):
+- Adding staff by email reveals whether that email already has a Shifa account (an invitation flow would remove this; planned with password reset).
+- Anyone can lock an account for 15 minutes with 5 wrong passwords (rate limit 10/min per IP slows it; CAPTCHA/backoff later).
+- Rate limit is per client IP; behind a reverse proxy, forwarded headers must be configured (Phase 10).
+- Membership/tenant status cache is per instance (30 s): with several instances a suspension can take up to 30 s to apply everywhere.
+- Concurrent staff additions can exceed `MaxEmployees` by one (commercial limit, not a safety rule).
+- Onboarding writes two schemas without a shared transaction; failure is compensated by soft-deleting the tenant.
+- ~~Staff listing (`api/staff`) is still tenant-wide~~ — fixed in ADR-014: staff endpoints follow branch scope.
+- No CORS or security headers yet (Phase 10).
+
+## Done in Phase 0–1
+
+See git history. Highlights: ADR-001..007, architecture docs, `ModuleDbContext` (schema, HiLo, `Tenant`/`SoftDelete` filters, `(TenantId, Id)` keys), `AuditTenantInterceptor`, `GlobalExceptionHandler`, validation filter, health checks, Serilog, Tenancy + Clinic initial migrations.
+
+## Done in Phase 5
+
+- **Scheduling module** (`scheduling` schema): `Appointment` (status machine, `rowversion`), `AppointmentSlot` (5-minute UTC ticks, unique `(TenantId, DoctorId, SlotStart)` over live rows = the double-booking guard at every branch), `AppointmentStatusHistory`, `IdempotencyRecord` (24 h).
+- **Availability:** pure `AvailabilityCalculator` (schedule windows in branch time, multi-slot services fit inside one window, DST gaps skipped, repeated hour = first occurrence, time off + the doctor's appointments at any branch are busy, 90-day horizon, nothing in the past).
+- **`api/appointments`:** availability, book (`Idempotency-Key` required: same body → same id, different body → 422, concurrent retries → same id), search (≤ 62 days), view, confirm, check-in (from 2 h before until the end of the local day, queue number per branch/doctor/day), cancel (frees the ticks), no-show (30 min after start), reschedule (can overlap its own old ticks, one transaction). Every change writes a history row and an audit entry. Branch-limited staff only see and change appointments of their branches (others are 404).
+- **`api/portal/appointments`:** availability, book (source Online, only linked patients with `CanBook`), list of linked patients' appointments, cancel (until 3 h before). Online bookings of a patient with 3+ no-shows start as Pending.
+- **Contracts:** `IClinicApi.GetBookingInputsAsync`, `GetBranchTimeZoneAsync`, `GetDoctorTimeOffAsync`; Scheduling events records (not published yet: no outbox before Phase 6/8). Schedule times must sit on the 5-minute grid.
+- **Shared fixes found while testing:**
+  - JWT lifetime is checked against the app's `TimeProvider` (the same clock that issues tokens).
+  - `DatabaseLocks.AcquireAsync` (`sp_getapplock`) serializes "max + 1" numbering. Used for queue numbers and **patient MRNs**: the Phase 4 test `Concurrent_registrations_all_succeed_with_distinct_MRNs` failed 6/6 when run alone (8 concurrent registrations used up the 5 retries → 500). It passed earlier only by timing.
+  - `DbUpdateConcurrencyException` → 409.
+
+## Done in Phase 4
+
+- **Patients module:** `Patient` (running number + `MRN-000123` per tenant, retry on a number collision), `PatientIdentifier` (national ID / passport, unique per tenant and type), `PatientGuardian`, `PatientAccountAccess` (phone-number links), `PatientConsent` (grant once, revoke, history kept); `api/patients` (search by name/MRN/phone/exact identifier, view (audited), add, update, guardians, consents, portal-access links).
+- **Rules:** under-18 needs a guardian and keeps at least one; duplicate identifiers refused; phone numbers normalized (`PhoneNumbers`, Egypt default); future birth dates refused.
+- **Portal:** `api/portal/auth/otp/request|verify` (same answer for unknown numbers/clinics, SMS only to linked numbers, 3 per 10 min, 5-minute single-use code, 5 tries, HMAC-hashed), portal token (tenant + verified phone, no membership), refresh for portal sessions, `api/portal/patients` (only linked patients, separate DTO). Portal tokens are rejected by every staff endpoint (default + fallback policy), and staff tokens by `[PortalUser]`.
+- **Shared:** `ISmsSender` + in-memory fake (`GET /dev/sms` in Development), `IAccessContext.IsPortalUser/PortalPhoneNumber`, `IIdentityApi.IsActiveUserAsync`, `IPatientsApi`.
+
+## Done in Phase 3
+
+- **Clinic module:** `Specialty`, `Doctor`, `DoctorSpecialty`, `DoctorBranch`, `DoctorSchedule`, `DoctorTimeOff`, `Service`, `ServicePrice` (all with composite tenant FKs); `api/branches`, `api/specialties`, `api/doctors` (search/view/add/update/status, `PUT schedule`, `POST|DELETE time-off`), `api/services` (CRUD, `PUT price`).
+- **Branch scope:** members limited to some branches only see those branches, doctors who work there, and prices for them; they can't add a doctor to another branch, set schedules or prices elsewhere, create branches, or deactivate a doctor who also works elsewhere. `IAccessContext.BranchIds` added.
+- **Plan limits:** `MaxBranches`, `MaxDoctors` (disabled entitlement = none allowed).
+- **Schedules:** end after start, whole slots, no overlap inside the request or across the doctor's other branches; replacing a schedule is atomic; removing a doctor from a branch drops its schedule.
+- **Prices:** history kept, one open price per service and branch (filtered unique index), same price = no-op.
+- **Contract:** `IClinicApi.GetExistingBranchIdsAsync` (used by Staff).
+
+## Done in Phase 2
+
+- **Auth plumbing:** JWT (15 min) + rotating refresh tokens with theft detection, `Jwt` settings + dev-only ephemeral key, `[Permission]` / `[PlatformAdmin]` policies, scoped set-once `IAccessContext`, `ITenantScopeFactory`, `IAuditService`, `Permissions` catalog + default roles, `PagedList`, rate limiter on `api/auth`, Swagger Bearer scheme.
+- **Identity module:** `User`, `Membership`, `Role`, `RolePermission`, `MembershipRole`, `MembershipBranch`, `RefreshToken`, `AuditLog`; `api/auth` (login, refresh, switch-tenant, logout), `api/roles`, `api/staff`; lockout; escalation guards; `IIdentityApi`; Platform Admin seed command.
+- **Tenancy module:** `Plan`, `PlanEntitlement`, `TenantSubscription`, `SubscriptionPayment`; `api/platform/plans`, `api/platform/tenants` (create + onboarding with default roles and first TenantAdmin, suspend, activate, change plan, record payment); `ITenancyApi` (status, entitlements).
+- **Clinic:** `IClinicApi.GetExistingBranchIdsAsync`.
+- **TenantResolutionHandler:** validates tenant + membership per request (30 s cache) before setting the tenant and access contexts.
+
+## Database migrations
+
+| Module | Migration | Applied to |
+|---|---|---|
+| Tenancy | `InitialCreate`, `AddPlansAndSubscriptions`, `FilterTenantSlugIndex` | `Shifa` (dev), `Shifa_Tests` |
+| Clinic | `InitialCreate`, `AddClinicSetup` (9 composite tenant FKs) | `Shifa` (dev), `Shifa_Tests` |
+| Identity | `InitialCreate`, `AddOtpAndPortalTokens` (OtpChallenges, RefreshTokens.IsPortal) | `Shifa` (dev), `Shifa_Tests` |
+| Patients | `InitialCreate` (5 tables, 4 composite tenant FKs) | `Shifa` (dev), `Shifa_Tests` |
+| Scheduling | `InitialCreate` (4 tables, 4 filtered unique indexes, 2 composite tenant FKs) | `Shifa` (dev), `Shifa_Tests` |
+
+## Tests
+
+`dotnet test` → **167 passed, 0 failed** (2026-11-19, project `Shifa.Tests`): unit 51, architecture 12, integration 104. Details of what Phase 10 added: see the Phase 10 section. Below: the history of the suite before it was paused (2026-11-07).
+
+Phase 5 (15 integration tests on a fake clock + 30 unit tests): 10 parallel bookings of one slot → exactly one; overlapping multi-slot bookings in parallel → one; idempotency (missing key, replay, reuse 422, 5 parallel retries → one appointment, key expiry); cancel frees the slot; reschedule onto own ticks; one visit per patient/doctor/day; doctor busy across branches; check-in window, queue numbers, no-show timing; parallel check-ins get 1..5; check-in vs cancel race has one winner; branch scope; tenant isolation; portal `CanBook`, 3-hour cancel rule, Pending after 3 no-shows. Calculator: multi-slot, window fit, busy edges, range, DST spring/fall, 23/25-hour days.
+**Mutation check:** with `IX_AppointmentSlots_Tick` dropped from `Shifa_Tests`, both race tests failed (5–10 double bookings succeeded); index restored.
+
+Earlier: Phase 4 mutation checks: with portal tokens allowed on staff endpoints, or any OTP accepted, the portal tests fail. Phase 3 mutation check: with `HasAllBranches` forced to true, the two branch-scope tests fail. Mutation check: with the `Tenant` query filter replaced by `true`, 8 isolation tests fail (then restored).
+
+- Architecture (12) and Phase 1 integration (17), unchanged.
+- API integration (27), all through HTTP against SQL Server:
+  - Authentication: tokens, identical 401s for 5 failure kinds, lockout, refresh rotation + family revocation, logout, one person in two tenants + switch, bad tokens, platform token has no tenant permissions.
+  - **Tenant isolation:** each tenant sees only its roles; B can't read/update/delete A's roles; B can't read/update/suspend A's staff; A can't assign B's roles; membership lookup never crosses tenants; suspended tenant locked out immediately (and a stale token doesn't block signing in elsewhere).
+  - Authorization: 403 without permission, staff-manager and role-manager escalation blocked, system roles protected, suspended member loses access at once, can't suspend self, plan employee limit, unknown branch ids, platform endpoints reject anonymous and tenant admins, onboarding validation, audit rows for platform actions, tenant list.
+
+## Known gaps / notes
+
+- JWT key rotation and Platform Admin usage monitoring are deferred (ADR-007). Password reset/change, invitations and A6 are done (ADR-014).
+- No branch endpoints yet, so branch-scope assignment is only tested for rejection of unknown ids; positive branch-scope tests come with Phase 3.
+- `AuditService` saves through the request's `IdentityDbContext`; an audit failure after a business change surfaces as an error to the caller (change already committed).
+- EF tools 10.0.7 older than runtime 10.0.14 (warning): `dotnet tool update -g dotnet-ef`.
+- OpenTelemetry deferred to Phase 10. Docker not needed yet.
+
+- Scheduling: appointment events are defined but not published (needs the outbox, Phase 6/8). Soft-deleted tick rows stay in `AppointmentSlots` (filtered out of the unique index); a cleanup job can come later.
+- Scheduling: booking rules (90-day horizon, 3 h, 2 h, 30 min, 3 no-shows) are constants in `SchedulingRules`, to move to tenant settings.
+
+## Next tasks
+
+1. Phase 5 step 8: review on **opus / high** (concurrency, idempotency, branch scope, portal rules, DST).
+2. Phase 6 per `project/implementation-roadmap.md`.
+
+Decided in Phase 5: appointments follow branch scope (a branch-limited member only books and sees appointments of their branches). Still open: the staff listing (`api/staff`) is tenant-wide (see accepted risks).

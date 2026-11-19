@@ -1,0 +1,9 @@
+# HTTPS with automatic Let's Encrypt certificates for SHIFA_DOMAIN (DNS must point to this server, ports 80/443 open).
+{$SHIFA_DOMAIN} {
+	encode gzip
+	# Uploads (visit attachments) are limited by the API too.
+	request_body {
+		max_size 25MB
+	}
+	reverse_proxy api:8080
+}

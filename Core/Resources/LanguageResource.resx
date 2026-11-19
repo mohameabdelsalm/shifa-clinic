@@ -1,0 +1,213 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="UnexpectedError" xml:space="preserve">
+    <value>Something went wrong. Please try again later.</value>
+  </data>
+  <data name="InvalidInput" xml:space="preserve">
+    <value>Invalid input.</value>
+  </data>
+  <data name="NotFound" xml:space="preserve">
+    <value>The requested item was not found.</value>
+  </data>
+  <data name="Forbidden" xml:space="preserve">
+    <value>You don't have permission to do this.</value>
+  </data>
+  <data name="Retrieved" xml:space="preserve">
+    <value>Retrieved successfully.</value>
+  </data>
+  <data name="Created" xml:space="preserve">
+    <value>Created successfully.</value>
+  </data>
+  <data name="Updated" xml:space="preserve">
+    <value>Updated successfully.</value>
+  </data>
+  <data name="Deleted" xml:space="preserve">
+    <value>Deleted successfully.</value>
+  </data>
+  <data name="Required" xml:space="preserve"><value>A required field is missing.</value></data>
+  <data name="InvalidEmail" xml:space="preserve"><value>The email address is not valid.</value></data>
+  <data name="PasswordTooWeak" xml:space="preserve"><value>Password must be at least 10 characters and include upper case, lower case and a digit.</value></data>
+  <data name="InvalidCredentials" xml:space="preserve"><value>Invalid credentials.</value></data>
+  <data name="InvalidToken" xml:space="preserve"><value>The session is not valid. Please sign in again.</value></data>
+  <data name="Unauthorized" xml:space="preserve"><value>Authentication is required.</value></data>
+  <data name="TenantInactive" xml:space="preserve"><value>This organization is not active.</value></data>
+  <data name="RoleNotFound" xml:space="preserve"><value>The role was not found.</value></data>
+  <data name="RoleNameDuplicated" xml:space="preserve"><value>A role with this name already exists.</value></data>
+  <data name="SystemRoleLocked" xml:space="preserve"><value>This system role can't be changed or deleted.</value></data>
+  <data name="InvalidPermission" xml:space="preserve"><value>One or more permissions are not valid.</value></data>
+  <data name="StaffNotFound" xml:space="preserve"><value>The staff member was not found.</value></data>
+  <data name="StaffAlreadyExists" xml:space="preserve"><value>This person is already a member of this organization.</value></data>
+  <data name="EmployeeLimitReached" xml:space="preserve"><value>The employee limit of your plan has been reached.</value></data>
+  <data name="CannotSuspendSelf" xml:space="preserve"><value>You can't suspend your own account.</value></data>
+  <data name="BranchNotFound" xml:space="preserve"><value>One or more branches were not found.</value></data>
+  <data name="TenantNotFound" xml:space="preserve"><value>The organization was not found.</value></data>
+  <data name="TenantSlugDuplicated" xml:space="preserve"><value>This organization short name is already used.</value></data>
+  <data name="InvalidSlug" xml:space="preserve"><value>The short name may contain only lower case letters, digits and hyphens.</value></data>
+  <data name="PlanNotFound" xml:space="preserve"><value>The plan was not found.</value></data>
+  <data name="PlanCodeDuplicated" xml:space="preserve"><value>A plan with this code already exists.</value></data>
+  <data name="LastTenantAdmin" xml:space="preserve"><value>The organization must keep at least one active administrator.</value></data>
+  <data name="InvalidSchedule" xml:space="preserve"><value>The schedule is not valid: end time must be after start time and the window must fit a whole number of slots.</value></data>
+  <data name="ScheduleOverlap" xml:space="preserve"><value>The doctor already has working hours that overlap with this schedule.</value></data>
+  <data name="DoctorNotFound" xml:space="preserve"><value>The doctor was not found.</value></data>
+  <data name="DoctorNotAtBranch" xml:space="preserve"><value>The doctor doesn't work at this branch.</value></data>
+  <data name="SpecialtyNotFound" xml:space="preserve"><value>One or more specialties were not found.</value></data>
+  <data name="ServiceNotFound" xml:space="preserve"><value>The service was not found.</value></data>
+  <data name="TimeOffNotFound" xml:space="preserve"><value>The time off was not found.</value></data>
+  <data name="DuplicateName" xml:space="preserve"><value>This name or code is already used.</value></data>
+  <data name="BranchLimitReached" xml:space="preserve"><value>The branch limit of your plan has been reached.</value></data>
+  <data name="DoctorLimitReached" xml:space="preserve"><value>The doctor limit of your plan has been reached.</value></data>
+  <data name="InvalidPhone" xml:space="preserve"><value>The phone number is not valid.</value></data>
+  <data name="InvalidOtp" xml:space="preserve"><value>The code is not valid or has expired.</value></data>
+  <data name="OtpMessage" xml:space="preserve"><value>Your Shifa verification code is {0}. It expires in 5 minutes. Don't share it with anyone.</value></data>
+  <data name="OtpRequested" xml:space="preserve"><value>If this number is registered with the clinic, a verification code has been sent.</value></data>
+  <data name="PatientNotFound" xml:space="preserve"><value>The patient was not found.</value></data>
+  <data name="PatientAlreadyExists" xml:space="preserve"><value>A patient with this identifier already exists.</value></data>
+  <data name="GuardianRequiredForMinor" xml:space="preserve"><value>A patient under 18 needs at least one guardian.</value></data>
+  <data name="InvalidDateOfBirth" xml:space="preserve"><value>The date of birth is not valid.</value></data>
+  <data name="ConsentNotFound" xml:space="preserve"><value>The consent was not found.</value></data>
+  <data name="GuardianNotFound" xml:space="preserve"><value>The guardian was not found.</value></data>
+  <data name="PortalAccessNotFound" xml:space="preserve"><value>The portal access was not found.</value></data>
+  <data name="SlotNotAvailable" xml:space="preserve"><value>This time is not available. Please choose another time.</value></data>
+  <data name="SlotTaken" xml:space="preserve"><value>This time was just booked by someone else. Please choose another time.</value></data>
+  <data name="IdempotencyKeyRequired" xml:space="preserve"><value>An Idempotency-Key header (up to 100 characters) is required.</value></data>
+  <data name="IdempotencyKeyReused" xml:space="preserve"><value>This Idempotency-Key was already used for a different request.</value></data>
+  <data name="AppointmentNotFound" xml:space="preserve"><value>The appointment was not found.</value></data>
+  <data name="InvalidTransition" xml:space="preserve"><value>This action isn't possible in the appointment's current state.</value></data>
+  <data name="BookingTargetInvalid" xml:space="preserve"><value>This doctor can't be booked for this service at this branch.</value></data>
+  <data name="PatientAlreadyBookedThatDay" xml:space="preserve"><value>The patient already has an appointment with this doctor on that day.</value></data>
+  <data name="CheckInNotAllowedNow" xml:space="preserve"><value>Check-in opens 2 hours before the appointment and closes at the end of that day.</value></data>
+  <data name="CancelWindowPassed" xml:space="preserve"><value>Online cancellation closes 3 hours before the appointment. Please call the clinic.</value></data>
+  <data name="NoShowTooEarly" xml:space="preserve"><value>An appointment can be marked as no-show 30 minutes after its start.</value></data>
+  <data name="ConcurrentChange" xml:space="preserve"><value>Someone else changed this record at the same time. Please reload and try again.</value></data>
+  <data name="InvalidDateRange" xml:space="preserve"><value>The date range is not valid (at most 62 days).</value></data>
+  <data name="TooManyRequests" xml:space="preserve"><value>Too many requests. Please try again later.</value></data>
+  <data name="VisitNotFound" xml:space="preserve"><value>The visit was not found.</value></data>
+  <data name="VisitCompleted" xml:space="preserve"><value>This visit is completed and can't be changed. Add an addendum instead.</value></data>
+  <data name="VisitStillOpen" xml:space="preserve"><value>The visit is still open; change it directly instead of adding an addendum.</value></data>
+  <data name="NotTheVisitDoctor" xml:space="preserve"><value>Only the appointment's doctor can open or change this visit.</value></data>
+  <data name="AppointmentNotReadyForVisit" xml:space="preserve"><value>A visit can be opened only after the patient has checked in.</value></data>
+  <data name="AttachmentNotFound" xml:space="preserve"><value>The attachment was not found.</value></data>
+  <data name="InvalidFile" xml:space="preserve"><value>Only PDF, JPEG or PNG files up to 10 MB are allowed.</value></data>
+  <data name="AllergyNotFound" xml:space="preserve"><value>The allergy was not found.</value></data>
+  <data name="ConditionNotFound" xml:space="preserve"><value>The condition was not found.</value></data>
+  <data name="DoctorAccountInUse" xml:space="preserve"><value>This staff account is already linked to another doctor.</value></data>
+  <data name="InvalidIcd10" xml:space="preserve"><value>Enter a valid ICD-10 code (e.g. J06.9).</value></data>
+  <data name="OnePrimaryDiagnosis" xml:space="preserve"><value>Only one diagnosis can be primary.</value></data>
+  <data name="VitalsRequired" xml:space="preserve"><value>Enter at least one measurement, within normal human ranges.</value></data>
+  <data name="DoctorHasOpenVisits" xml:space="preserve"><value>This doctor has visits that are still open. Complete them first.</value></data>
+  <data name="InvalidAmount" xml:space="preserve"><value>Enter a valid amount (more than 0, at most 2 decimals).</value></data>
+  <data name="PaymentReferenceRequired" xml:space="preserve"><value>Card and wallet payments need the reference number.</value></data>
+  <data name="InvoiceNotFound" xml:space="preserve"><value>The invoice was not found.</value></data>
+  <data name="PaymentNotFound" xml:space="preserve"><value>The payment was not found.</value></data>
+  <data name="ShiftNotFound" xml:space="preserve"><value>The cashier shift was not found.</value></data>
+  <data name="NoOpenShift" xml:space="preserve"><value>Open a cashier shift at this branch first.</value></data>
+  <data name="ShiftAlreadyOpen" xml:space="preserve"><value>You already have an open shift at this branch.</value></data>
+  <data name="ShiftClosed" xml:space="preserve"><value>This shift is already closed.</value></data>
+  <data name="AmountExceedsBalance" xml:space="preserve"><value>The amount is more than what is still owed on the invoice.</value></data>
+  <data name="AmountExceedsRefundable" xml:space="preserve"><value>The amount is more than what can still be refunded from this payment.</value></data>
+  <data name="InvoiceVoid" xml:space="preserve"><value>This invoice is void.</value></data>
+  <data name="InvoiceCantBeVoided" xml:space="preserve"><value>Only an invoice with no payments or credit notes can be voided.</value></data>
+  <data name="ServiceHasNoPrice" xml:space="preserve"><value>This service has no price at this branch.</value></data>
+  <data name="AppointmentNotCheckedIn" xml:space="preserve"><value>The visit invoice is created when the patient checks in.</value></data>
+  <data name="OnlinePaymentsNotConfigured" xml:space="preserve"><value>Online payments are not set up for this clinic.</value></data>
+  <data name="FeatureNotEnabled" xml:space="preserve"><value>This feature is not enabled for your clinic.</value></data>
+  <data name="NothingToPay" xml:space="preserve"><value>Nothing is owed on this invoice.</value></data>
+  <data name="PaymentGatewayError" xml:space="preserve"><value>The payment gateway could not be reached. Please try again.</value></data>
+  <data name="OnlineRefundFailed" xml:space="preserve"><value>The payment gateway refused the refund.</value></data>
+  <data name="OnlinePaymentNotFound" xml:space="preserve"><value>Online payment not found.</value></data>
+  <data name="OnlinePaymentNotRefundable" xml:space="preserve"><value>Only an online payment that could not be applied to its invoice can be returned here.</value></data>
+  <data name="Received" xml:space="preserve"><value>Received.</value></data>
+  <data name="InvalidSignature" xml:space="preserve"><value>Invalid signature.</value></data>
+  <data name="PasswordResetRequested" xml:space="preserve"><value>If this e-mail belongs to an account, a link to reset the password has been sent.</value></data>
+  <data name="PasswordResetEmailSubject" xml:space="preserve"><value>Reset your Shifa password</value></data>
+  <data name="PasswordResetEmailBody" xml:space="preserve"><value>Hello {0},
+
+Use this link within 30 minutes to choose a new password:
+{1}
+
+If you didn't ask for this, ignore this e-mail; your password stays the same.</value></data>
+  <data name="InvalidPasswordToken" xml:space="preserve"><value>This link is invalid or has expired. Request a new one.</value></data>
+  <data name="PasswordChanged" xml:space="preserve"><value>Password changed. Please sign in again.</value></data>
+  <data name="CurrentPasswordWrong" xml:space="preserve"><value>The current password is not correct.</value></data>
+  <data name="PasswordMustChange" xml:space="preserve"><value>The new password must be different from the current one.</value></data>
+  <data name="InvitationNotPending" xml:space="preserve"><value>This staff member has no pending invitation.</value></data>
+  <data name="InvitationSent" xml:space="preserve"><value>Invitation sent.</value></data>
+  <data name="InvitationEmailSubject" xml:space="preserve"><value>You're invited to {0} on Shifa</value></data>
+  <data name="InvitationEmailBody" xml:space="preserve"><value>Hello {0},
+
+You have been added to {1} on Shifa. Use this link within 72 hours to set your password:
+{2}</value></data>
+  <data name="UnknownPlaceholder" xml:space="preserve"><value>The text uses a placeholder this message kind doesn't have.</value></data>
+  <data name="Notification.AppointmentConfirmed.Sms" xml:space="preserve"><value>{clinic}: your appointment with {doctor} is confirmed for {date} at {time}, {branch}.</value></data>
+  <data name="Notification.AppointmentConfirmed.Email" xml:space="preserve"><value>Hello {patient},
+
+Your appointment with {doctor} at {clinic} ({branch}) is confirmed for {date} at {time}.</value></data>
+  <data name="Notification.AppointmentConfirmed.Subject" xml:space="preserve"><value>Appointment confirmed</value></data>
+  <data name="Notification.AppointmentReminder24h.Sms" xml:space="preserve"><value>{clinic}: reminder, your appointment with {doctor} is tomorrow {date} at {time}, {branch}.</value></data>
+  <data name="Notification.AppointmentReminder24h.Email" xml:space="preserve"><value>Hello {patient},
+
+A reminder: your appointment with {doctor} at {clinic} ({branch}) is on {date} at {time}.</value></data>
+  <data name="Notification.AppointmentReminder24h.Subject" xml:space="preserve"><value>Appointment reminder</value></data>
+  <data name="Notification.AppointmentReminder2h.Sms" xml:space="preserve"><value>{clinic}: your appointment with {doctor} is today at {time}, {branch}.</value></data>
+  <data name="Notification.AppointmentReminder2h.Email" xml:space="preserve"><value>Hello {patient},
+
+Your appointment with {doctor} at {clinic} ({branch}) is today at {time}.</value></data>
+  <data name="Notification.AppointmentReminder2h.Subject" xml:space="preserve"><value>Your appointment is today</value></data>
+  <data name="Notification.AppointmentRescheduled.Sms" xml:space="preserve"><value>{clinic}: your appointment with {doctor} moved to {date} at {time}, {branch}.</value></data>
+  <data name="Notification.AppointmentRescheduled.Email" xml:space="preserve"><value>Hello {patient},
+
+Your appointment with {doctor} at {clinic} ({branch}) has moved to {date} at {time}.</value></data>
+  <data name="Notification.AppointmentRescheduled.Subject" xml:space="preserve"><value>Appointment moved</value></data>
+  <data name="Notification.AppointmentCancelled.Sms" xml:space="preserve"><value>{clinic}: your appointment with {doctor} on {date} at {time} is cancelled.</value></data>
+  <data name="Notification.AppointmentCancelled.Email" xml:space="preserve"><value>Hello {patient},
+
+Your appointment with {doctor} at {clinic} on {date} at {time} has been cancelled.</value></data>
+  <data name="Notification.AppointmentCancelled.Subject" xml:space="preserve"><value>Appointment cancelled</value></data>
+  <data name="Notification.PaymentReceipt.Sms" xml:space="preserve"><value>{clinic}: received {amount} {currency} for invoice {invoice}. Receipt {receipt}.</value></data>
+  <data name="Notification.PaymentReceipt.Email" xml:space="preserve"><value>Hello {patient},
+
+{clinic} received {amount} {currency} for invoice {invoice}. Receipt number: {receipt}.</value></data>
+  <data name="Notification.PaymentReceipt.Subject" xml:space="preserve"><value>Payment receipt</value></data>
+  <data name="RefundPending" xml:space="preserve"><value>The payment gateway hasn't confirmed the refund yet. It is recorded as pending; check it in the gateway before trying again.</value></data>
+  <data name="ReportPeriodTooLong" xml:space="preserve"><value>A report covers at most 366 days.</value></data>
+  <data name="Report.DailyBranches" xml:space="preserve"><value>Daily branch report</value></data>
+  <data name="Report.Revenue" xml:space="preserve"><value>Revenue and collections</value></data>
+  <data name="Report.Doctors" xml:space="preserve"><value>Doctors report</value></data>
+  <data name="Report.Period" xml:space="preserve"><value>Period: {0} to {1}</value></data>
+  <data name="Report.Generated" xml:space="preserve"><value>Generated: {0}</value></data>
+  <data name="Report.Total" xml:space="preserve"><value>Total</value></data>
+  <data name="Report.Col.Date" xml:space="preserve"><value>Date</value></data>
+  <data name="Report.Col.Branch" xml:space="preserve"><value>Branch</value></data>
+  <data name="Report.Col.Doctor" xml:space="preserve"><value>Doctor</value></data>
+  <data name="Report.Col.Appointments" xml:space="preserve"><value>Appointments</value></data>
+  <data name="Report.Col.Completed" xml:space="preserve"><value>Completed</value></data>
+  <data name="Report.Col.NoShows" xml:space="preserve"><value>No-shows</value></data>
+  <data name="Report.Col.Cancelled" xml:space="preserve"><value>Cancelled</value></data>
+  <data name="Report.Col.NoShowRate" xml:space="preserve"><value>No-show rate %</value></data>
+  <data name="Report.Col.Revenue" xml:space="preserve"><value>Revenue</value></data>
+  <data name="Report.Col.Collections" xml:space="preserve"><value>Collections</value></data>
+  <data name="Report.Col.Invoiced" xml:space="preserve"><value>Invoiced</value></data>
+  <data name="Report.Col.Credited" xml:space="preserve"><value>Credited</value></data>
+  <data name="Report.Col.Cash" xml:space="preserve"><value>Cash</value></data>
+  <data name="Report.Col.Card" xml:space="preserve"><value>Card</value></data>
+  <data name="Report.Col.Wallet" xml:space="preserve"><value>Wallet</value></data>
+  <data name="Report.Col.Online" xml:space="preserve"><value>Online</value></data>
+  <data name="Report.Col.Refunded" xml:space="preserve"><value>Refunded</value></data>
+  <data name="Report.Col.Difference" xml:space="preserve"><value>Not collected</value></data>
+  <data name="Report.Col.AvailableMinutes" xml:space="preserve"><value>Available min</value></data>
+  <data name="Report.Col.BookedMinutes" xml:space="preserve"><value>Booked min</value></data>
+  <data name="Report.Col.Utilization" xml:space="preserve"><value>Utilization %</value></data>
+  <data name="SubscriptionReadOnly" xml:space="preserve"><value>The clinic's subscription has ended, so the system is read-only. Contact the clinic administrator to renew.</value></data>
+</root>

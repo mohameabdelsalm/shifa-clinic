@@ -1,0 +1,546 @@
+# Database design
+
+Decision: ADR-003. Tenancy rules: [tenancy-design.md](tenancy-design.md).
+
+## Conventions
+
+- One SQL Server database, one schema per module. Tables and columns use EF Core default PascalCase names.
+- `Id` is `bigint` from a HiLo sequence in the module schema.
+- Every table has the `BaseModel` columns: `CreationDate`, `CreatedBy`, `ModificationDate`, `ModifiedBy`, `IsDeleted`. Omitted from the diagrams.
+- **Tenant-owned** tables also have `TenantId` and a unique alternate key `(TenantId, Id)`. Foreign keys between tenant-owned tables are composite `(TenantId, XId)`. Diagrams show `TenantId` once per table and draw the relationship once.
+- **Platform-owned** tables (marked ◆ below) have no `TenantId`.
+- Solid line = FK inside the schema. Dashed line = reference to another module by ID (no FK).
+- Money `decimal(18,2)`; times `datetimeoffset` UTC; `rowversion` where noted (RV); enums stored as `nvarchar(50)` text.
+- Each schema has its own HiLo sequence `EntityFrameworkHiLoSequence` and `__EFMigrationsHistory` table.
+- The local server collation is `Arabic_CI_AS` (databases inherit it). The production collation is decided in Phase 10.
+
+## Identity (`identity`)
+
+```mermaid
+erDiagram
+  User ||--o{ Membership : has
+  Membership ||--o{ MembershipRole : has
+  Role ||--o{ MembershipRole : assigned
+  Role ||--o{ RolePermission : grants
+  Membership ||--o{ MembershipBranch : "branch scope"
+  User ||--o{ RefreshToken : owns
+  User {
+    bigint Id PK "◆ platform-owned"
+    nvarchar Email UK "filtered not null"
+    nvarchar PhoneNumber UK "filtered not null"
+    nvarchar PasswordHash
+    bit IsPlatformAdmin
+    nvarchar Status
+  }
+  Membership {
+    bigint TenantId
+    bigint UserId "unique with TenantId"
+    bit AllBranches
+    nvarchar Status "Invited, Active, Suspended"
+  }
+  Role {
+    bigint TenantId
+    nvarchar Name "unique per tenant"
+    bit IsSystemDefault
+  }
+  RolePermission {
+    bigint TenantId
+    bigint RoleId FK
+    nvarchar PermissionCode "code-defined catalog"
+  }
+  MembershipRole {
+    bigint TenantId
+    bigint MembershipId FK
+    bigint RoleId FK
+  }
+  MembershipBranch {
+    bigint TenantId
+    bigint MembershipId FK
+    bigint BranchId "→ clinic.Branches"
+  }
+  RefreshToken {
+    bigint UserId FK "◆"
+    bigint TenantId "token scope"
+    nvarchar TokenHash UK
+    datetimeoffset ExpiresAt
+    datetimeoffset RevokedAt
+    bigint ReplacedById
+  }
+  OtpChallenge {
+    bigint Id PK "◆"
+    bigint TenantId "the clinic the code is for"
+    nvarchar PhoneNumber "normalized"
+    nvarchar CodeHash "HMAC, never the code"
+    int Attempts "max 5"
+    datetimeoffset ExpiresAt "5 minutes"
+    datetimeoffset ConsumedAt
+  }
+```
+
+## Tenancy (`tenancy`)
+
+```mermaid
+erDiagram
+  Tenant ||--o{ TenantSubscription : has
+  Plan ||--o{ PlanEntitlement : defines
+  Plan ||--o{ TenantSubscription : "subscribed to"
+  TenantSubscription ||--o{ SubscriptionPayment : "paid by"
+  Tenant {
+    bigint Id PK "◆"
+    nvarchar Name
+    nvarchar Slug UK
+    nvarchar Status "Trial, Active, Suspended, Closed"
+    nvarchar DefaultTimeZoneId "Africa/Cairo"
+    nvarchar CurrencyCode "EGP"
+  }
+  Plan {
+    bigint Id PK "◆"
+    nvarchar Code UK
+    nvarchar Name
+    decimal Price
+    nvarchar BillingPeriod "Monthly, Yearly"
+    int TrialDays
+    bit IsActive
+  }
+  PlanEntitlement {
+    bigint PlanId FK "◆"
+    nvarchar Code "MaxBranches, MaxDoctors, Module.Billing ..."
+    nvarchar ValueType "Limit, Feature"
+    int LimitValue
+    bit Enabled
+  }
+  TenantSubscription {
+    bigint TenantId FK "◆ platform-managed"
+    bigint PlanId FK
+    nvarchar Status "Trial, Active, PastDue, Suspended, Cancelled, Expired"
+    datetimeoffset StartsAt
+    datetimeoffset EndsAt
+    datetimeoffset TrialEndsAt
+  }
+  SubscriptionPayment {
+    bigint TenantSubscriptionId FK "◆"
+    decimal Amount
+    nvarchar CurrencyCode
+    datetimeoffset PaidAt
+    nvarchar Reference "manual; no gateway yet"
+  }
+```
+
+Usage (branches, doctors, employees) is counted on demand through `IClinicApi` / `IIdentityApi` and compared with `PlanEntitlement` limits when creating those records.
+
+## Clinic setup (`clinic`)
+
+Phase 3 decisions: `DoctorTimeOff` applies to the doctor at **all** branches (no branch column); `Doctor` has no `UserId` yet (linking a doctor to a login comes with the doctor portal); `Service.SpecialtyId` is required; only one open (`EffectiveTo IS NULL`) `ServicePrice` per service and branch (filtered unique index) and old rows are kept as price history. `DoctorSchedule` times are local to the branch's time zone; a doctor's windows never overlap across branches (checked on save).
+
+```mermaid
+erDiagram
+  Branch ||--o{ DoctorBranch : hosts
+  Doctor ||--o{ DoctorBranch : "works at"
+  DoctorBranch ||--o{ DoctorSchedule : "weekly hours"
+  Doctor ||--o{ DoctorTimeOff : takes
+  Doctor ||--o{ DoctorSpecialty : has
+  Specialty ||--o{ DoctorSpecialty : classifies
+  Specialty ||--o{ Service : groups
+  Service ||--o{ ServicePrice : "priced per branch"
+  Branch ||--o{ ServicePrice : sets
+  Branch {
+    bigint TenantId
+    nvarchar Name "unique per tenant"
+    nvarchar Code "unique per tenant"
+    nvarchar TimeZoneId
+    nvarchar Phone
+    nvarchar Address
+    nvarchar Status
+  }
+  Doctor {
+    bigint TenantId
+    nvarchar FullNameEn
+    nvarchar FullNameAr
+    nvarchar Title
+    nvarchar Status
+    bigint MembershipId "staff account, unique per tenant (ADR-010)"
+  }
+  Specialty {
+    bigint TenantId
+    nvarchar NameEn
+    nvarchar NameAr
+  }
+  DoctorSpecialty {
+    bigint TenantId
+    bigint DoctorId FK
+    bigint SpecialtyId FK
+  }
+  DoctorBranch {
+    bigint TenantId
+    bigint DoctorId FK
+    bigint BranchId FK
+    nvarchar Status
+  }
+  DoctorSchedule {
+    bigint TenantId
+    bigint DoctorBranchId FK
+    int DayOfWeek
+    time StartTime
+    time EndTime
+    int SlotMinutes
+  }
+  DoctorTimeOff {
+    bigint TenantId
+    bigint DoctorId FK
+    datetimeoffset FromAt
+    datetimeoffset ToAt
+    nvarchar Reason
+  }
+  Service {
+    bigint TenantId
+    bigint SpecialtyId FK
+    nvarchar NameEn
+    nvarchar NameAr
+    int DurationMinutes
+    nvarchar Status
+  }
+  ServicePrice {
+    bigint TenantId
+    bigint ServiceId FK
+    bigint BranchId FK
+    decimal Price
+    datetimeoffset EffectiveFrom
+    datetimeoffset EffectiveTo
+  }
+```
+
+## Patients (`patients`)
+
+Phase 4 decisions: a patient's national ID / passport live in `PatientIdentifier` (unique per tenant and type among live rows), not on `Patient`. `PatientAccountAccess` links a **phone number** (not a user id) to a patient: whoever proves the number with an OTP can act for the patient in the portal, so access can be prepared before the person ever signs in and no foreign key crosses into Identity. `RefreshToken.IsPortal` marks portal sessions.
+
+```mermaid
+erDiagram
+  Patient ||--o{ PatientIdentifier : has
+  Patient ||--o{ PatientGuardian : "cared for by"
+  Patient ||--o{ PatientAccountAccess : "accessible by"
+  Patient ||--o{ PatientConsent : gives
+  Patient {
+    bigint TenantId
+    int Number "running number per tenant, unique"
+    nvarchar Mrn "MRN-000123, unique per tenant"
+    nvarchar FullName
+    date DateOfBirth
+    nvarchar Gender
+    nvarchar PhoneNumber
+    nvarchar Email
+    nvarchar Address
+    int NoShowCount
+  }
+  PatientIdentifier {
+    bigint TenantId
+    bigint PatientId FK
+    nvarchar Type "NationalId, Passport"
+    nvarchar Value "unique per tenant + type"
+  }
+  PatientGuardian {
+    bigint TenantId
+    bigint PatientId FK
+    nvarchar FullName
+    nvarchar Relationship
+    nvarchar PhoneNumber
+  }
+  PatientAccountAccess {
+    bigint TenantId
+    bigint PatientId FK
+    nvarchar PhoneNumber "normalized; unique per tenant + patient"
+    nvarchar Relationship "Self, Parent, Guardian, Other"
+    bit CanBook
+  }
+  PatientConsent {
+    bigint TenantId
+    bigint PatientId FK
+    nvarchar ConsentType
+    datetimeoffset GrantedAt
+    datetimeoffset RevokedAt
+  }
+```
+
+## Scheduling (`scheduling`)
+
+Design: ADR-008. Every appointment claims one `AppointmentSlot` row per 5-minute UTC tick it covers; the filtered unique key `(TenantId, DoctorId, SlotStart)` makes overlapping bookings of a doctor impossible, at any branch.
+
+```mermaid
+erDiagram
+  Appointment ||--|{ AppointmentSlot : "claims ticks"
+  Appointment ||--o{ AppointmentStatusHistory : tracks
+  Appointment {
+    bigint TenantId
+    bigint BranchId "→ clinic"
+    bigint DoctorId "→ clinic"
+    bigint ServiceId "→ clinic"
+    bigint PatientId "→ patients"
+    datetimeoffset StartAt "UTC"
+    datetimeoffset EndAt "UTC"
+    date LocalDate "branch-local day"
+    nvarchar Status "Pending, Confirmed, CheckedIn, InProgress, Completed, Cancelled, NoShow"
+    nvarchar Source "Online, Reception, Phone"
+    int QueueNumber "unique per branch + doctor + LocalDate"
+    datetimeoffset CheckedInAt
+    datetimeoffset CancelledAt
+    nvarchar CancelReason
+    rowversion RowVersion "RV"
+  }
+  AppointmentSlot {
+    bigint TenantId
+    bigint DoctorId "unique with TenantId + SlotStart (live rows)"
+    datetimeoffset SlotStart "5-minute UTC tick"
+    bigint AppointmentId FK
+  }
+  AppointmentStatusHistory {
+    bigint TenantId
+    bigint AppointmentId FK
+    nvarchar FromStatus
+    nvarchar ToStatus
+    nvarchar Reason
+  }
+  IdempotencyRecord {
+    bigint TenantId
+    nvarchar Operation "unique with TenantId + Key"
+    nvarchar Key
+    nvarchar RequestHash "SHA-256 of the canonical request"
+    bigint ResultId "appointment id"
+    datetimeoffset ExpiresAt "24 hours"
+  }
+```
+
+Extra unique keys: `(TenantId, PatientId, DoctorId, LocalDate) WHERE Status <> 'Cancelled'` (one visit per patient, doctor and day) and `(TenantId, BranchId, DoctorId, LocalDate, QueueNumber) WHERE QueueNumber IS NOT NULL`.
+
+## Clinical (`clinical`)
+
+```mermaid
+erDiagram
+  Visit ||--o{ ClinicalNote : has
+  Visit ||--o{ VitalSign : records
+  Visit ||--o{ Diagnosis : has
+  Visit ||--o| Prescription : issues
+  Prescription ||--o{ PrescriptionItem : contains
+  Visit ||--o{ VisitAttachment : has
+  Visit ||--o{ ClinicalAddendum : amended_by
+  Visit {
+    bigint TenantId
+    bigint AppointmentId "unique per tenant, → scheduling"
+    bigint PatientId "→ patients"
+    bigint DoctorId "→ clinic"
+    bigint BranchId "→ clinic"
+    nvarchar Status "Open, Completed"
+    datetimeoffset CompletedAt
+    rowversion RowVersion "RV"
+  }
+  ClinicalNote {
+    bigint TenantId
+    bigint VisitId FK
+    nvarchar ChiefComplaint
+    nvarchar Notes
+  }
+  VitalSign {
+    bigint TenantId
+    bigint VisitId FK
+    int BpSystolic
+    int BpDiastolic
+    int HeartRate
+    decimal TemperatureC
+    decimal WeightKg
+    decimal HeightCm
+    int OxygenSaturation
+    bigint RecordedByUserId
+  }
+  Diagnosis {
+    bigint TenantId
+    bigint VisitId FK
+    nvarchar Icd10Code
+    bit IsPrimary
+  }
+  Prescription {
+    bigint TenantId
+    bigint VisitId FK
+  }
+  PrescriptionItem {
+    bigint TenantId
+    bigint PrescriptionId FK
+    nvarchar DrugName
+    nvarchar Dosage
+    nvarchar Frequency
+    int DurationDays
+  }
+  VisitAttachment {
+    bigint TenantId
+    bigint VisitId FK
+    nvarchar StoragePath "tenants/{tenantId}/..."
+    nvarchar ContentType
+    bigint SizeBytes
+  }
+  ClinicalAddendum {
+    bigint TenantId
+    bigint VisitId FK
+    bigint AuthorUserId
+    nvarchar Reason
+    nvarchar Content
+  }
+  PatientAllergy {
+    bigint TenantId
+    bigint PatientId "→ patients"
+    nvarchar Allergen
+    nvarchar Severity
+  }
+  PatientCondition {
+    bigint TenantId
+    bigint PatientId "→ patients"
+    nvarchar Condition
+    date Since
+  }
+```
+
+A completed visit is read-only; changes are `ClinicalAddendum` rows with author, time and reason.
+
+## Billing (`billing`) — ADR-011
+
+```mermaid
+erDiagram
+  Invoice ||--o{ InvoiceItem : contains
+  Invoice ||--o{ Payment : "paid by"
+  Payment ||--o{ Refund : "refunded by"
+  Invoice ||--o{ CreditNote : "corrected by"
+  CashierShift ||--o{ Payment : collects
+  CashierShift ||--o{ Refund : "pays out"
+  Invoice {
+    bigint TenantId
+    bigint BranchId "→ clinic"
+    bigint PatientId "→ patients"
+    bigint AppointmentId "→ scheduling, nullable"
+    nvarchar Kind "Visit (one per appointment), Extra"
+    nvarchar Number "INV-yyyy-000001, unique per tenant"
+    nvarchar Status "Open, PartiallyPaid, Paid, Void"
+    nvarchar CurrencyCode "snapshot of the tenant currency"
+    decimal Subtotal
+    decimal Discount "0 for now"
+    decimal Tax "0 until L6"
+    decimal Total
+    decimal PaidAmount "payments - refunds"
+    decimal CreditedAmount
+    nvarchar VoidReason
+    rowversion RowVersion "RV"
+  }
+  InvoiceItem {
+    bigint TenantId
+    bigint InvoiceId FK
+    bigint ServiceId "→ clinic"
+    nvarchar Description
+    int Quantity
+    decimal UnitPrice "price snapshot"
+    decimal LineTotal
+  }
+  Payment {
+    bigint TenantId
+    bigint InvoiceId FK
+    bigint CashierShiftId FK
+    nvarchar Number "RCT-yyyy-000001"
+    decimal Amount
+    decimal RefundedAmount
+    nvarchar Method "Cash, Card, Wallet"
+    nvarchar Reference "required for Card and Wallet"
+    datetimeoffset PaidAt
+  }
+  Refund {
+    bigint TenantId
+    bigint PaymentId FK
+    bigint CashierShiftId FK
+    nvarchar Number "RFD-yyyy-000001"
+    decimal Amount
+    nvarchar Method "same as the payment"
+    nvarchar Reason
+  }
+  CreditNote {
+    bigint TenantId
+    bigint InvoiceId FK
+    nvarchar Number "CN-yyyy-000001"
+    decimal Amount
+    nvarchar Reason
+  }
+  CashierShift {
+    bigint TenantId
+    bigint BranchId "→ clinic"
+    bigint CashierUserId
+    nvarchar Status "Open, Closed"
+    datetimeoffset OpenedAt
+    datetimeoffset ClosedAt
+    decimal OpeningCash
+    decimal ExpectedCash "opening + cash in - cash out"
+    decimal CountedCash
+    decimal Variance
+  }
+```
+
+Invoices are never edited after creation; corrections are credit notes, and an invoice with no money on it can be voided. Invariant: `PaidAmount + CreditedAmount ≤ Total`, guarded by the invoice rowversion. Revenue (invoiced − credited) and collections (payments − refunds) are reported separately. Billing also has its own `IdempotencyRecords` (payments and refunds).
+
+## Notifications (`notifications`) and Reporting (`reporting`)
+
+```mermaid
+erDiagram
+  Notification ||--o{ DeliveryAttempt : "sent via"
+  NotificationTemplate {
+    bigint TenantId "null-free: platform defaults copied on onboarding"
+    nvarchar Code
+    nvarchar Channel "Sms, Email, WhatsApp, InApp"
+    nvarchar Language "en, ar"
+    nvarchar Body
+  }
+  Notification {
+    bigint TenantId
+    bigint RecipientUserId
+    nvarchar Channel
+    nvarchar TemplateCode
+    nvarchar PayloadJson
+    nvarchar Status
+    datetimeoffset ScheduledAt
+  }
+  DeliveryAttempt {
+    bigint TenantId
+    bigint NotificationId FK
+    nvarchar Provider
+    nvarchar Result
+    nvarchar Error
+  }
+  NotificationPreference {
+    bigint TenantId
+    bigint UserId
+    nvarchar Channel
+    bit Enabled
+  }
+  DailyBranchStat {
+    bigint TenantId
+    bigint BranchId
+    date Day "unique with TenantId + BranchId"
+    int Appointments
+    int NoShows
+    decimal Invoiced
+    decimal Collected
+  }
+```
+
+## Shared tables in every schema
+
+| Table | Purpose |
+|---|---|
+| `OutboxMessages` | `Id` (Guid), `TenantId`, `Type`, `PayloadJson`, `OccurredAt`, `ProcessedAt`, `Attempts`, `Error` |
+| `InboxMessages` | `MessageId` (Guid) + `Consumer` (PK), `ProcessedAt` |
+
+`identity` also holds `AuditLogs` for security and medical-record access events (who, tenant, action, entity, time, IP).
+
+## Key constraints
+
+| Table | Constraint | Why |
+|---|---|---|
+| All tenant-owned | Unique `(TenantId, Id)`; composite FKs | Cross-tenant references are impossible in the database |
+| `scheduling.AppointmentSlots` | Unique `(TenantId, DoctorId, SlotStart) WHERE IsDeleted = 0` on 5-minute ticks | Final protection against double booking under concurrency, across branches and slot lengths (ADR-008) |
+| `scheduling.IdempotencyRecords` | Unique `(TenantId, Operation, Key)` | Retried booking requests return the first result |
+| `billing.Payments` | Unique `(TenantId, IdempotencyKey)` | No duplicate payments |
+| `clinical.Visits` | Unique `(TenantId, AppointmentId)` | One visit per appointment |
+| `patients.Patients` | Unique `(TenantId, Mrn)` | MRN unique inside a tenant |
+| `identity.Memberships` | Unique `(TenantId, UserId)` | One membership per user per tenant |
+| `identity.Users` | Filtered unique `Email`, `PhoneNumber` | Optional but unique when present |
+| `*.OutboxMessages` | Filtered index `WHERE ProcessedAt IS NULL` | Fast dispatcher polling |
